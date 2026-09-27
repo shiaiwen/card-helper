@@ -1,0 +1,60 @@
+{
+  "name": "SGSOL",
+  "version": "1.1.47",
+  "packageId": 1,
+  "IsTest": false,
+  "IsDebug": true,
+  "URLLYTest": "http://10.225.254.252/olh5_laya2/",
+  "URLOffTest": "https://txz-test.sanguosha.com/ol-client.html",
+  "platform": 0,
+  "LoginURL": [
+    "https://web.sanguosha.com/login/air/client/h5/index",
+    "https://web.sanguosha.com/login/air/client/h5/index"
+  ],
+  "ADLoginURL": [
+    "https://preview-login.sanguosha.com/"
+  ],
+  "AutoUpdaterURL": [
+    "https://olh5download.sanguosha.com/olh5/wdUpdate/win/official",
+    "https://olh5download.sanguosha.com/olh5/wdUpdate/mac/official"
+  ],
+  "JumpURL": [
+    "http://www.sanguosha.com",
+    "http://www.sanguosha.com"
+  ],
+  "FeedURL": [
+    "http://bug.sanguosha.com/?f=bbs_index",
+    "http://bug.sanguosha.com/?f=bbs_index"
+  ],
+  "ChannelId": [
+    "110074",
+    "110074"
+  ],
+  "description": "sgs Electron application",
+  "productName": "SGSOL",
+  "main": "dev-main.cjs",
+  "author": "yoka",
+  "license": "CC0-1.0",
+  "scripts": {
+    "build": "npm run build:electron",
+    "build:electron": "vite build --config vite.electron.config.mts",
+    "build:userscript": "vite build --config vite.userscript.config.mts",
+    "dev": "npm run dev:electron",
+    "dev:electron": "node tools/dev.mjs",
+    "dev:userscript": "vite --config vite.userscript.config.mts",
+    "typecheck": "node -e \"console.log('TypeScript checking is temporarily disabled.')\"",
+    "check": "node tools/check.cjs",
+    "test": "node --test tests/*.test.mjs && node --experimental-strip-types --test tests/*.test.mts && node tools/test-startup.cjs"
+  },
+  "dependencies": {
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vite-plugin-monkey": "^8.1.1"
+  }
+}

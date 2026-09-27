@@ -1,0 +1,12 @@
+{
+  "packageId": 1,
+  "width": 1500,
+  "height": 820,
+  "firstTime": false,
+  "scriptUrl": "https://xiaochao.org/download/%E5%B0%8F%E6%8A%84.user.js",
+  "jiShaBlocked": true,
+  "kaiZhanBlocked": true,
+  "showBlocked": true,
+  "specialEffectBlocked": true,
+  "firstTimeAnnouncementSeen": true
+}
