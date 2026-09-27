@@ -1,13 +1,13 @@
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
+import {
+  createOfficialCardView,
+  releaseOfficialCardView,
+  type OfficialCardView
+} from '../cards/official-card-renderer.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 import type { RecentCardStore } from './recent-card-store.ts';
 
 type UnknownRecord = Record<string, unknown>;
-
-interface NativeCardView {
-  ui: UnknownRecord;
-  owner: UnknownRecord;
-}
 
 /**
  * 使用游戏自己的 Laya 卡牌组件显示最近用牌。
@@ -24,21 +24,14 @@ export function installNativeRecentCardController(
   let scene: UnknownRecord | null = null;
   let parent: UnknownRecord | null = null;
   let root: UnknownRecord | null = null;
-  let cardView: NativeCardView | null = null;
+  let cardView: OfficialCardView | null = null;
   let label: UnknownRecord | null = null;
   let hitArea: UnknownRecord | null = null;
   let displayedCardId = 0;
 
   const clearCard = () => {
     if (!cardView) return;
-    try {
-      call(cardView.ui, 'removeSelf');
-      cardView.ui.Card = null;
-      call(cardView.ui, 'UpdateTag');
-      call(cardView.owner, 'ReturnNormalCardUi', cardView.ui);
-    } catch {
-      // 切换场景时官方对象池可能已经释放。
-    }
+    releaseOfficialCardView(cardView);
     cardView = null;
     displayedCardId = 0;
   };
@@ -88,12 +81,8 @@ export function installNativeRecentCardController(
 
     if (displayedCardId !== cardId) {
       clearCard();
-      if (cardId > 0) cardView = createOfficialCard(nextScene, root, cardId, width, height);
+      if (cardId > 0) cardView = createOfficialCardView(root, cardId, width, height, nextScene);
       displayedCardId = cardView ? cardId : 0;
-    }
-    if (cardView) {
-      call(cardView.ui, 'size', width, height);
-      call(cardView.ui, 'pos', 0, 0);
     }
     label = updateModeLabel(root, label, snapshot.displayMode === 'current' ? '当前' : '玩家', width, height);
     hitArea = updateHitArea(root, hitArea, width, height, () => {
@@ -117,49 +106,6 @@ export function installNativeRecentCardController(
     stopConfig();
     destroyOverlay();
   };
-}
-
-function createOfficialCard(scene: UnknownRecord, host: UnknownRecord, cardId: number, width: number, height: number): NativeCardView | null {
-  const container = asRecord(asRecord(scene.SelfSeatUi)?.cardContainer);
-  const nativeCard = resolveNativeCard(scene, cardId);
-  if (!container || !nativeCard || typeof container.createNormalCardUi !== 'function') return null;
-  let ui: UnknownRecord | null = null;
-  try {
-    ui = asRecord((container.createNormalCardUi as Function).call(container, nativeCard));
-    if (!ui || typeof ui.Draw !== 'function') return null;
-    ui.mouseEnabled = false;
-    ui.mouseThrough = true;
-    ui.NeedToolTip = true;
-    call(ui, 'size', width, height);
-    call(ui, 'pos', 0, 0);
-    (ui.Draw as Function).call(ui, host);
-    return { ui, owner: container };
-  } catch {
-    if (ui) call(container, 'ReturnNormalCardUi', ui);
-    return null;
-  }
-}
-
-function resolveNativeCard(scene: UnknownRecord, cardId: number): unknown {
-  const candidates = [asRecord(scene.SelfSeatUi), ...readArray(asRecord(scene.seatContainer), 'seatUIs').map(asRecord)]
-    .filter(Boolean) as UnknownRecord[];
-  let sample: unknown = null;
-  for (const seatUi of candidates) {
-    const container = asRecord(seatUi.cardContainer);
-    for (const key of ['cardUis', 'cardUIs', 'handCardUis', 'handCardUIs', 'equipCardUis', 'judgeCardUis']) {
-      const item = readArray(container, key)[0];
-      if (item) { sample = asRecord(item)?.Card ?? asRecord(item)?.card ?? item; break; }
-    }
-    if (sample) break;
-    const seat = asRecord(seatUi.seat);
-    sample = readArray(seat, 'HandCards')[0] ?? readArray(seat, 'handCards')[0];
-    if (sample) break;
-  }
-  for (let provider = asRecord(sample)?.constructor; provider; provider = Object.getPrototypeOf(provider)) {
-    if (typeof provider.GetInstance !== 'function') continue;
-    try { return (provider.GetInstance as Function).call(provider, cardId) ?? null; } catch { return null; }
-  }
-  return null;
 }
 
 function updateModeLabel(host: UnknownRecord, existing: UnknownRecord | null, text: string, cardWidth: number, cardHeight: number): UnknownRecord | null {

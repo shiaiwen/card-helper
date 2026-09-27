@@ -14,9 +14,7 @@ import {
 import { formatYanxiResult, isYanxiSpellId } from './yanxi.ts';
 import { formatRanks, solveYanjiao, solveZiyuan } from './point-calculators.ts';
 import { YANJIAO_PANEL_ID, YANJIAO_SKILL_ID, ZIYUAN_PANEL_ID } from './skill-definitions.ts';
-import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
-import { traceMingpai } from '../../runtime/mingpai-trace.ts';
-import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
+import type { GameCardCatalog } from '../cards/game-card-catalog.ts';import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
 
 export interface SkillAssistPanelSnapshot {
@@ -293,9 +291,7 @@ export function createSkillAssistStore(
     const splits = solveYanjiao(cardIds.map((cardId) => cardRankNumber(cardId, gameCardCatalog)));
     runtime.visible = true;
     runtime.resultOptions = splits.map((split) => `${formatRanks(split.left)}=${formatRanks(split.right)}`);
-    runtime.resultText = splits.length ? null : '【严教】无解！';
-    traceMingpai('yanjiao', { inGame, cardIds, options: runtime.resultOptions, resultText: runtime.resultText });
-  }
+    runtime.resultText = splits.length ? null : '【严教】无解！';  }
 
   function refreshZiyuan(runtime: PanelRuntime): void {
     const seatIds = cardKnowledge.getControlledSeatIds?.() ?? [];

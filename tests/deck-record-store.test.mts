@@ -81,11 +81,11 @@ test('translates GsCGamephaseNtf Round=0 into turn-started', () => {
     round: 0
   });
 
-  assert.equal(translateGameMessage([{
+  assert.deepEqual(translateGameMessage([{
     ClassName: 'GsCGamephaseNtf',
     SeatID: 3,
     Round: 1
-  }]), null);
+  }]), { type: 'phase-changed', seatId: 3, phase: 1 });
 });
 
 test('does not restore current-turn discards from session storage', () => {

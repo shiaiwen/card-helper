@@ -126,7 +126,11 @@ async function copyOption(key: string, text: string): Promise<void> {
 .xc-hero-block {
   display: block;
   margin: 0 0 6px;
-  padding: 4px 0 2px;
+  padding: 6px 8px;
+}
+
+.xc-hero-block[data-feature="yanjiao"] {
+  border-top: 1px solid rgba(242, 222, 156, .25);
 }
 
 .card-detail-feature-title {
@@ -179,7 +183,8 @@ async function copyOption(key: string, text: string): Promise<void> {
 }
 
 .card-detail-feature-result {
-  margin: 2px 6px 4px;
+  margin: 4px 0 2px;
+  text-align: center;
   color: #f2de9c;
   font-size: 12px;
   line-height: 1.4;
@@ -188,13 +193,16 @@ async function copyOption(key: string, text: string): Promise<void> {
 
 .xc-skill-options {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 4px;
-  margin: 2px 6px 4px;
+  margin: 4px 0 2px;
 }
 
 .xc-skill-option {
-  padding: 1px 6px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 3px 6px;
+  text-align: center;
   border: 1px solid rgba(201, 161, 93, .55);
   border-radius: 3px;
   background: rgba(34, 27, 19, .85);

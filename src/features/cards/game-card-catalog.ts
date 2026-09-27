@@ -125,7 +125,10 @@ function readCardMetadata(
 ): GameCardMetadata {
   const nativeCard = findNativeCardMetadata(asRecord(nativeValue));
   const configuredCard = lookupConfiguredCard(cardId) ?? readGameConfiguredCard(cardId);
-  const cardData = hasUsefulCardMetadata(nativeCard) ? nativeCard : configuredCard ?? nativeCard;
+  // 原生卡牌对象的 Color 只区分红黑（1 红 2 黑），花色必须以官方配置 color（1♥ 2♦ 3♠ 4♣）为准。
+  const cardData = hasUsefulCardMetadata(configuredCard) || !hasUsefulCardMetadata(nativeCard)
+    ? configuredCard ?? nativeCard
+    : nativeCard;
   const encodedSuit = Math.floor(cardId / 10000);
   const encodedNumber = Math.floor(cardId / 100) % 100;
   const suitNumber = positiveInteger(

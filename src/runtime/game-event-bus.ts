@@ -13,6 +13,19 @@ export type GameEvent =
     round: number;
   }
   | {
+    /** GsCGamephaseNtf：Round 为阶段下标（0 回合开始时 … 4 出牌 … 8 回合结束后）。 */
+    type: 'phase-changed';
+    seatId: number;
+    phase: number;
+  }
+  | {
+    /** GsCUpdateRoleDataExNtf DataID=1：Datas=[?, 本回合已出杀, 出杀上限]。 */
+    type: 'sha-count-updated';
+    seatId: number;
+    used: number;
+    limit: number;
+  }
+  | {
     type: 'cards-used';
     seatId: number;
     cardIds: number[];
@@ -224,6 +237,17 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
       turnCount: normalizeNonNegativeInteger(event.turnCount) ?? 0,
       round: normalizeNonNegativeInteger(event.round) ?? 0
     });
+  }
+  if (event.type === 'phase-changed') {
+    const phase = normalizeNonNegativeInteger(event.phase);
+    if (phase === null) return null;
+    return Object.freeze({ type: event.type, seatId, phase });
+  }
+  if (event.type === 'sha-count-updated') {
+    const used = Number(event.used);
+    const limit = Number(event.limit);
+    if (!Number.isFinite(used) || !Number.isFinite(limit)) return null;
+    return Object.freeze({ type: event.type, seatId, used, limit });
   }
   if (event.type === 'hand-cards-revealed') {
     const cardIds = [...new Set(event.cardIds.map(normalizePositiveInteger).filter(isNumber))];

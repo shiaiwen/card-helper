@@ -9,6 +9,17 @@ const FULLY_MIGRATED_DISPLAY_SWITCH_IDS = [
 ] as const;
 
 const TAB_LABEL_ORDER = ['卡牌', '山河图', '配置', '工具'] as const;
+const TAB_ID_BY_LABEL: Record<typeof TAB_LABEL_ORDER[number], string> = {
+  卡牌: 'cards',
+  山河图: 'rogue',
+  配置: 'settings',
+  工具: 'tools'
+};
+
+/** legacy 页面按 `data-xc-tab` 查找；配置页会被移到“常规”页，不能依赖顺序下标。 */
+export function findLegacyTabPane(tabId: string, root: ParentNode = document): HTMLElement | null {
+  return root.querySelector<HTMLElement>(`.xc-main-tab-pane[data-xc-tab="${tabId}"]`);
+}
 
 /**
  * 迁移期间把旧模板的四个 section 转成纯内容容器。
@@ -29,8 +40,8 @@ export function prepareLegacyTabPanes(contentElement: HTMLElement): void {
     ':scope > .xc-main-tab-pane'
   );
   if (existingPanes.length) {
-    prepareVueSeatHandsMount(existingPanes[0]);
-    prepareVueSettingsMount(existingPanes[2]);
+    prepareVueSeatHandsMount(findLegacyTabPane('cards', legacyContent) ?? undefined);
+    prepareVueSettingsMount(findLegacyTabPane('settings') ?? undefined);
     window.dispatchEvent(new CustomEvent(LEGACY_TAB_CONTENT_READY_EVENT));
     return;
   }
@@ -54,6 +65,8 @@ export function prepareLegacyTabPanes(contentElement: HTMLElement): void {
     const panelBody = panel.querySelector<HTMLElement>(':scope > .panel-content');
     const pane = document.createElement('div');
     pane.className = 'tab-pane xc-main-tab-pane';
+    const label = readPanelLabel(panel) as typeof TAB_LABEL_ORDER[number];
+    if (TAB_ID_BY_LABEL[label]) pane.dataset.xcTab = TAB_ID_BY_LABEL[label];
     if (panelBody) pane.append(...Array.from(panelBody.childNodes));
     panel.remove();
     return pane;

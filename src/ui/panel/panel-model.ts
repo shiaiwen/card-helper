@@ -1,10 +1,9 @@
 import { computed, ref, type Ref } from 'vue';
 
-/** 从旧面板解析出的四个一级页面，顺序与原脚本保持一致。 */
+/** 一级页面。原“配置”页已并入“常规”（id 仍为 cards，兼容已保存的选中状态）。 */
 export const XIAOCHAO_PANEL_TABS = [
-  { id: 'cards', label: '卡牌' },
+  { id: 'cards', label: '常规' },
   { id: 'rogue', label: '山河图' },
-  { id: 'settings', label: '配置' },
   { id: 'tools', label: '工具' }
 ] as const;
 
@@ -23,7 +22,7 @@ export interface XiaochaoPanelModel {
  * 平台适配器在上层完成，因此 Electron 和油猴可以复用同一套交互逻辑。
  */
 export function createXiaochaoPanelModel(
-  initialTabId: XiaochaoPanelTabId = 'settings',
+  initialTabId: XiaochaoPanelTabId = 'cards',
   onTabSelected?: (tabId: XiaochaoPanelTabId) => void,
   initialCollapsed = false,
   onCollapsedChanged?: (collapsed: boolean) => void

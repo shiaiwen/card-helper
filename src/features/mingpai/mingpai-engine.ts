@@ -5,6 +5,8 @@ import {
   type KnownCardRecord
 } from '../seat-display/known-card-registry.ts';
 import { MINGPAI_ZONE } from './mingpai-zones.ts';
+import { createDrawPileOrder } from './draw-pile-order.ts';
+import { DRAW_PILE_POSITION } from './rules/reveal-types.ts';
 
 export interface MingpaiZoneRef {
   ownerId: number;
@@ -76,6 +78,7 @@ export function createMingpaiEngine(
   storage: Storage | null = getSessionStorage()
 ): MingpaiEngine {
   const registry = createKnownCardRegistry(storage);
+  const drawPileOrder = createDrawPileOrder(storage);
   const skillZones = new Map<string, number[]>();
   const cardIndex = new Map<number, KnownCardRecord>();
   const listeners = new Set<(snapshot: Readonly<MingpaiEngineSnapshot>) => void>();
@@ -246,6 +249,7 @@ export function createMingpaiEngine(
     observeKnownDrawPileCards(cardIds, position) {
       const ids = uniquePositive(cardIds);
       if (!ids.length) return;
+      drawPileOrder.reveal(position, ids);
       // 鉴定不是移动：用「原地」伪移动写位置，fromZone=牌堆，不会清掉手牌标签。
       syncIndexFromMovement({
         cardCount: ids.length,
@@ -268,9 +272,23 @@ export function createMingpaiEngine(
       return registry.getOriginalOwnerSeatId(cardId);
     },
     resolveHiddenMovement(movement, preferredOriginalOwnerSeatId = null) {
+      if (
+        isDrawPile(movement.fromId, movement.fromZone)
+        && !movement.cardIds.some((cardId) => cardId > 0)
+        && (movement.fromPosition === DRAW_PILE_POSITION.TOP || movement.fromPosition === DRAW_PILE_POSITION.BOTTOM)
+      ) {
+        // 牌堆有序：顶 / 底只能按顺序推算，不能用无序候选凑数量。
+        return drawPileOrder.peek(movement.fromPosition, movement.cardCount);
+      }
       return registry.resolveHiddenMovement(movement, preferredOriginalOwnerSeatId);
     },
     applyMovement(movement, effectiveCardIds) {
+      if (isDrawPile(movement.fromId, movement.fromZone)) {
+        drawPileOrder.remove(movement.fromPosition, movement.cardCount, effectiveCardIds);
+      }
+      if (isDrawPile(movement.toId, movement.toZone)) {
+        drawPileOrder.add(movement.toPosition, movement.cardCount, effectiveCardIds);
+      }
       syncIndexFromMovement(movement, effectiveCardIds);
       // 离开临时区时从 unknown 技能投影去掉
       if (TEMPORARY_CARD_ZONES.has(movement.fromZone)) {
@@ -295,6 +313,7 @@ export function createMingpaiEngine(
     },
     clear() {
       registry.clear();
+      drawPileOrder.clear();
       cardIndex.clear();
       skillZones.clear();
       publish();
@@ -319,6 +338,10 @@ export function parseZoneId(zoneId: string): MingpaiZoneRef | null {
 }
 
 const EMPTY: readonly number[] = Object.freeze([]);
+
+function isDrawPile(ownerId: number, zone: number): boolean {
+  return ownerId === GLOBAL_OWNER && zone === DRAW_PILE_ZONE;
+}
 
 function uniquePositive(cardIds: readonly number[]): number[] {
   const seen = new Set<number>();

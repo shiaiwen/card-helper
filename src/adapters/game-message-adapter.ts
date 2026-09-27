@@ -12,6 +12,8 @@ const OPT_TARGET_MESSAGE_NAME = 'GsCRoleOptTargetNtf';
 const TEMPORARY_CARD_REORDER_MESSAGE_NAME = 'CGsRoleSpellOptRep';
 const PLAYER_DIED_MESSAGE_NAME = 'SmsgGamePlayerDead';
 const SPELL_TARGET_MESSAGE_NAME = 'PubGsCUseSpell';
+const ROLE_DATA_MESSAGE_NAME = 'GsCUpdateRoleDataExNtf';
+const SHA_COUNT_DATA_ID = 1;
 const SEAT_ID_KEYS = [
   'SeatID', 'SeatId', 'seatID', 'seatId',
   'SrcSeatID', 'SrcSeatId', 'FromSeatID', 'FromSeatId'
@@ -40,8 +42,38 @@ export function translateGameMessages(rawArguments: unknown[]): GameEvent[] {
     return event ? [event] : [];
   }
   if (className === TEMPORARY_CARD_REORDER_MESSAGE_NAME) return translateSpellOptRep(payload);
+  if (className === ROLE_DATA_MESSAGE_NAME) {
+    const event = translateShaCount(payload);
+    return event ? [event] : [];
+  }
   const event = translateSingleMessage(payload, className);
+  if (PLAYER_TURN_MESSAGE_NAMES.has(className)) {
+    const phaseEvent = translatePhase(payload);
+    return [event, phaseEvent].filter((item): item is GameEvent => item !== null);
+  }
   return event ? [event] : [];
+}
+
+function translatePhase(payload: UnknownRecord): GameEvent | null {
+  const seatId = readSeatId(payload, [
+    ...SEAT_ID_KEYS,
+    'CurrentID', 'CurrentId', 'currentID', 'currentId'
+  ]);
+  const phase = readNonNegativeInteger(payload, ['Round', 'round']);
+  if (seatId === null || phase === null) return null;
+  return { type: 'phase-changed', seatId, phase };
+}
+
+/** 对照原版：DataID=1 且 Datas 至少 3 项时，Datas[1] 为已出杀次数、Datas[2] 为上限。 */
+function translateShaCount(payload: UnknownRecord): GameEvent | null {
+  const dataId = readNonNegativeInteger(payload, ['DataID', 'DataId', 'dataID', 'dataId']);
+  const datas = payload.Datas ?? payload.datas;
+  if (dataId !== SHA_COUNT_DATA_ID || !Array.isArray(datas) || datas.length < 3) return null;
+  const seatId = readSeatId(payload, SEAT_ID_KEYS);
+  const used = Number(datas[1]);
+  const limit = Number(datas[2]);
+  if (seatId === null || !Number.isFinite(limit)) return null;
+  return { type: 'sha-count-updated', seatId, used: Number.isFinite(used) ? used : 0, limit };
 }
 
 function translateSingleMessage(payload: UnknownRecord, className: string): GameEvent | null {

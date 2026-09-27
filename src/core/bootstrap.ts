@@ -16,7 +16,7 @@ import { installGameLifecycleEvents } from '../runtime/game-lifecycle-events';
 import { installMicroClientMessageSource } from '../adapters/micro-client-message-source';
 import { createGameCardCatalog } from '../features/cards/game-card-catalog';
 import { locateGameScene } from '../features/seat-display/game-scene-locator';
-import { traceMingpai } from '../runtime/mingpai-trace';
+import { bindTurnStatusStoreToGameEvents, createTurnStatusStore } from '../features/turn-status/turn-status-store';
 import { createDeckRecordStore } from '../features/deck-record/deck-record-store';
 import { createDeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import { installNativeDeckRecordController } from '../features/deck-record/native-deck-record-controller';
@@ -25,6 +25,8 @@ import { installCardLabelController } from '../features/cards/card-label-control
 import { installCardConfigSource } from '../adapters/card-config-source';
 import { installNativeRecentCardController } from '../features/recent-cards/native-recent-card-controller';
 import { createMingpaiEngine, installMingpaiController } from '../features/mingpai';
+import { installLegacyMingpaiSuppressor } from '../features/mingpai/legacy-mingpai-suppressor';
+import { installNativeMingpaiPreviewController } from '../features/mingpai/native-mingpai-preview-controller';
 import { createSkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import { installSkillAssistController } from '../features/skill-assist/skill-assist-controller';
 import { registerSpellNameLookup } from '../features/skill-assist/skill-visibility';
@@ -75,6 +77,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(installSeatStateController(seatStateStore));
   lifecycle.register(installGameLifecycleEvents(seatStateStore, gameEvents));
   lifecycle.register(mingpaiRuntime.dispose);
+  lifecycle.register(installLegacyMingpaiSuppressor(window));
+  lifecycle.register(installNativeMingpaiPreviewController(configStore, seatStateStore, gameCardCatalog));
   lifecycle.register(installCountdownSecondsController(configStore));
   lifecycle.register(installCardLabelController(configStore));
   lifecycle.register(installMicroClientMessageSource(gameEvents));
@@ -89,36 +93,9 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     gameEvents,
     () => locateGameScene(window)
   ));
-  let lastSeatProbeAt = 0;
-  lifecycle.register(gameEvents.subscribe((event) => {
-    if (event.type !== 'cards-moved') return;
-    if (Date.now() - lastSeatProbeAt < 15000) return;
-    lastSeatProbeAt = Date.now();
-    const scene = locateGameScene(window) as (ReturnType<typeof locateGameScene> & Record<string, unknown>) | null;
-    const seatUIs = scene?.seatContainer?.seatUIs ?? [];
-    traceMingpai('seat-probe', {
-      sceneFound: Boolean(scene),
-      mySeats: scene?.mySeats ?? null,
-      seats: seatUIs.map((rawSeatUI) => {
-        const seatUI = rawSeatUI as Record<string, unknown>;
-        const seat = (seatUI.seat ?? {}) as Record<string, unknown>;
-        return {
-          index: seat.index,
-          Index: seat.Index,
-          seatID: seat.seatID,
-          isSelfUi: rawSeatUI === scene?.SelfSeatUi,
-          IsSelf: seat.IsSelf,
-          hand: seat.handCardCount,
-          hasYanjiao: typeof seat.HasSkill === 'function' ? (seat.HasSkill as (id: number) => unknown).call(seat, 0x3b1) : 'no-fn'
-        };
-      }),
-      skillAssist: (() => {
-        const state = skillAssistStore.getSnapshot();
-        return { inGame: state.inGame, visible: state.panels.filter((panel) => panel.visible).map((panel) => panel.id) };
-      })(),
-      lastMove: { to: event.toZone, toSeat: event.toId, count: event.cardCount }
-    });
-  }));
+  const turnStatusStore = createTurnStatusStore();
+  lifecycle.register(bindTurnStatusStoreToGameEvents(turnStatusStore, gameEvents));
+  lifecycle.register(turnStatusStore.clear);
   lifecycle.register(recentCardStore.clear);
   lifecycle.register(gameEvents.clear);
   lifecycle.register(gameCardCatalog.clear);
@@ -140,7 +117,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
       deckRecordStore,
       deckRecordInteraction,
       gameCardCatalog,
-      skillAssistStore
+      skillAssistStore,
+      turnStatusStore
     );
     lifecycle.register(mountedApp.unmount);
     return mountedApp;

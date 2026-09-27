@@ -1,0 +1,16 @@
+---
+description: 座位明牌显示样式约束（用户已确认，禁止回退）
+alwaysApply: true
+---
+
+# 座位明牌样式
+
+唯一允许的样式：`src/features/mingpai/native-mingpai-preview-controller.ts`（对照 app.bak 的 Laya 实现）。
+
+- 在其他座位武将牌正下方用 Laya 画小牌条：41×50 小牌、间距 4、整体缩放 2/3，最多 5 张（超出显示 4 张 + 省略牌）。
+- 小牌：米色半透明底 `rgba(255,239,207,0.7)`、`#392F22` 描边、圆角 4；上方花色+点数（红 `#E23E3E` / 黑 `#020000`），下方牌名前两字，字体 `fzltchjw`。
+- 悬停/点击弹出"确定牌（N）"官方牌面列表（`createOfficialCardView`，0.85 缩放）。
+
+禁止：
+- 任何 DOM/Vue 浮层形式的明牌（例如标题为"N号位明牌"的框、`SeatKnownCardsOverlay` 之类），不得重新挂载或新建。
+- 依赖 `src/legacy/xiaochao-legacy.js` 实现明牌。

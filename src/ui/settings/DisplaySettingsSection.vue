@@ -74,6 +74,7 @@ function updateSetting(key, event) {
           >
           <span class="xiaochao-setting-switch__track" aria-hidden="true">
             <span class="xiaochao-setting-switch__thumb" />
+            <span class="xiaochao-setting-switch__status">{{ values[setting.key] ? '开' : '关' }}</span>
           </span>
         </label>
       </div>

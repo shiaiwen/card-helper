@@ -16,10 +16,14 @@ import DeckRecordSection from './cards/DeckRecordSection.vue';
 import DeckRecordOverlay from './deck-record/DeckRecordOverlay.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import SkillAssistSection from './cards/SkillAssistSection.vue';
+// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+import TurnStatusBar from './cards/TurnStatusBar.vue';
 import {
   createXiaochaoPanelModel,
+  XIAOCHAO_PANEL_TABS,
   type XiaochaoPanelTabId
 } from './panel/panel-model';
+import type { TurnStatusStore } from '../features/turn-status/turn-status-store';
 import type { XiaochaoConfigStore } from '../config/config-store';
 import type { SeatStateStore } from '../features/seat-display/seat-state-store';
 import type { RecentCardStore } from '../features/recent-cards/recent-card-store';
@@ -29,6 +33,7 @@ import type { DeckRecordInteraction } from '../features/deck-record/deck-record-
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import type { XiaochaoPanelLayout } from './mount-xiaochao-app';
 import {
+  findLegacyTabPane,
   LEGACY_TAB_CONTENT_READY_EVENT,
   VUE_SETTINGS_DISPLAY_MOUNT_ID
 } from './legacy/prepare-legacy-tab-panes';
@@ -52,9 +57,13 @@ const props = defineProps<{
   deckRecordInteraction: DeckRecordInteraction;
   gameCardCatalog: GameCardCatalog;
   skillAssistStore: SkillAssistStore;
+  turnStatusStore: TurnStatusStore;
 }>();
 const COLLAPSED_PANEL_HEIGHT = '28px';
-const initialTabId = props.configStore.get('panel.activeTab');
+const savedTabId = props.configStore.get('panel.activeTab');
+const initialTabId: XiaochaoPanelTabId = XIAOCHAO_PANEL_TABS.some((tab) => tab.id === savedTabId)
+  ? savedTabId
+  : 'cards';
 const initialCollapsed = props.configStore.get('panel.collapsed');
 const panel = createXiaochaoPanelModel(
   initialTabId,
@@ -68,6 +77,7 @@ const isDockedRight = ref(props.configStore.get('panel.dockedRight'));
 const isDockPreviewVisible = ref(false);
 const isDockPreviewActive = ref(false);
 const isLegacyContentReady = ref(false);
+const settingsHostElement = ref<HTMLElement>();
 let expandedHeight = '';
 let expandedWidth = '';
 let stopDragging: (() => void) | undefined;
@@ -145,14 +155,19 @@ function showLegacyTabContent(tabId: XiaochaoPanelTabId): void {
   props.configStore.set('panel.activeTab', tabId);
   const contentElement = document.getElementById('iframe-source');
   if (!contentElement) return;
-  const panes = Array.from(
-    contentElement.querySelectorAll<HTMLElement>('.xc-main-tab-pane')
-  );
-  const tabOrder: XiaochaoPanelTabId[] = ['cards', 'rogue', 'settings', 'tools'];
-  panes.forEach((pane, index) => {
-    pane.classList.toggle('active', tabOrder[index] === tabId);
+  contentElement.querySelectorAll<HTMLElement>('.xc-main-tab-pane[data-xc-tab]').forEach((pane) => {
+    pane.classList.toggle('active', pane.dataset.xcTab === tabId);
   });
   contentElement.scrollTop = 0;
+}
+
+/** 原“配置”页整体移入“常规”页底部；legacy 事件绑定在元素上，移动节点不影响旧开关逻辑。 */
+function moveSettingsPaneIntoGeneralTab(): void {
+  const host = settingsHostElement.value;
+  const settingsPane = findLegacyTabPane('settings');
+  if (!host || !settingsPane) return;
+  if (settingsPane.parentElement !== host) host.appendChild(settingsPane);
+  settingsPane.classList.add('active');
 }
 
 /** 旧页面内容整理完成后，由 Vue 应用当前选中的标签状态。 */
@@ -162,6 +177,7 @@ function showSelectedTabContent(): void {
 
 /** legacy 内容整理完毕后挂载已经迁移的 Vue 配置区。 */
 function handleLegacyContentReady(): void {
+  moveSettingsPaneIntoGeneralTab();
   isLegacyContentReady.value = true;
   showSelectedTabContent();
 }
@@ -381,6 +397,10 @@ function handleResizeStart(event: PointerEvent): void {
       :active-tab-id="panel.activeTabId.value"
       @select="panel.selectTab"
     />
+    <TurnStatusBar
+      v-show="!panel.isCollapsed.value"
+      :turn-status-store="turnStatusStore"
+    />
     <main
       v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'cards'"
       class="xiaochao-panel__content xiaochao-cards-pane"
@@ -394,6 +414,7 @@ function handleResizeStart(event: PointerEvent): void {
         :deck-record-store="deckRecordStore"
         :game-card-catalog="gameCardCatalog"
       />
+      <div ref="settingsHostElement" class="xiaochao-general-settings" />
     </main>
     <main
       id="iframe-source"

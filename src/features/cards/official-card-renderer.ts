@@ -51,9 +51,18 @@ export function createOfficialCardView(
     ui.mouseEnabled = false;
     ui.mouseThrough = true;
     ui.NeedToolTip = cardId > 0;
-    call(ui, 'size', Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
+    const actualWidth = Math.max(1, Math.round(width));
+    const actualHeight = Math.max(1, Math.round(height));
+    // size 只改布局盒，牌面仍按 93×130 绘制；缩放必须走 SetActualSize。
+    if (typeof ui.SetActualSize === 'function') call(ui, 'SetActualSize', actualWidth, actualHeight);
+    else call(ui, 'size', actualWidth, actualHeight);
     call(ui, 'pos', 0, 0);
-    (ui.Draw as Function).call(ui, host);
+    const drawHost = resolveDrawHost(host, scene);
+    if (!drawHost) {
+      releaseOfficialCardView({ ui, owner: container, cardId });
+      return null;
+    }
+    (ui.Draw as Function).call(ui, drawHost);
     return { ui, owner: container, cardId };
   } catch {
     if (ui) releaseOfficialCardView({ ui, owner: container, cardId });
@@ -61,10 +70,50 @@ export function createOfficialCardView(
   }
 }
 
+/**
+ * 牌面 Draw 要求宿主实现 addDrawChild（游戏 SgsSprite），普通 Laya.Sprite 会抛错；
+ * 在宿主下挂一个同类绘制层并复用。
+ */
+function resolveDrawHost(host: UnknownRecord, scene: UnknownRecord): UnknownRecord | null {
+  if (typeof host.addDrawChild === 'function') return host;
+  const existing = asRecord(host.__xcCardDrawLayer);
+  if (existing && !existing.destroyed && existing.parent === host) return existing;
+  const DrawSprite = findDrawSpriteClass(scene);
+  if (!DrawSprite) return null;
+  const layer = asRecord(new DrawSprite());
+  if (!layer || typeof layer.addDrawChild !== 'function') return null;
+  layer.name = 'xcCardDrawLayer';
+  layer.mouseEnabled = false;
+  layer.mouseThrough = true;
+  call(layer, 'pos', 0, 0);
+  call(host, 'addChild', layer);
+  host.__xcCardDrawLayer = layer;
+  return layer;
+}
+
+function findDrawSpriteClass(scene: UnknownRecord): (new () => object) | null {
+  const sample = asRecord(scene.gameRoundInfo);
+  for (let proto = sample && Object.getPrototypeOf(sample); proto; proto = Object.getPrototypeOf(proto)) {
+    if (!Object.prototype.hasOwnProperty.call(proto, 'addDrawChild')) continue;
+    if (typeof proto.addDrawChild !== 'function' || typeof proto.constructor !== 'function') continue;
+    return proto.constructor as new () => object;
+  }
+  return null;
+}
+
+/**
+ * 牌面 UI 来自游戏对象池，归还后会被手牌复用：
+ * 必须 clear 掉挂在宿主上的绘制子项并还原交互状态，否则手牌会丢花色点数、明暗异常。
+ */
 export function releaseOfficialCardView(view: OfficialCardView | null | undefined): void {
   if (!view) return;
   try {
+    call(view.ui, 'clear');
     call(view.ui, 'removeSelf');
+    view.ui.alpha = 1;
+    view.ui.mouseEnabled = true;
+    view.ui.mouseThrough = false;
+    call(view.ui, 'AddCardTag');
     view.ui.Card = null;
     call(view.ui, 'UpdateTag');
     call(view.owner, 'ReturnNormalCardUi', view.ui);

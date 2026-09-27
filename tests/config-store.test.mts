@@ -39,7 +39,7 @@ test('recovers from damaged storage and rejects invalid config values', () => {
   const { platform, values } = createMemoryPlatform({ [CONFIG_STORAGE_KEY]: '{broken' });
   const store = createConfigStore(createPlatformConfigStorage(platform), undefined);
 
-  assert.equal(store.get('panel.activeTab'), 'settings');
+  assert.equal(store.get('panel.activeTab'), 'cards');
   assert.equal(store.get('display.cardLabelsEnabled'), true);
   assert.doesNotThrow(() => JSON.parse(values.get(CONFIG_STORAGE_KEY) || ''));
   assert.throws(

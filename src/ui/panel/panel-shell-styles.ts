@@ -275,7 +275,8 @@ export const PANEL_SHELL_CSS = `
   margin: 0 0 10px;
 }
 #createIframe [data-migrated-to-vue="true"],
-#createIframe .switch-container-row[hidden] {
+#createIframe .switch-container-row[hidden],
+#createIframe .nav:has(#phrase) {
   display: none !important;
 }
 #createIframe .xiaochao-settings-section__header {
@@ -354,31 +355,55 @@ export const PANEL_SHELL_CSS = `
 }
 #createIframe .xiaochao-setting-switch__track {
   position: relative;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 15px;
-  border: 1px solid rgba(242, 222, 156, .28);
+  flex: 0 0 52px;
+  box-sizing: border-box;
+  width: 52px;
+  height: 24px;
+  border: 1px solid rgba(242, 222, 156, .26);
   border-radius: 999px;
-  background: #191613;
-  transition: background .15s ease, border-color .15s ease;
+  background: linear-gradient(180deg, #221e1a 0%, #1a1613 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4);
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+#createIframe .xiaochao-setting-switch:hover .xiaochao-setting-switch__track {
+  border-color: rgba(242, 222, 156, .42);
 }
 #createIframe .xiaochao-setting-switch__thumb {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 9px;
-  height: 9px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #897b62;
-  transition: left .15s ease, background .15s ease;
+  background: linear-gradient(180deg, #f5e6b8 0%, #dcc98a 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .28);
+  transition: transform .2s cubic-bezier(.4, 0, .2, 1), background .2s ease;
+}
+#createIframe .xiaochao-setting-switch__status {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  color: rgba(169, 149, 114, .92);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .04em;
+  pointer-events: none;
 }
 #createIframe .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track {
-  border-color: rgba(242, 222, 156, .58);
-  background: #554528;
+  border-color: rgba(242, 222, 156, .55);
+  background: linear-gradient(180deg, #d4b56a 0%, #b8923f 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 210, .25), 0 0 8px rgba(212, 181, 106, .18);
 }
 #createIframe .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__thumb {
-  left: 15px;
-  background: #f2de9c;
+  transform: translateX(28px);
+  background: linear-gradient(180deg, #fffaf0 0%, #f2de9c 100%);
+}
+#createIframe .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__status {
+  right: auto;
+  left: 6px;
+  color: #2a2010;
 }
 #createIframe .xiaochao-setting-switch__input:focus-visible + .xiaochao-setting-switch__track {
   box-shadow: 0 0 0 2px rgba(242, 222, 156, .2);

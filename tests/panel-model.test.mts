@@ -17,13 +17,13 @@ import {
 import { calculateTooltipPosition } from '../src/ui/tooltip/tooltip-position.ts';
 import { calculateDialogPosition } from '../src/ui/dialog/dialog-position.ts';
 
-test('uses the parsed legacy tab order and defaults to settings', () => {
+test('merges settings into the general tab and defaults to it', () => {
   assert.deepEqual(XIAOCHAO_PANEL_TABS.map((tab) => tab.label), [
-    '卡牌', '山河图', '配置', '工具'
+    '常规', '山河图', '工具'
   ]);
   const panel = createXiaochaoPanelModel();
-  assert.equal(panel.activeTabId.value, 'settings');
-  assert.equal(panel.activeTabLabel.value, '配置');
+  assert.equal(panel.activeTabId.value, 'cards');
+  assert.equal(panel.activeTabLabel.value, '常规');
 });
 
 test('toggles collapsed state without touching business state', () => {
@@ -45,7 +45,7 @@ test('toggles collapsed state without touching business state', () => {
 
 test('selects a valid tab', () => {
   const selectedTabs: string[] = [];
-  const panel = createXiaochaoPanelModel('settings', (tabId) => selectedTabs.push(tabId));
+  const panel = createXiaochaoPanelModel('cards', (tabId) => selectedTabs.push(tabId));
   panel.selectTab('tools');
   assert.equal(panel.activeTabId.value, 'tools');
   assert.equal(panel.activeTabLabel.value, '工具');

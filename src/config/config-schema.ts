@@ -47,11 +47,12 @@ const booleanDefinition = (
 const PANEL_TAB_LABELS: Record<string, XiaochaoPanelTabId> = {
   cards: 'cards',
   rogue: 'rogue',
-  settings: 'settings',
+  settings: 'cards',
   tools: 'tools',
   卡牌: 'cards',
+  常规: 'cards',
   山河图: 'rogue',
-  配置: 'settings',
+  配置: 'cards',
   工具: 'tools'
 };
 
@@ -60,7 +61,7 @@ export const CONFIG_SCHEMA: {
   [Key in XiaochaoConfigKey]: ConfigDefinition<XiaochaoConfig[Key]>;
 } = {
   'panel.activeTab': {
-    defaultValue: 'settings',
+    defaultValue: 'cards',
     legacyStorageKey: 'XC::mainPanelActiveTab',
     parse: (value) => typeof value === 'string' ? PANEL_TAB_LABELS[value] : undefined
   },

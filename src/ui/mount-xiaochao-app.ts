@@ -10,6 +10,7 @@ import type { GameCardCatalog } from '../features/cards/game-card-catalog';
 import type { DeckRecordStore } from '../features/deck-record/deck-record-store';
 import type { DeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
+import type { TurnStatusStore } from '../features/turn-status/turn-status-store';
 
 export interface XiaochaoPanelLayout {
   top: number;
@@ -38,7 +39,8 @@ export function mountXiaochaoApp(
   deckRecordStore: DeckRecordStore,
   deckRecordInteraction: DeckRecordInteraction,
   gameCardCatalog: GameCardCatalog,
-  skillAssistStore: SkillAssistStore
+  skillAssistStore: SkillAssistStore,
+  turnStatusStore: TurnStatusStore
 ): MountedXiaochaoApp {
   const removePanelShellStyles = installPanelShellStyles();
   const rootElement = document.createElement('div');
@@ -53,7 +55,8 @@ export function mountXiaochaoApp(
     deckRecordStore,
     deckRecordInteraction,
     gameCardCatalog,
-    skillAssistStore
+    skillAssistStore,
+    turnStatusStore
   });
   app.mount(rootElement);
   const panelElement = rootElement.querySelector<HTMLElement>('#createIframe');
