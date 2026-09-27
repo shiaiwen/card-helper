@@ -20,6 +20,21 @@ export interface XiaochaoConfig {
   'display.discardSortMode': 'suit-type-number' | 'type-suit-number' | 'number-suit-type';
   'display.cardLabelsEnabled': boolean;
   'display.countdownEnabled': boolean;
+  'block.adWindow': boolean;
+  'block.mvpWindow': boolean;
+  'block.packageWindow': boolean;
+  'block.noticeWindow': boolean;
+  'block.laoXianWindow': boolean;
+  'block.probWindow': boolean;
+  'block.shaEffect': boolean;
+  'block.healEffect': boolean;
+  'block.jinnangEffect': boolean;
+  'block.killEffect': boolean;
+  'block.entranceEffect': boolean;
+  'block.otherSkinState': boolean;
+  'block.taskRedDot': boolean;
+  'block.interactEffect': boolean;
+  'block.factionSlogan': boolean;
 }
 
 export type XiaochaoConfigKey = keyof XiaochaoConfig;
@@ -101,7 +116,22 @@ export const CONFIG_SCHEMA: {
     }
   },
   'display.cardLabelsEnabled': booleanDefinition(true, 'CARD_LABEL_SWITCH'),
-  'display.countdownEnabled': booleanDefinition(true, 'COUNT_DOWN_SWITCH')
+  'display.countdownEnabled': booleanDefinition(true, 'COUNT_DOWN_SWITCH'),
+  'block.adWindow': booleanDefinition(false, 'SKIP_AD_WINDOW_SWITCH'),
+  'block.mvpWindow': booleanDefinition(false, 'SKIP_MVP_WINDOW_SWITCH'),
+  'block.packageWindow': booleanDefinition(false, 'SKIP_PACKAGE_WINDOW_SWITCH'),
+  'block.noticeWindow': booleanDefinition(false, 'SKIP_NOTICE_WINDOW_SWITCH'),
+  'block.laoXianWindow': booleanDefinition(false, 'SKIP_LAOXIAN_WINDOW_SWITCH'),
+  'block.probWindow': booleanDefinition(false, 'SKIP_PROB_WINDOW_SWITCH'),
+  'block.shaEffect': booleanDefinition(false, 'BLOCK_SHA_EFFECT_SWITCH'),
+  'block.healEffect': booleanDefinition(false, 'BLOCK_HEAL_EFFECT_SWITCH'),
+  'block.jinnangEffect': booleanDefinition(false, 'BLOCK_JINNANG_EFFECT_SWITCH'),
+  'block.killEffect': booleanDefinition(false, 'BLOCK_KILL_EFFECT_SWITCH'),
+  'block.entranceEffect': booleanDefinition(false, 'BLOCK_ENTRANCE_EFFECT_SWITCH'),
+  'block.otherSkinState': booleanDefinition(false, 'BLOCK_SKIN_STATE_SWITCH'),
+  'block.taskRedDot': booleanDefinition(false, 'RED_DOT_BLOCK_SWITCH'),
+  'block.interactEffect': booleanDefinition(false, 'BLOCK_INTERACT_EFFECT_SWITCH'),
+  'block.factionSlogan': booleanDefinition(false, 'BLOCK_FACTION_SLOGAN_SWITCH')
 };
 
 export function getDefaultConfig(): XiaochaoConfig {

@@ -10,6 +10,7 @@ import PanelTabs from './panel/PanelTabs.vue';
 import TooltipLayer from './tooltip/TooltipLayer.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import DisplaySettingsSection from './settings/DisplaySettingsSection.vue';
+import BlockSettingsSection from './settings/BlockSettingsSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import DeckRecordSection from './cards/DeckRecordSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
@@ -412,6 +413,7 @@ function handleResizeStart(event: PointerEvent): void {
         :game-card-catalog="gameCardCatalog"
       />
       <DisplaySettingsSection :config-store="configStore" />
+      <BlockSettingsSection :config-store="configStore" />
       <div ref="settingsHostElement" class="xiaochao-general-settings" />
     </main>
     <main

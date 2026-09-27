@@ -19,6 +19,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  dialogClass: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['close']);
@@ -96,7 +100,7 @@ function updatePosition() {
   <Teleport to="body">
     <dialog
       ref="dialogElement"
-      class="xiaochao-dialog"
+      :class="['xiaochao-dialog', dialogClass]"
       :aria-labelledby="titleId"
       @cancel="handleCancel"
       @click="handleBackdropClick"

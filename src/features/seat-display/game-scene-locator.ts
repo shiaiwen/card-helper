@@ -36,14 +36,10 @@ const DISPATCHER_RETRY_MS = 3000;
  * 它订阅了 GameEventDispatcher 的 SWITCH_SCENE，从监听者的 caller 取回单例；
  * GameEventDispatcher 则由任意 PopUpWindow 的 ged 暴露。
  */
-function locateSceneManager(globalObject: GameRuntimeWindow): UnknownRecord | null {
+export function locateSceneManager(globalObject: GameRuntimeWindow): UnknownRecord | null {
   if (cachedSceneManager && 'CurrentScene' in cachedSceneManager) return cachedSceneManager;
   cachedSceneManager = null;
-  if (!cachedDispatcher && Date.now() >= nextDispatcherLookupAt) {
-    const dispatcher = readGameEventDispatcher(globalObject);
-    if (isRecord(dispatcher)) cachedDispatcher = dispatcher;
-    else nextDispatcherLookupAt = Date.now() + DISPATCHER_RETRY_MS;
-  }
+  locateGameEventDispatcher(globalObject);
   const events = cachedDispatcher && isRecord(cachedDispatcher._events) ? cachedDispatcher._events : null;
   const listeners = events?.SWITCH_SCENE;
   for (const listener of Array.isArray(listeners) ? listeners : [listeners]) {
@@ -54,6 +50,15 @@ function locateSceneManager(globalObject: GameRuntimeWindow): UnknownRecord | nu
     }
   }
   return null;
+}
+
+export function locateGameEventDispatcher(globalObject: GameRuntimeWindow): UnknownRecord | null {
+  if (!cachedDispatcher && Date.now() >= nextDispatcherLookupAt) {
+    const dispatcher = readGameEventDispatcher(globalObject);
+    if (isRecord(dispatcher)) cachedDispatcher = dispatcher;
+    else nextDispatcherLookupAt = Date.now() + DISPATCHER_RETRY_MS;
+  }
+  return cachedDispatcher;
 }
 
 function readGameEventDispatcher(globalObject: GameRuntimeWindow): unknown {

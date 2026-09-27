@@ -83,8 +83,17 @@ function showTooltip(target) {
   if (!nextText) return;
   activeTarget = target;
   text.value = nextText;
+  moveIntoTopLayerHost(target);
   isVisible.value = true;
   nextTick(refreshPosition);
+}
+
+/** 模态 dialog 位于浏览器顶层，body 下的提示层会被盖住，需随目标进入同一个 dialog。 */
+function moveIntoTopLayerHost(target) {
+  const element = tooltipElement.value;
+  if (!element) return;
+  const host = target.closest('dialog[open]') || document.body;
+  if (element.parentNode !== host) host.appendChild(element);
 }
 
 function hideTooltip(target) {

@@ -1,4 +1,4 @@
-import { translateGameMessages } from './game-message-adapter.ts';
+import { findGameMessage, translateGameMessages } from './game-message-adapter.ts';
 import type { GameEventBus } from '../runtime/game-event-bus.ts';
 
 type MessageListener = (...rawArguments: unknown[]) => void;
@@ -7,13 +7,19 @@ interface MicroClientMessageWindow extends Window {
   VIiR0YfvE4s?: MessageListener[];
 }
 
+export interface MicroClientMessageSourceOptions {
+  /** 游戏处理协议前改写原始对象，例如屏蔽设置。 */
+  mutateMessage?: (payload: Record<string, unknown>, className: string) => void;
+}
+
 /**
  * 迁移期接入微端现有协议回调队列。随机名称只允许存在于本适配器；业务模块
  * 不得引用它。待独立协议钩子完成后可整体删除本文件。
  */
 export function installMicroClientMessageSource(
   gameEvents: GameEventBus,
-  globalObject: MicroClientMessageWindow = window
+  globalObject: MicroClientMessageWindow = window,
+  options: MicroClientMessageSourceOptions = {}
 ): () => void {
   let stopped = false;
   let attachedListeners: MessageListener[] | null = null;
@@ -24,6 +30,16 @@ export function installMicroClientMessageSource(
   };
   let missingQueueChecks = 0;
   const listener: MessageListener = (...rawArguments) => {
+    if (options.mutateMessage) {
+      const message = findGameMessage(rawArguments);
+      if (message) {
+        try {
+          options.mutateMessage(message.payload, message.className);
+        } catch (error) {
+          console.warn('[xiaochao] 协议改写失败', error);
+        }
+      }
+    }
     translateGameMessages(rawArguments).forEach((event) => gameEvents.publish(event));
   };
 

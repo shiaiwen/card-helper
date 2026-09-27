@@ -300,6 +300,15 @@ function findMessagePayload(rawArguments: unknown[]): UnknownRecord | null {
   return null;
 }
 
+/** 返回原始协议对象（可写引用）及其类名，供分发前改写使用。 */
+export function findGameMessage(
+  rawArguments: unknown[]
+): { payload: UnknownRecord; className: string } | null {
+  const payload = findMessagePayload(rawArguments);
+  if (!payload) return null;
+  return { payload, className: readString(payload, ['ClassName', 'className']) };
+}
+
 function readCardIds(payload: UnknownRecord): number[] {
   const ids: number[] = [];
   for (const key of CARD_IDS_KEYS) {

@@ -30,6 +30,7 @@ import { installNativeMingpaiPreviewController } from '../features/mingpai/nativ
 import { createSkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import { installSkillAssistController } from '../features/skill-assist/skill-assist-controller';
 import { registerSpellNameLookup } from '../features/skill-assist/skill-visibility';
+import { installBlockEffectsController } from '../features/block-effects/block-effects-controller';
 
 /** Electron 和油猴共用的启动边界；平台差异只能通过 adapter 注入。 */
 export function bootstrapXiaochao(platform: PlatformAdapter): void {
@@ -81,7 +82,11 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(installNativeMingpaiPreviewController(configStore, seatStateStore, gameCardCatalog));
   lifecycle.register(installCountdownSecondsController(configStore));
   lifecycle.register(installCardLabelController(configStore));
-  lifecycle.register(installMicroClientMessageSource(gameEvents));
+  const blockEffects = installBlockEffectsController(configStore);
+  lifecycle.register(blockEffects.dispose);
+  lifecycle.register(installMicroClientMessageSource(gameEvents, window, {
+    mutateMessage: blockEffects.filterMessage
+  }));
   lifecycle.register(installNativeRecentCardController(configStore, recentCardStore));
   lifecycle.register(installNativeDeckRecordController(
     configStore,

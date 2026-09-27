@@ -1,3 +1,5 @@
+import { ALL_BLOCK_SETTINGS } from '../../features/block-effects/block-effect-settings.ts';
+
 export const LEGACY_TAB_CONTENT_READY_EVENT = 'xiaochao:legacy-tab-content-ready';
 const FULLY_MIGRATED_DISPLAY_SWITCH_IDS = [
   'seatUISwitch',
@@ -28,6 +30,7 @@ export function prepareLegacyTabPanes(contentElement: HTMLElement): void {
   // app.bak 原实现使用 getElementById('content')；这里是 id，不是 <content> 标签。
   const legacyContent = contentElement.querySelector<HTMLElement>('#content');
   if (!legacyContent) return;
+  removeMigratedBlockSettings(legacyContent);
   removeUnsupportedCardCustomization(legacyContent);
 
   // 热更新或异常中断后可能残留旧控制器创建的横向栏，Vue 是唯一标签栏所有者。
@@ -86,6 +89,18 @@ export function prepareLegacyTabPanes(contentElement: HTMLElement): void {
   // 逆序插入可保持页面顺序，同时让 dialog 继续留在 content 尾部。
   panes.slice().reverse().forEach((pane) => legacyContent.prepend(pane));
   window.dispatchEvent(new CustomEvent(LEGACY_TAB_CONTENT_READY_EVENT));
+}
+
+/** 屏蔽设置已由 Vue 接管；先关闭旧开关让 legacy 补丁透传，再删除入口和弹窗。 */
+function removeMigratedBlockSettings(legacyContent: HTMLElement): void {
+  for (const { legacyInputId } of ALL_BLOCK_SETTINGS) {
+    const input = legacyContent.querySelector<HTMLInputElement>(`#${legacyInputId}`);
+    if (!input?.checked) continue;
+    input.checked = false;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  legacyContent.querySelector('#openBlockEffectDialogBtn')?.remove();
+  legacyContent.querySelector('#blockEffectDialog')?.remove();
 }
 
 /**
