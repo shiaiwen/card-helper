@@ -11,7 +11,7 @@ const props = defineProps({
 const settings = [
   {
     key: 'display.seatUiEnabled',
-    label: '手牌记录',
+    label: '显示明牌',
     tooltip: '在其他武将牌下方显示明牌',
   },
   {

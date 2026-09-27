@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [vue(), injectBuiltCssIntoElectronBundle()],
   // 注入目标是普通游戏网页，没有 Node.js 的 process 全局对象。
   define: {
-    'process.env.NODE_ENV': JSON.stringify('production')
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    // XC_NO_LEGACY=1 构建时不打包 legacy，用于验证新工程能否独立运行。
+    __XC_WITH_LEGACY__: JSON.stringify(process.env.XC_NO_LEGACY !== '1')
   },
   build: {
     outDir: 'dist/electron',

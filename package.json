@@ -41,6 +41,7 @@
     "build:userscript": "vite build --config vite.userscript.config.mts",
     "dev": "npm run dev:electron",
     "dev:electron": "node tools/dev.mjs",
+    "dev:no-legacy": "node tools/dev.mjs --no-legacy",
     "dev:userscript": "vite --config vite.userscript.config.mts",
     "typecheck": "node -e \"console.log('TypeScript checking is temporarily disabled.')\"",
     "check": "node tools/check.cjs",

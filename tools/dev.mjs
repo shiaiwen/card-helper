@@ -7,9 +7,13 @@ const electronPath = process.env.SGSOL_ELECTRON_PATH ||
   'C:\\Program Files\\SGSOL\\resources\\xiaochao-electron-runtime\\electron.exe';
 const children = new Set();
 
+// --no-legacy：构建时不打包 legacy，验证新工程能否独立运行。
+const env = { ...process.env };
+if (process.argv.includes('--no-legacy')) env.XC_NO_LEGACY = '1';
+
 /** 启动一个属于本次开发会话的子进程，并跟踪其退出状态。 */
 function run(command, args) {
-  const child = spawn(command, args, { cwd: root, stdio: 'inherit', windowsHide: false });
+  const child = spawn(command, args, { cwd: root, env, stdio: 'inherit', windowsHide: false });
   children.add(child);
   child.once('exit', () => children.delete(child));
   return child;

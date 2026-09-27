@@ -1,5 +1,4 @@
 export const LEGACY_TAB_CONTENT_READY_EVENT = 'xiaochao:legacy-tab-content-ready';
-export const VUE_SETTINGS_DISPLAY_MOUNT_ID = 'xiaochao-vue-settings-display';
 const FULLY_MIGRATED_DISPLAY_SWITCH_IDS = [
   'seatUISwitch',
   'recentCardSwitch',
@@ -114,16 +113,9 @@ function prepareVueSeatHandsMount(cardsPane: HTMLElement | undefined): void {
   cardsPane.style.display = 'none';
 }
 
-/** 隐藏已由 Vue 接管的控件，但保留 input 供迁移期业务桥触发旧游戏逻辑。 */
+/** 删除已由 Vue 接管的旧开关，删除前先关闭以通知旧实现销毁其 Laya 节点。 */
 function prepareVueSettingsMount(settingsPane: HTMLElement | undefined): void {
   if (!settingsPane) return;
-  let mountElement = settingsPane.querySelector<HTMLElement>(`#${VUE_SETTINGS_DISPLAY_MOUNT_ID}`);
-  if (!mountElement) {
-    mountElement = document.createElement('div');
-    mountElement.id = VUE_SETTINGS_DISPLAY_MOUNT_ID;
-    settingsPane.prepend(mountElement);
-  }
-
   for (const inputId of FULLY_MIGRATED_DISPLAY_SWITCH_IDS) {
     const input = settingsPane.querySelector<HTMLInputElement>(`#${inputId}`);
     // 游戏内覆盖层已有独立渲染器，先通知旧实现销毁 Laya 节点，再删除旧控件。

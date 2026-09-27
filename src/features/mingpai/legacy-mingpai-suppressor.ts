@@ -2,7 +2,7 @@ import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
-/** legacy 自带的明牌 Laya 节点；座位明牌改由 Vue 悬浮层显示。legacy 删除后连同本文件一起删除。 */
+/** legacy 自带的明牌 Laya 节点；座位明牌改由 native-mingpai-preview-controller 的 Laya 小牌条显示。legacy 删除后连同本文件一起删除。 */
 const LEGACY_MINGPAI_NODE_NAMES = new Set(['xcMingpaiPreviewRoot', 'xcMingpaiCardList']);
 const SEARCH_DEPTH = 4;
 const POLL_INTERVAL_MS = 250;

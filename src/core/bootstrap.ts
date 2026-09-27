@@ -135,6 +135,7 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     getCardConfigSize: () => cardConfigSource.size(),
     mountPanelShell
   });
+  (window as unknown as Record<string, unknown>).__XIAOCHAO_STARTUP__ ??= panelStartupStatus;
   void bridge.waitForGameRuntime({
     probe: () => bridge.getMissingGameRuntimeDependencies({ globalObject: window }),
     initialize: () => {

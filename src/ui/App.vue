@@ -34,8 +34,7 @@ import type { SkillAssistStore } from '../features/skill-assist/skill-assist-sto
 import type { XiaochaoPanelLayout } from './mount-xiaochao-app';
 import {
   findLegacyTabPane,
-  LEGACY_TAB_CONTENT_READY_EVENT,
-  VUE_SETTINGS_DISPLAY_MOUNT_ID
+  LEGACY_TAB_CONTENT_READY_EVENT
 } from './legacy/prepare-legacy-tab-panes';
 import { constrainPanelPosition, hasExceededDragThreshold, shouldDockToRight } from './panel/panel-drag';
 import {
@@ -76,7 +75,6 @@ const panelElement = ref<HTMLElement>();
 const isDockedRight = ref(props.configStore.get('panel.dockedRight'));
 const isDockPreviewVisible = ref(false);
 const isDockPreviewActive = ref(false);
-const isLegacyContentReady = ref(false);
 const settingsHostElement = ref<HTMLElement>();
 let expandedHeight = '';
 let expandedWidth = '';
@@ -175,10 +173,9 @@ function showSelectedTabContent(): void {
   showLegacyTabContent(panel.activeTabId.value);
 }
 
-/** legacy 内容整理完毕后挂载已经迁移的 Vue 配置区。 */
+/** legacy 内容整理完毕后把未迁移的旧配置追加到“常规”页。 */
 function handleLegacyContentReady(): void {
   moveSettingsPaneIntoGeneralTab();
-  isLegacyContentReady.value = true;
   showSelectedTabContent();
 }
 
@@ -414,6 +411,7 @@ function handleResizeStart(event: PointerEvent): void {
         :deck-record-store="deckRecordStore"
         :game-card-catalog="gameCardCatalog"
       />
+      <DisplaySettingsSection :config-store="configStore" />
       <div ref="settingsHostElement" class="xiaochao-general-settings" />
     </main>
     <main
@@ -441,10 +439,4 @@ function handleResizeStart(event: PointerEvent): void {
     :deck-record-interaction="deckRecordInteraction"
     :seat-state-store="seatStateStore"
   />
-  <Teleport
-    v-if="isLegacyContentReady"
-    :to="`#${VUE_SETTINGS_DISPLAY_MOUNT_ID}`"
-  >
-    <DisplaySettingsSection :config-store="configStore" />
-  </Teleport>
 </template>

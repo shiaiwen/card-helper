@@ -52,6 +52,23 @@ test('clears current-turn discards when TurnCnt advances', () => {
   assert.deepEqual(store.getSnapshot().discardCardIds, [101, 102, 201]);
 });
 
+test('clears all deck records when MsgGameOver arrives without leaving the scene', () => {
+  const events = createGameEventBus();
+  const storage = memoryStorage();
+  const store = createDeckRecordStore(events, storage);
+
+  events.publish({ type: 'turn-started', seatId: 1, turnCount: 1, round: 0 });
+  events.publish(moveToDiscard(101, 102));
+  assert.deepEqual(store.getSnapshot().discardCardIds, [101, 102]);
+
+  const gameOver = translateGameMessage([{ ClassName: 'MsgGameOver' }]);
+  assert.deepEqual(gameOver, { type: 'game-ended' });
+  events.publish(gameOver!);
+  assert.deepEqual(store.getSnapshot().discardCardIds, []);
+  assert.deepEqual(store.getSnapshot().currentTurnDiscardCardIds, []);
+  assert.deepEqual(createDeckRecordStore(createGameEventBus(), storage).getSnapshot().discardCardIds, []);
+});
+
 test('clears current-turn discards when a new player phase starts (Round=0)', () => {
   const events = createGameEventBus();
   const store = createDeckRecordStore(events, memoryStorage());

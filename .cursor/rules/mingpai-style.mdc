@@ -3,7 +3,9 @@ description: 座位明牌显示样式约束（用户已确认，禁止回退）
 alwaysApply: true
 ---
 
-# 座位明牌样式
+# 座位明牌样式（强制约束）
+
+用户明确要求：明牌只能用下述样式展示，不允许再用之前的 DOM 浮层丑样式，任何改动都不得违反。
 
 唯一允许的样式：`src/features/mingpai/native-mingpai-preview-controller.ts`（对照 app.bak 的 Laya 实现）。
 

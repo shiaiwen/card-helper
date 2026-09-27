@@ -13,6 +13,8 @@ const TEMPORARY_CARD_REORDER_MESSAGE_NAME = 'CGsRoleSpellOptRep';
 const PLAYER_DIED_MESSAGE_NAME = 'SmsgGamePlayerDead';
 const SPELL_TARGET_MESSAGE_NAME = 'PubGsCUseSpell';
 const ROLE_DATA_MESSAGE_NAME = 'GsCUpdateRoleDataExNtf';
+/** 结算界面和同房间再开一局都不切换场景，本局数据必须按协议结束清空。 */
+const GAME_OVER_MESSAGE_NAME = 'MsgGameOver';
 const SHA_COUNT_DATA_ID = 1;
 const SEAT_ID_KEYS = [
   'SeatID', 'SeatId', 'seatID', 'seatId',
@@ -37,6 +39,7 @@ export function translateGameMessages(rawArguments: unknown[]): GameEvent[] {
   if (!payload) return [];
   const className = readString(payload, ['ClassName', 'className']);
   if (!className) return [];
+  if (className === GAME_OVER_MESSAGE_NAME) return [{ type: 'game-ended' }];
   if (className === OPT_TARGET_MESSAGE_NAME) {
     const event = translateOptTarget(payload);
     return event ? [event] : [];
