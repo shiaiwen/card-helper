@@ -23,6 +23,7 @@ export interface LayaRuntimeWindow extends GameRuntimeWindow {
 const MANAGER_LOOKUPS: Record<string, readonly [string, string?, string?]> = {
   ActivityManager: ['ClientJDInfoNtf'],
   ChatSysNewsManager: ['decodeSSCChatmsgNtf', 'ServerProxy', 'timeOutNoticeId'],
+  GeneralSkinManager: ['ClientSkinFromRep'],
   RogueLikePveManager: ['decodeRogueLikeDataSync'],
   TaskRedDotManager: ['EXCHANGE_RED_VIEW_FIRST_UPDATE', 'ActivityManager'],
   UserInfoManger: ['ClientTTRankInfoRep'],
@@ -52,6 +53,9 @@ export interface LayaObjectLocator {
   gameContext(): UnknownRecord | null;
   baseEffectPrototype(): UnknownRecord | null;
   classPrototype(className: string): UnknownRecord | null;
+  /** 通过 Laya 类表新建实例，用于读取仅挂在实例上的子对象原型；调用方负责销毁。 */
+  createInstance(className: string): UnknownRecord | null;
+  layer(layerName: string): UnknownRecord | null;
   window(name: string): UnknownRecord | null;
   findWindows(name: string): UnknownRecord[];
   findInLayer(layerName: string, name: string): UnknownRecord[];
@@ -160,6 +164,24 @@ export function createLayaObjectLocator(
     }
   }
 
+  function createInstance(className: string): UnknownRecord | null {
+    try {
+      const classUtils = asRecord(asRecord(globalObject.Laya)?.ClassUtils);
+      const getInstance = classUtils?.getInstance;
+      const instance = typeof getInstance === 'function' ? asRecord(getInstance.call(classUtils, className)) : null;
+      if (typeof instance?.Init === 'function') (instance.Init as () => void)();
+      return instance;
+    } catch {
+      return null;
+    }
+  }
+
+  function layer(layerName: string): UnknownRecord | null {
+    const stage = asRecord(globalObject.Laya?.stage);
+    if (!stage) return null;
+    return children(stage).find((child) => child.layerOrder === LAYER_ORDER.indexOf(layerName)) ?? null;
+  }
+
   function findInLayer(layerName: string, name: string): UnknownRecord[] {
     const stage = asRecord(globalObject.Laya?.stage);
     if (!stage) return [];
@@ -191,17 +213,19 @@ export function createLayaObjectLocator(
     if (!prototype) return null;
     for (const key of Object.getOwnPropertyNames(prototype)) {
       if (key === 'constructor') continue;
-      // legacy 包装后原方法挪到 `__name`，迁移期需一并检查。
+      // 实例上的同名方法可能已被其他补丁包装；legacy 包装后原方法挪到 `__name`，都需回查原型上的原函数。
+      const candidates: unknown[] = [Object.getOwnPropertyDescriptor(prototype, key)?.value];
       for (const lookupKey of [key, `__${key}`]) {
-        let candidate: unknown;
         try {
-          candidate = record[lookupKey];
+          candidates.push(record[lookupKey]);
         } catch {
-          continue;
+          // 访问器抛错时跳过。
         }
-        if (typeof candidate === 'function' && Function.prototype.toString.call(candidate).includes(signature)) {
-          return key;
-        }
+      }
+      if (candidates.some((candidate) => (
+        typeof candidate === 'function' && Function.prototype.toString.call(candidate).includes(signature)
+      ))) {
+        return key;
       }
     }
     return null;
@@ -215,6 +239,8 @@ export function createLayaObjectLocator(
     gameContext,
     baseEffectPrototype,
     classPrototype,
+    createInstance,
+    layer,
     window: findWindow,
     findWindows,
     findInLayer,

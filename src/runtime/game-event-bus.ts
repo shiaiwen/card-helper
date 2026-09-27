@@ -34,6 +34,19 @@ export type GameEvent =
     /** 协议 UseType；权变等要求 === 1。 */
     useType: number | null;
     isSend: boolean;
+    /** 协议 fromZone；1 为从牌堆直接使用。缺省为 null。 */
+    fromZone?: number | null;
+  }
+  | {
+    /** MsgGamePlayCardNtf：本局全部牌的卡号。 */
+    type: 'card-list-ready';
+    cardIds: number[];
+  }
+  | {
+    /** GsCTriggerSpellNew：TriggerSeatId 发动 TriggerSpellData 中的技能。 */
+    type: 'spell-triggered';
+    seatId: number;
+    spellIds: number[];
   }
   | {
     type: 'hand-cards-revealed';
@@ -63,6 +76,15 @@ export type GameEvent =
     spellId: number;
     targetSeatIds: number[];
     cardIds: number[];
+    /** PubGsCUseSpell EffectIndex；缺省为 null。 */
+    effectIndex?: number | null;
+  }
+  | {
+    /** GsCUpdateRoleDataExNtf IsSpell=true：技能私有数据（DataID 即技能 ID）。 */
+    type: 'spell-data-updated';
+    seatId: number;
+    dataId: number;
+    datas: number[];
   }
   | {
     /** GsCRoleOptTargetNtf 原样字段；看牌规则在 mingpai/rules 里解释。 */
@@ -78,6 +100,8 @@ export type GameEvent =
     params: number[];
     /** 协议 CardIDs；部分技能（严教）Params 为空时卡号在这里。 */
     cardIds?: number[];
+    /** 协议 Type；易城 28 为可交换。缺省为 null。 */
+    optType?: number | null;
   }
   | {
     /** CGsRoleSpellOptRep 原样字段。 */
@@ -101,6 +125,8 @@ export type GameEvent =
     toZoneParam: number;
     moveType: number;
     spellId: number;
+    /** 协议 SrcSeatID（发起移动的座位）；缺省为 null。 */
+    srcSeatId?: number | null;
   };
 
 export type GameEventListener = (event: Readonly<GameEvent>) => void;
@@ -138,6 +164,11 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
   if (event.type === 'game-started' || event.type === 'game-ended') {
     return Object.freeze({ type: event.type });
   }
+  if (event.type === 'card-list-ready') {
+    const cardIds = [...new Set(event.cardIds.map(normalizePositiveInteger).filter(isNumber))];
+    if (!cardIds.length) return null;
+    return Object.freeze({ type: event.type, cardIds: Object.freeze(cardIds) }) as Readonly<GameEvent>;
+  }
   if (event.type === 'cards-moved') {
     const cardCount = normalizeNonNegativeInteger(event.cardCount);
     if (cardCount === null || cardCount === 0) return null;
@@ -155,7 +186,8 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
       toPosition: normalizeNonNegativeInteger(event.toPosition) ?? 0,
       toZoneParam: normalizeNonNegativeInteger(event.toZoneParam) ?? 0,
       moveType: normalizeNonNegativeInteger(event.moveType) ?? 0,
-      spellId: normalizeNonNegativeInteger(event.spellId) ?? 0
+      spellId: normalizeNonNegativeInteger(event.spellId) ?? 0,
+      srcSeatId: event.srcSeatId === null || event.srcSeatId === undefined ? null : normalizeSeatId(event.srcSeatId)
     }) as Readonly<GameEvent>;
   }
   if (event.type === 'temporary-cards-reordered') {
@@ -194,7 +226,21 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
       seatId,
       spellId,
       targetSeatIds: Object.freeze(targetSeatIds),
-      cardIds: Object.freeze(cardIds)
+      cardIds: Object.freeze(cardIds),
+      effectIndex: event.effectIndex === null || event.effectIndex === undefined
+        ? null
+        : normalizeNonNegativeInteger(event.effectIndex)
+    }) as Readonly<GameEvent>;
+  }
+  if (event.type === 'spell-data-updated') {
+    const seatId = normalizeSeatId(event.seatId);
+    const dataId = normalizeNonNegativeInteger(event.dataId);
+    if (seatId === null || dataId === null) return null;
+    return Object.freeze({
+      type: event.type,
+      seatId,
+      dataId,
+      datas: Object.freeze(event.datas.map(Number).filter(Number.isFinite))
     }) as Readonly<GameEvent>;
   }
   if (event.type === 'opt-target') {
@@ -213,7 +259,10 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
       param: normalizeNonNegativeInteger(event.param) ?? 0,
       params: Object.freeze(event.params.map(normalizeNonNegativeInteger).filter(isNumber)),
       cardIds: Object.freeze((event.cardIds ?? []).map(normalizeNonNegativeInteger)
-        .filter((cardId): cardId is number => cardId !== null && cardId > 0))
+        .filter((cardId): cardId is number => cardId !== null && cardId > 0)),
+      optType: event.optType === null || event.optType === undefined
+        ? null
+        : normalizeNonNegativeInteger(event.optType)
     }) as Readonly<GameEvent>;
   }
   if (event.type === 'spell-opt-rep') {
@@ -267,8 +316,16 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
       cardIds: Object.freeze(cardIds),
       source,
       useType,
-      isSend: event.isSend === true
+      isSend: event.isSend === true,
+      fromZone: event.fromZone === null || event.fromZone === undefined
+        ? null
+        : normalizeNonNegativeInteger(event.fromZone)
     }) as Readonly<GameEvent>;
+  }
+  if (event.type === 'spell-triggered') {
+    const spellIds = [...new Set(event.spellIds.map(normalizePositiveInteger).filter(isNumber))];
+    if (!spellIds.length) return null;
+    return Object.freeze({ type: event.type, seatId, spellIds: Object.freeze(spellIds) }) as Readonly<GameEvent>;
   }
   return null;
 }

@@ -106,6 +106,7 @@ async function copyOption(key: string, text: string): Promise<void> {
           :key="`${panel.id}-option-${index}`"
           type="button"
           class="xc-skill-option"
+          :class="{ 'xc-skill-option--highlight': panel.highlightedOptions[index] }"
           title="点击复制"
           @click="copyOption(`${panel.id}-${index}`, option)"
         >
@@ -129,7 +130,7 @@ async function copyOption(key: string, text: string): Promise<void> {
   padding: 6px 8px;
 }
 
-.xc-hero-block[data-feature="yanjiao"] {
+.xc-hero-block + .xc-hero-block {
   border-top: 1px solid rgba(242, 222, 156, .25);
 }
 
@@ -209,6 +210,11 @@ async function copyOption(key: string, text: string): Promise<void> {
   color: #e8d4a8;
   font: 700 12px/1.5 SimSun, serif;
   cursor: pointer;
+}
+
+.xc-skill-option--highlight {
+  border-color: #f2de9c;
+  color: #ffd76a;
 }
 
 .xc-skill-option:hover {

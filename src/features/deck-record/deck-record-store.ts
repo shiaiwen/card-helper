@@ -35,6 +35,12 @@ export interface DeckRecordSnapshot {
   deckBottomCardIds: number[];
 }
 
+/** 牌堆有序已知牌的权威来源（明牌引擎），包含观星 / 知天等看牌结果。 */
+export interface DrawPileOrderSource {
+  getDrawPile(): Readonly<{ top: readonly number[]; bottom: readonly number[] }>;
+  subscribe(listener: () => void): () => void;
+}
+
 export interface DeckRecordStore {
   getSnapshot(): Readonly<DeckRecordSnapshot>;
   subscribe(listener: (snapshot: Readonly<DeckRecordSnapshot>) => void): () => void;
@@ -58,7 +64,8 @@ const PERSISTED_SNAPSHOT_MAX_AGE = 3 * 60 * 60 * 1000;
  */
 export function createDeckRecordStore(
   gameEvents: GameEventBus,
-  storage: Storage | null = getSessionStorage()
+  storage: Storage | null = getSessionStorage(),
+  drawPileSource: DrawPileOrderSource | null = null
 ): DeckRecordStore {
   const restoredSnapshot = readPersistedSnapshot(storage);
   let keepSnapshotOnFirstGameStart = Boolean(restoredSnapshot);
@@ -99,11 +106,24 @@ export function createDeckRecordStore(
       currentTurnCount: turnCount,
       currentRound: round,
       deckTopCardIds: parts.deckTopCardIds ?? [...snapshot.deckTopCardIds],
-      deckBottomCardIds: parts.deckBottomCardIds ?? [...snapshot.deckBottomCardIds]
+      deckBottomCardIds: parts.deckBottomCardIds ?? [...snapshot.deckBottomCardIds],
+      ...sourcedDrawPile()
     });
     persistSnapshot(storage, snapshot);
     listeners.forEach((listener) => listener(snapshot));
   };
+
+  function sourcedDrawPile(): Partial<Pick<DeckRecordSnapshot, 'deckTopCardIds' | 'deckBottomCardIds'>> {
+    if (!drawPileSource) return {};
+    const { top, bottom } = drawPileSource.getDrawPile();
+    return { deckTopCardIds: [...top], deckBottomCardIds: [...bottom] };
+  }
+
+  const stopDrawPileSource = drawPileSource?.subscribe(() => {
+    const { top, bottom } = drawPileSource.getDrawPile();
+    if (sameIds(top, snapshot.deckTopCardIds) && sameIds(bottom, snapshot.deckBottomCardIds)) return;
+    publishFromParts();
+  });
 
   const clearCurrentTurnDiscards = () => {
     taggedCurrentTurnDiscards = [];
@@ -212,6 +232,7 @@ export function createDeckRecordStore(
     },
     clear() {
       stopGameEvents();
+      stopDrawPileSource?.();
       listeners.clear();
       sequence = 0;
       turnCount = 0;
@@ -245,6 +266,10 @@ function createMovementRecord(
     toZoneParam: event.toZoneParam,
     moveType: event.moveType
   };
+}
+
+function sameIds(left: readonly number[], right: readonly number[]): boolean {
+  return left.length === right.length && left.every((cardId, index) => cardId === right[index]);
 }
 
 function removeKnownCards(discardCardIds: number[], movedCardIds: readonly number[]): number {

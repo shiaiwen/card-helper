@@ -118,3 +118,16 @@ test('does not restore current-turn discards from session storage', () => {
   assert.deepEqual(secondStore.getSnapshot().currentTurnDiscardCardIds, []);
   assert.deepEqual(secondStore.getSnapshot().discardCardIds, [11, 12, 13]);
 });
+
+test('牌堆顶以明牌引擎为准：知天看到的牌会显示在牌堆顶', async () => {
+  const { createMingpaiEngine, DRAW_PILE_POSITION } = await import('../src/features/mingpai/index.ts');
+  const events = createGameEventBus();
+  const engine = createMingpaiEngine(null);
+  const store = createDeckRecordStore(events, memoryStorage(), {
+    getDrawPile: () => engine.getSnapshot().drawPile,
+    subscribe: (listener) => engine.subscribe(listener)
+  });
+
+  engine.observeKnownDrawPileCards([29, 14, 31], DRAW_PILE_POSITION.TOP);
+  assert.deepEqual(store.getSnapshot().deckTopCardIds, [29, 14, 31]);
+});

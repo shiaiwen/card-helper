@@ -51,6 +51,15 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
     trim();
   }
 
+  /** 位置未指定但卡号已知：牌从中间抽走，后面的牌要顺次补位，不能只留空位。 */
+  function extract(cardIds: readonly number[]): void {
+    const known = new Set(cardIds.filter((cardId) => cardId > 0));
+    if (!known.size) return;
+    top = top.filter((cardId) => !known.has(cardId));
+    bottom = bottom.filter((cardId) => !known.has(cardId));
+    trim();
+  }
+
   function trim(): void {
     while (top.length && !top[top.length - 1]) top.pop();
     while (bottom.length && !bottom[0]) bottom.shift();
@@ -72,6 +81,7 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
       const size = Math.max(0, count);
       if (position === DRAW_PILE_POSITION.TOP) top.splice(0, size);
       else if (position === DRAW_PILE_POSITION.BOTTOM) bottom.splice(Math.max(0, bottom.length - size), size);
+      else extract(cardIds);
       forget(cardIds);
       persist();
     },

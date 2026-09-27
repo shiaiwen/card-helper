@@ -60,6 +60,13 @@ const DRAW_PILE_FROM_RULES: ReadonlyArray<{
   position: number;
 }> = [
   { match: (m) => [3208, 7011, 987, 988, 3903].includes(m.spellId), position: DRAW_PILE_POSITION.TOP },
+  /** 3746 智绝（阳）：牌堆顶一张当【火攻】。 */
+  { match: (m) => m.spellId === 3746 && m.cardCount === 1 && m.toZone === 3, position: DRAW_PILE_POSITION.TOP },
+  /** 3776：牌堆底三张进技能区。 */
+  {
+    match: (m) => m.spellId === 3776 && m.toZone === 10 && m.cardCount === 3,
+    position: DRAW_PILE_POSITION.BOTTOM
+  },
   { match: (m) => m.moveType === 13 && m.cardCount === 1, position: DRAW_PILE_POSITION.TOP },
   {
     match: (m) => m.spellId === 795 && m.toZone === 4 && m.moveType === 8 && m.cardCount === 1,

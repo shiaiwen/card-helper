@@ -35,6 +35,11 @@ export interface XiaochaoConfig {
   'block.taskRedDot': boolean;
   'block.interactEffect': boolean;
   'block.factionSlogan': boolean;
+  'skin.localSkin': boolean;
+  'skin.otherLocalSkin': boolean;
+  'skin.officialBackground': boolean;
+  'skin.skinPaper': boolean;
+  'skin.allPaper': boolean;
 }
 
 export type XiaochaoConfigKey = keyof XiaochaoConfig;
@@ -131,7 +136,12 @@ export const CONFIG_SCHEMA: {
   'block.otherSkinState': booleanDefinition(false, 'BLOCK_SKIN_STATE_SWITCH'),
   'block.taskRedDot': booleanDefinition(false, 'RED_DOT_BLOCK_SWITCH'),
   'block.interactEffect': booleanDefinition(false, 'BLOCK_INTERACT_EFFECT_SWITCH'),
-  'block.factionSlogan': booleanDefinition(false, 'BLOCK_FACTION_SLOGAN_SWITCH')
+  'block.factionSlogan': booleanDefinition(false, 'BLOCK_FACTION_SLOGAN_SWITCH'),
+  'skin.localSkin': booleanDefinition(true, 'LOCAL_SKIN_SWITCH'),
+  'skin.otherLocalSkin': booleanDefinition(false, 'OTHER_LOCAL_SKIN_SWITCH'),
+  'skin.officialBackground': booleanDefinition(true, 'OFFICIAL_BACKGROUND_SWITCH'),
+  'skin.skinPaper': booleanDefinition(true, 'SKIN_PAPER_SWITCH'),
+  'skin.allPaper': booleanDefinition(false, 'ALL_PAPER_SWITCH')
 };
 
 export function getDefaultConfig(): XiaochaoConfig {

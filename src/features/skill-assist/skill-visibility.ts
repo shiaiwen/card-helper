@@ -73,14 +73,28 @@ export function resolveSkillIds(
 export function isSkillAssistVisible(
   definition: SkillAssistDefinition,
   scene: GameSceneSeatSource | null,
-  inGame: boolean
+  inGame: boolean,
+  isSelfSeat: (seatId: number) => boolean = () => false
 ): boolean {
-  if (!inGame || !scene) return false;
+  if (!inGame || !scene || definition.triggerOnly) return false;
   const seatUIs = scene.seatContainer?.seatUIs;
   if (!Array.isArray(seatUIs) || !seatUIs.length) return false;
   const skillIds = resolveSkillIds(definition, scene);
+  const generalNames = new Set(definition.generalNames ?? []);
+  if (definition.selfOnly) {
+    return seatUIs.some((rawSeatUI) => {
+      const seatUI = asRecord(rawSeatUI);
+      const seat = asRecord(seatUI?.seat) ?? seatUI;
+      const seatId = readSeatId(asRecord(seatUI?.seat)) ?? readSeatId(seatUI);
+      if (seatId === null || !isSelfSeat(seatId)) return false;
+      return seatHasSkill(scene, seatId, skillIds) || seatHasGeneralName(seat, generalNames);
+    });
+  }
   if (anySeatHasSkill(scene, skillIds)) return true;
-  return anySeatHasGeneralName(scene, definition.generalNames ?? []);
+  return seatUIs.some((rawSeatUI) => {
+    const seatUI = asRecord(rawSeatUI);
+    return seatHasGeneralName(asRecord(seatUI?.seat) ?? seatUI, generalNames);
+  });
 }
 
 let fallbackSpellLookup: ((name: string) => number[]) | null = null;
@@ -127,23 +141,27 @@ function findSpellDict(scene: GameSceneSeatSource | null): UnknownRecord | null 
   return fromGlobal && Object.keys(fromGlobal).length ? fromGlobal : null;
 }
 
-function anySeatHasGeneralName(
-  scene: GameSceneSeatSource | null,
-  generalNames: readonly string[]
-): boolean {
-  if (!generalNames.length || !scene) return false;
-  const nameSet = new Set(generalNames);
-  const seatUIs = scene.seatContainer?.seatUIs;
-  if (!Array.isArray(seatUIs)) return false;
+/** 座位主将 / 副将名：优先读座位上的武将对象，其次按武将 ID 查全局字典。 */
+function seatHasGeneralName(seat: UnknownRecord | null, nameSet: ReadonlySet<string>): boolean {
+  if (!seat || !nameSet.size) return false;
+  for (const key of ['General', 'general', 'General2', 'general2']) {
+    const general = asRecord(seat[key]);
+    for (const nameKey of ['cardName', 'specifyName', 'trueSpecifyName', 'Name', 'name']) {
+      const name = general?.[nameKey];
+      if (typeof name === 'string' && nameSet.has(name)) return true;
+    }
+  }
   const generalDict = asRecord(asRecord((globalThis as { jI?: unknown }).jI)?.generalDict);
-  return seatUIs.some((rawSeatUI) => {
-    const seatUI = asRecord(rawSeatUI);
-    const seat = asRecord(seatUI?.seat) ?? seatUI;
-    const generalIds = readNumberArray(seat, ['generalIds', 'GeneralIds', 'WuJiangs', 'generals']);
-    return generalIds.some((generalId) => {
-      const entry = generalDict?.[String(generalId)] ?? generalDict?.[generalId as unknown as string];
-      return typeof entry === 'string' && nameSet.has(entry);
-    });
+  if (!generalDict) return false;
+  const generalIds = [
+    ...readNumberArray(seat, ['generalIds', 'GeneralIds', 'WuJiangs', 'generals']),
+    Number(seat.GeneralId),
+    Number(seat.General2Id)
+  ];
+  return generalIds.some((generalId) => {
+    const entry = generalDict[String(generalId)];
+    const name = typeof entry === 'string' ? entry : asRecord(entry)?.name;
+    return typeof name === 'string' && nameSet.has(name);
   });
 }
 

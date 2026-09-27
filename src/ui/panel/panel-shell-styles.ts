@@ -203,6 +203,7 @@ export const PANEL_SHELL_CSS = `
   color: #eee5d2;
   font: 12px/1.45 var(--xc-font-ui, system-ui, sans-serif);
   overflow-wrap: anywhere;
+  white-space: pre-line;
   pointer-events: none;
   user-select: none;
 }
@@ -503,6 +504,29 @@ export const PANEL_SHELL_CSS = `
 }
 .xiaochao-block-switch__toggle input:focus-visible + .xiaochao-block-switch__slider {
   box-shadow: 0 0 0 2px rgba(242, 222, 156, .2);
+}
+.xiaochao-block-switch__state {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  color: rgba(169, 149, 114, .92);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .04em;
+  pointer-events: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .28);
+}
+.xiaochao-block-switch__state::before { content: "关"; }
+.xiaochao-block-switch__toggle input:checked + .xiaochao-block-switch__slider + .xiaochao-block-switch__state {
+  right: auto;
+  left: 6px;
+  color: #2a2010;
+  text-shadow: 0 1px 0 rgba(255, 248, 210, .28);
+}
+.xiaochao-block-switch__toggle input:checked + .xiaochao-block-switch__slider + .xiaochao-block-switch__state::before {
+  content: "开";
 }
 #createIframe .xiaochao-block-entry {
   display: flex;

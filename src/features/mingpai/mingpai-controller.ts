@@ -2,6 +2,7 @@ import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
 import type { SeatStateStore } from '../seat-display/seat-state-store.ts';
 import {
   createMingpaiEngine,
+  formatZoneId,
   DISCARD_ZONE,
   DRAW_PILE_ZONE,
   HAND_ZONE,
@@ -23,12 +24,15 @@ import {
   sanitizeMoveCardIds
 } from './rules/move-card-rules.ts';
 import { DRAW_PILE_OWNER } from './rules/reveal-types.ts';
+import { createSpecialSpellRecovery } from './special-spell-recovery.ts';
 
 type MoveCardEvent = Extract<GameEvent, { type: 'cards-moved' }>;
 
 export interface MingpaiControllerOptions {
   /** 兼容旧调用：未传入时内部自建引擎。 */
   engine?: MingpaiEngine;
+  /** 红色 true、黑色 false、未知 null；按颜色还原的技能（3543 / 3571）需要。 */
+  isRedCard?: (cardId: number) => boolean | null;
 }
 
 /**
@@ -38,9 +42,21 @@ export interface MingpaiControllerOptions {
 export function installMingpaiController(
   seatStateStore: SeatStateStore,
   gameEvents: GameEventBus,
-  { engine: injected }: MingpaiControllerOptions = {}
+  { engine: injected, isRedCard = () => null }: MingpaiControllerOptions = {}
 ): { dispose: () => void; engine: MingpaiEngine } {
   const engine = injected ?? createMingpaiEngine();
+  const specialRecovery = createSpecialSpellRecovery({
+    hand(seatId) {
+      const seat = seatStateStore.getSnapshot().seats.find((entry) => entry.seatId === seatId);
+      return {
+        known: seat?.knownCards.map((card) => card.cardId).filter((cardId) => cardId > 0) ?? [],
+        unknownCount: seat?.unknownCardCount ?? 0
+      };
+    },
+    zoneCardIds: (seatId, zone) => engine.getZoneCardIds(formatZoneId(seatId, zone)),
+    isControlledSeat: (seatId) => isControlledSeat(seatId),
+    isRedCard
+  });
   const temporaryCardZones = new Map<string, TemporaryCardZone>();
   let preserveRestoredStateOnFirstStart = seatStateStore.hasRestoredKnownHands()
     || engine.hasRestoredRecords();
@@ -81,6 +97,7 @@ export function installMingpaiController(
       return;
     }
     const event = rawEvent;
+    specialRecovery.observe(event);
     if (event.type === 'game-ended') {
       temporaryCardZones.clear();
       engine.clear();
@@ -97,6 +114,10 @@ export function installMingpaiController(
         engine.clear();
         seatStateStore.resetKnownHands();
       }
+      return;
+    }
+    if (event.type === 'card-list-ready') {
+      traceMingpai('card-list', { count: event.cardIds.length, maxId: Math.max(...event.cardIds) });
       return;
     }
     if (event.type === 'hand-cards-revealed') {
@@ -125,7 +146,7 @@ export function installMingpaiController(
         isSelfSrc: isControlledSeat(srcSeatId)
       });
       traceMingpai('opt-target', {
-        spellId: event.spellId, param: event.param, params: [...event.params],
+        spellId: event.spellId, param: event.param, params: [...event.params], optType: event.optType ?? null,
         srcSeatId, targetSeatId: event.targetSeatId, matchedReveals: reveals.length
       });
       applyCardReveals(reveals, engine, seatStateStore, `opt-target:${event.spellId}`);
@@ -172,8 +193,10 @@ export function installMingpaiController(
   function applySameZoneShow(event: MoveCardEvent): boolean {
     const cardIds = event.cardIds.filter((cardId) => cardId > 0);
     if (event.fromZone === HAND_ZONE) {
+      // MoveType 24：整手展示，未展示的已知牌不再在该手牌里。
+      const wholeHand = event.moveType === WHOLE_HAND_SHOW_MOVE_TYPE && cardIds.length === event.cardCount;
       applyCardReveals([{
-        zone: 'hand', ownerId: event.fromId, cardIds, position: 'unspecified', partial: true
+        zone: 'hand', ownerId: event.fromId, cardIds, position: 'unspecified', partial: !wholeHand
       }], engine, seatStateStore, `same-zone-show:${event.spellId}`);
       return true;
     }
@@ -191,13 +214,18 @@ export function installMingpaiController(
   function handleCardsMoved(rawEvent: MoveCardEvent): void {
     // 明牌专用纠偏：半透明卡号清空 + 牌堆顶/底纠偏。只影响明牌，不改总线原事件。
     if (isIgnoredMove(rawEvent)) return;
-    const event: MoveCardEvent = {
+    const normalizedEvent: MoveCardEvent = {
       ...rawEvent,
       cardIds: sanitizeMoveCardIds(rawEvent.cardCount, normalizeMoveCardIds(rawEvent)),
       fromPosition: remapDrawPileFromPosition(rawEvent),
       toPosition: remapDrawPileToPosition(rawEvent)
     };
-    if (isSameZoneShow(event) && applySameZoneShow(event)) return;
+    const specialCardIds = specialRecovery.recover(normalizedEvent);
+    const event: MoveCardEvent = specialCardIds ? { ...normalizedEvent, cardIds: specialCardIds } : normalizedEvent;
+    if (isSameZoneShow(event) && applySameZoneShow(event)) {
+      specialRecovery.record(event, event.cardIds);
+      return;
+    }
 
     movementSequence += 1;
     discardExpiredSpellCardClues();
@@ -205,7 +233,10 @@ export function installMingpaiController(
     if (pendingQiTransfer && movementSequence > pendingQiTransfer.expiresAfterMovement) {
       pendingQiTransfer = null;
     }
-    const temporaryZoneCardIds = recoverCardsFromTemporaryZone(event, temporaryCardZones);
+    const temporaryZoneCardIds = recoverCardsFromTemporaryZone(
+      takesFromTemporaryZoneBottom(event) ? { ...event, fromPosition: DRAW_PILE_BOTTOM_POSITION } : event,
+      temporaryCardZones
+    );
     const movementWithTemporaryCards = { ...event, cardIds: temporaryZoneCardIds };
     const preferredQiOwner = resolvePreferredQiOwner(event);
     const clueCardIds = recoverCardsFromSpellClue(movementWithTemporaryCards);
@@ -243,6 +274,7 @@ export function installMingpaiController(
     });
     trackTemporaryZoneMovement(event, recoveredCardIds, temporaryCardZones);
     engine.applyMovement(event, recoveredCardIds);
+    specialRecovery.record(event, recoveredCardIds);
 
     // 对照 nD.move：临时区进出刷新 unknown 投影
     const known = recoveredCardIds.filter((id) => id > 0);
@@ -402,13 +434,21 @@ export function installMingpaiController(
       unsubscribeSeatState();
       temporaryCardZones.clear();
       resetQiTransferState();
+      specialRecovery.clear();
     }
   };
+}
+
+/** 3208：暗牌从技能区（10）进手牌时拿的是最底下一张。 */
+function takesFromTemporaryZoneBottom(movement: TemporaryZoneMovement): boolean {
+  return movement.spellId === 3208 && movement.fromZone === 10 && movement.toZone === HAND_ZONE
+    && !movement.cardIds.some((cardId) => cardId > 0);
 }
 
 const QI_STATE_ID = 0xe92;
 const QI_TRANSFER_SPELL_IDS = new Set([0xe92, 0xe93]);
 const DRAW_PILE_BOTTOM_POSITION = 0;
+const WHOLE_HAND_SHOW_MOVE_TYPE = 24;
 
 interface TemporaryZoneMovement {
   cardCount: number;

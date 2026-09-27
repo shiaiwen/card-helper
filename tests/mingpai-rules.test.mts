@@ -16,6 +16,7 @@ import {
   sanitizeMoveCardIds
 } from '../src/features/mingpai/index.ts';
 import { translateGameMessages } from '../src/adapters/game-message-adapter.ts';
+import { createDrawPileOrder } from '../src/features/mingpai/draw-pile-order.ts';
 
 const ctx = (over: Partial<Parameters<typeof resolveOptTargetReveals>[0]>) => ({
   spellId: 0,
@@ -101,6 +102,22 @@ describe('MoveCard 纠偏', () => {
     };
     assert.equal(remapDrawPileFromPosition(move), DRAW_PILE_POSITION.TOP);
     assert.equal(remapDrawPileFromPosition({ ...move, spellId: 1 }), DRAW_PILE_POSITION.UNSPECIFIED);
+  });
+
+  it('3746 智绝翻牌堆顶当火攻纠成顶', () => {
+    const move = {
+      cardCount: 1, cardIds: [103], fromId: 0xff, fromZone: 1,
+      fromPosition: DRAW_PILE_POSITION.UNSPECIFIED,
+      toId: 0xff, toZone: 3, toPosition: DRAW_PILE_POSITION.TOP, moveType: 2, spellId: 3746
+    };
+    assert.equal(remapDrawPileFromPosition(move), DRAW_PILE_POSITION.TOP);
+  });
+
+  it('知天从可见牌中间换走一张后，后面的牌顺次补位', () => {
+    const order = createDrawPileOrder();
+    order.reveal(DRAW_PILE_POSITION.TOP, [36, 70, 22, 4, 18, 87, 14]);
+    order.remove(DRAW_PILE_POSITION.UNSPECIFIED, 1, [87]);
+    assert.deepEqual(order.getSnapshot().top, [36, 70, 22, 4, 18, 14]);
   });
 
   it('同区同主人且有卡号视为展示', () => {

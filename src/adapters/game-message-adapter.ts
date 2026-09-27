@@ -13,6 +13,8 @@ const TEMPORARY_CARD_REORDER_MESSAGE_NAME = 'CGsRoleSpellOptRep';
 const PLAYER_DIED_MESSAGE_NAME = 'SmsgGamePlayerDead';
 const SPELL_TARGET_MESSAGE_NAME = 'PubGsCUseSpell';
 const ROLE_DATA_MESSAGE_NAME = 'GsCUpdateRoleDataExNtf';
+const TRIGGER_SPELL_MESSAGE_NAME = 'GsCTriggerSpellNew';
+const CARD_LIST_MESSAGE_NAME = 'MsgGamePlayCardNtf';
 /** 结算界面和同房间再开一局都不切换场景，本局数据必须按协议结束清空。 */
 const GAME_OVER_MESSAGE_NAME = 'MsgGameOver';
 const SHA_COUNT_DATA_ID = 1;
@@ -46,7 +48,19 @@ export function translateGameMessages(rawArguments: unknown[]): GameEvent[] {
   }
   if (className === TEMPORARY_CARD_REORDER_MESSAGE_NAME) return translateSpellOptRep(payload);
   if (className === ROLE_DATA_MESSAGE_NAME) {
-    const event = translateShaCount(payload);
+    return [translateShaCount(payload), translateSpellData(payload)]
+      .filter((item): item is GameEvent => item !== null);
+  }
+  if (className === CARD_LIST_MESSAGE_NAME) {
+    const proto = asRecord(payload.ProtoObj);
+    const list = payload.CardList ?? payload.cardList ?? proto?.CardList ?? proto?.cardList;
+    const cardIds = isArrayLike(list)
+      ? Array.from(list, Number).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
+    return cardIds.length ? [{ type: 'card-list-ready', cardIds }] : [];
+  }
+  if (className === TRIGGER_SPELL_MESSAGE_NAME) {
+    const event = translateTriggerSpell(payload);
     return event ? [event] : [];
   }
   const event = translateSingleMessage(payload, className);
@@ -77,6 +91,28 @@ function translateShaCount(payload: UnknownRecord): GameEvent | null {
   const limit = Number(datas[2]);
   if (seatId === null || !Number.isFinite(limit)) return null;
   return { type: 'sha-count-updated', seatId, used: Number.isFinite(used) ? used : 0, limit };
+}
+
+function translateSpellData(payload: UnknownRecord): GameEvent | null {
+  if (payload.IsSpell !== true && payload.isSpell !== true) return null;
+  const dataId = readNonNegativeInteger(payload, ['DataID', 'DataId', 'dataID', 'dataId']);
+  const datas = payload.Datas ?? payload.datas;
+  const seatId = readSeatId(payload, SEAT_ID_KEYS);
+  if (dataId === null || seatId === null || !Array.isArray(datas)) return null;
+  return { type: 'spell-data-updated', seatId, dataId, datas: datas.map(Number) };
+}
+
+function translateTriggerSpell(payload: UnknownRecord): GameEvent | null {
+  const seatId = readSeatId(payload, ['TriggerSeatId', 'TriggerSeatID', 'triggerSeatId', 'triggerSeatID']);
+  const data = payload.TriggerSpellData ?? payload.triggerSpellData;
+  if (seatId === null || !Array.isArray(data)) return null;
+  const spellIds = data
+    .map((item) => {
+      const record = item && typeof item === 'object' ? item as UnknownRecord : null;
+      return readNonNegativeInteger(record ?? {}, ['SpellId', 'SpellID', 'spellId', 'spellID']);
+    })
+    .filter((spellId): spellId is number => spellId !== null && spellId > 0);
+  return spellIds.length ? { type: 'spell-triggered', seatId, spellIds } : null;
 }
 
 function translateSingleMessage(payload: UnknownRecord, className: string): GameEvent | null {
@@ -137,7 +173,8 @@ function translateSingleMessage(payload: UnknownRecord, className: string): Game
         seatId,
         spellId,
         targetSeatIds,
-        cardIds
+        cardIds,
+        effectIndex: readNonNegativeInteger(payload, ['EffectIndex', 'effectIndex'])
       };
     }
   }
@@ -156,7 +193,8 @@ function translateSingleMessage(payload: UnknownRecord, className: string): Game
     cardIds,
     source: className === 'PubGsCUseSpell' ? 'use-spell' : 'use-card',
     useType: readNonNegativeInteger(payload, ['UseType', 'useType']),
-    isSend: payload.isSend === true
+    isSend: payload.isSend === true,
+    fromZone: readNonNegativeInteger(payload, ['fromZone', 'FromZone'])
   };
 }
 
@@ -185,7 +223,8 @@ function translateCardMovement(payload: UnknownRecord): GameEvent | null {
     toPosition: readNonNegativeInteger(payload, ['ToPosition', 'toPosition']) ?? 0,
     toZoneParam: readNonNegativeInteger(payload, ['ToZoneParam', 'toZoneParam']) ?? 0,
     moveType,
-    spellId: readNonNegativeInteger(payload, ['SpellID', 'SpellId', 'spellID', 'spellId']) ?? 0
+    spellId: readNonNegativeInteger(payload, ['SpellID', 'SpellId', 'spellID', 'spellId']) ?? 0,
+    srcSeatId: readSeatId(payload, SRC_SEAT_ID_KEYS)
   };
 }
 
@@ -207,7 +246,8 @@ function translateOptTarget(payload: UnknownRecord): GameEvent | null {
     spellId,
     param: readNonNegativeInteger(payload, ['Param', 'param']) ?? 0,
     params: readRawNumberArray(payload, ['Params', 'params']),
-    cardIds: readRawNumberArray(payload, ['CardIDs', 'CardIds', 'cardIDs', 'cardIds'])
+    cardIds: readRawNumberArray(payload, ['CardIDs', 'CardIds', 'cardIDs', 'cardIds']),
+    optType: readNonNegativeInteger(payload, ['Type', 'type'])
   };
 }
 
@@ -375,4 +415,10 @@ function nonNegativeInteger(value: unknown): number | null {
 
 function asRecord(value: unknown): UnknownRecord | null {
   return value !== null && typeof value === 'object' ? value as UnknownRecord : null;
+}
+
+/** 协议里的 repeated 字段可能是普通数组，也可能是类型化数组。 */
+function isArrayLike(value: unknown): value is ArrayLike<unknown> {
+  return Array.isArray(value) || ArrayBuffer.isView(value)
+    || (asRecord(value) !== null && Number.isInteger((value as { length?: unknown }).length));
 }

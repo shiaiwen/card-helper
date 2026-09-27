@@ -32,6 +32,8 @@ export interface MingpaiEngineSnapshot {
     location: KnownCardLocation | null;
     zoneId: string | null;
   }>[];
+  /** 牌堆有序已知牌：top[0] 下一张被摸到，bottom 最后一张最底部；0 表示该位置不可见。 */
+  drawPile: Readonly<{ top: readonly number[]; bottom: readonly number[] }>;
 }
 
 export interface MingpaiEngine {
@@ -107,9 +109,11 @@ export function createMingpaiEngine(
       location: record.location,
       zoneId: record.location ? formatZoneId(record.location.seatId, record.location.zone) : null
     }));
+    const order = drawPileOrder.getSnapshot();
     return Object.freeze({
       zones: Object.freeze(zones),
-      records: Object.freeze(records)
+      records: Object.freeze(records),
+      drawPile: Object.freeze({ top: Object.freeze([...order.top]), bottom: Object.freeze([...order.bottom]) })
     });
   }
 

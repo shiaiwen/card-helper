@@ -1,4 +1,5 @@
 import { ALL_BLOCK_SETTINGS } from '../../features/block-effects/block-effect-settings.ts';
+import { LEGACY_SKIN_BACKGROUND_INPUT_IDS } from '../../features/skin-background/skin-background-settings.ts';
 
 export const LEGACY_TAB_CONTENT_READY_EVENT = 'xiaochao:legacy-tab-content-ready';
 const FULLY_MIGRATED_DISPLAY_SWITCH_IDS = [
@@ -31,6 +32,7 @@ export function prepareLegacyTabPanes(contentElement: HTMLElement): void {
   const legacyContent = contentElement.querySelector<HTMLElement>('#content');
   if (!legacyContent) return;
   removeMigratedBlockSettings(legacyContent);
+  removeMigratedSkinBackgroundSettings(legacyContent);
   removeUnsupportedCardCustomization(legacyContent);
 
   // 热更新或异常中断后可能残留旧控制器创建的横向栏，Vue 是唯一标签栏所有者。
@@ -103,6 +105,18 @@ function removeMigratedBlockSettings(legacyContent: HTMLElement): void {
   legacyContent.querySelector('#blockEffectDialog')?.remove();
 }
 
+/** 皮肤与背景已由 Vue 接管；与屏蔽设置相同，先关闭旧开关再删除入口和弹窗。 */
+function removeMigratedSkinBackgroundSettings(legacyContent: HTMLElement): void {
+  for (const inputId of LEGACY_SKIN_BACKGROUND_INPUT_IDS) {
+    const input = legacyContent.querySelector<HTMLInputElement>(`#${inputId}`);
+    if (!input) continue;
+    input.checked = false;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  legacyContent.querySelector('#openWallpaperDialogBtn')?.remove();
+  legacyContent.querySelector('#wallpaperDialog')?.remove();
+}
+
 /**
  * 新工程不提供喵喵卡面、黄金/自定义卡背。先关闭可能由旧配置恢复的效果，
  * 再删除入口和弹窗；保留正常卡牌渲染使用的官方资源不受影响。
@@ -117,7 +131,11 @@ function removeUnsupportedCardCustomization(legacyContent: HTMLElement): void {
   legacyContent.querySelector('#openCardThemeDialogBtn')?.remove();
   legacyContent.querySelector('#cardThemeDialog')?.remove();
   const interfaceRow = legacyContent.querySelector<HTMLElement>('.interface-dialog-row');
-  if (interfaceRow && !interfaceRow.querySelector('.interface-dialog-btn')) interfaceRow.remove();
+  if (!interfaceRow || interfaceRow.querySelector('.interface-dialog-btn')) return;
+  // 三个入口都已迁到 Vue，只剩空标题的“界面显示”分组一并删除。
+  const section = interfaceRow.closest<HTMLElement>('.xc-section');
+  interfaceRow.remove();
+  if (section && !section.querySelector('.xc-section-body > *')) section.remove();
 }
 
 /** 卡牌页由 Vue 独立渲染；legacy 卡牌页整体隐藏，只为让 legacy 自身初始化不崩溃。 */

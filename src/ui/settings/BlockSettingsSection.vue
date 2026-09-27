@@ -36,11 +36,7 @@ function updateSetting(key, event) {
 </script>
 
 <template>
-  <section class="xiaochao-settings-section" aria-labelledby="block-settings-title">
-    <header class="xiaochao-settings-section__header">
-      <h4 id="block-settings-title" class="xiaochao-settings-section__title">屏蔽</h4>
-      <span class="xiaochao-settings-section__summary">弹窗与特效</span>
-    </header>
+  <section class="xiaochao-settings-section" aria-label="屏蔽设置">
     <div class="xiaochao-settings-section__body">
       <button
         type="button"

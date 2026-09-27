@@ -26,16 +26,24 @@ import { installCardConfigSource } from '../adapters/card-config-source';
 import { installNativeRecentCardController } from '../features/recent-cards/native-recent-card-controller';
 import { createMingpaiEngine, installMingpaiController } from '../features/mingpai';
 import { installLegacyOverlaySuppressor } from '../features/legacy/legacy-overlay-suppressor';
+import { disableLegacySkinSwitches } from '../features/legacy/legacy-skin-switch-disabler';
 import { installNativeMingpaiPreviewController } from '../features/mingpai/native-mingpai-preview-controller';
 import { createSkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import { installSkillAssistController } from '../features/skill-assist/skill-assist-controller';
 import { registerSpellNameLookup } from '../features/skill-assist/skill-visibility';
 import { installBlockEffectsController } from '../features/block-effects/block-effects-controller';
+import {
+  installOfficialBackgroundController,
+  type OfficialBackgroundController
+} from '../features/skin-background/official-background-controller';
+import { installSkinChangeController } from '../features/skin-background/skin-change-controller';
+import { installSkinPaperController } from '../features/skin-background/skin-paper-controller';
 
 /** Electron 和油猴共用的启动边界；平台差异只能通过 adapter 注入。 */
 export function bootstrapXiaochao(platform: PlatformAdapter): void {
   const lifecycle = createLifecycle();
   const configStore = createConfigStore(createPlatformConfigStorage(platform));
+  disableLegacySkinSwitches(window);
   const seatStateStore = createSeatStateStore();
   const gameEvents = createGameEventBus();
   const recentCardStore = createRecentCardStore(
@@ -47,11 +55,18 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     () => locateGameScene(window),
     (cardId) => cardConfigSource.getCard(cardId)
   );
-  const deckRecordStore = createDeckRecordStore(gameEvents);
-  const deckRecordInteraction = createDeckRecordInteraction();
   const mingpaiEngine = createMingpaiEngine();
+  const deckRecordStore = createDeckRecordStore(gameEvents, undefined, {
+    getDrawPile: () => mingpaiEngine.getSnapshot().drawPile,
+    subscribe: (listener) => mingpaiEngine.subscribe(listener)
+  });
+  const deckRecordInteraction = createDeckRecordInteraction();
   const mingpaiRuntime = installMingpaiController(seatStateStore, gameEvents, {
-    engine: mingpaiEngine
+    engine: mingpaiEngine,
+    isRedCard: (cardId) => {
+      const card = gameCardCatalog.resolve(cardId);
+      return card?.suit ? card.isRed : null;
+    }
   });
   registerSpellNameLookup((name) => cardConfigSource.findSpellIdsByName(name));
   const skillAssistStore = createSkillAssistStore(
@@ -84,8 +99,29 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(installCardLabelController(configStore));
   const blockEffects = installBlockEffectsController(configStore);
   lifecycle.register(blockEffects.dispose);
+  const skinChange = installSkinChangeController(configStore);
+  lifecycle.register(skinChange.dispose);
+  let officialBackground: OfficialBackgroundController | undefined;
+  const skinPaper = installSkinPaperController(configStore, {
+    selfSeatId: () => seatStateStore.getSnapshot().selfSeatId,
+    syncWallpaperMenu: () => officialBackground?.sync()
+  });
+  lifecycle.register(skinPaper.dispose);
+  officialBackground = installOfficialBackgroundController(configStore, {
+    menuExtension: skinPaper.menuExtension
+  });
+  lifecycle.register(officialBackground.dispose);
+  const messageFilters = [blockEffects.filterMessage, skinChange.filterMessage, skinPaper.filterMessage];
   lifecycle.register(installMicroClientMessageSource(gameEvents, window, {
-    mutateMessage: blockEffects.filterMessage
+    mutateMessage: (payload, className) => {
+      for (const filter of messageFilters) {
+        try {
+          filter(payload, className);
+        } catch (error) {
+          console.warn('[xiaochao] 协议改写失败', className, error);
+        }
+      }
+    }
   }));
   lifecycle.register(installNativeRecentCardController(configStore, recentCardStore));
   lifecycle.register(installNativeDeckRecordController(

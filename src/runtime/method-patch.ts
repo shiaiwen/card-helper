@@ -93,9 +93,20 @@ export function createMethodPatcher(): MethodPatcher {
       const originalGet = descriptor?.get;
       if (!descriptor || typeof originalGet !== 'function') return false;
       if (!claim(target, name)) return false;
-      const active = createGetter(() => originalGet.call(target));
+      // 原型上的 getter 由实例触发，originalGet 需以当次访问的实例为 this。
+      let receiver: unknown = target;
+      const active = createGetter(() => originalGet.call(receiver));
       let restored = false;
-      const getter = () => (restored ? originalGet.call(target) : active());
+      const getter = function (this: unknown) {
+        if (restored) return originalGet.call(this);
+        const previous = receiver;
+        receiver = this;
+        try {
+          return active();
+        } finally {
+          receiver = previous;
+        }
+      };
       try {
         Object.defineProperty(target, name, { ...descriptor, get: getter, configurable: true });
       } catch {

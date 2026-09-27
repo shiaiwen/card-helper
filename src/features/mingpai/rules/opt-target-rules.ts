@@ -54,7 +54,7 @@ function register(spellIds: readonly number[], rule: OptTargetRule): void {
 }
 
 /** 攻心 / 内训等：整段 Params → 目标完整手牌。 */
-register([4, 5, 921, 372, 811, 357, 3119, 501, 3437], wholeTargetHand());
+register([4, 5, 921, 372, 811, 357, 3119, 501, 3437, 4025], wholeTargetHand());
 /** 同上，但仅 Param=0 时是看牌。 */
 register([851, 361, 774, 3310, 3876], whenParam(0, wholeTargetHand()));
 

@@ -45,7 +45,28 @@ app.on('web-contents-created', (_, contents) => {
         if (lines.length) fs.appendFileSync(tracePath, lines.join('\n') + '\n');
       } catch {}
     }, 2000);
-    contents.once('destroyed',()=>{ clearInterval(monitor); clearInterval(traceMonitor); });
+    const skinTracePath = path.join(data, 'skin-trace.log');
+    const skinTraceMonitor = setInterval(async () => {
+      if (contents.isDestroyed()) { clearInterval(skinTraceMonitor); return; }
+      try {
+        const entries = await contents.executeJavaScript(`(window.__XIAOCHAO_SKIN_TRACE__||[]).splice(0)`);
+        if (entries.length) fs.appendFileSync(skinTracePath, entries.map((entry) => JSON.stringify({ t: new Date(entry.time).toISOString().slice(11, 23), kind: entry.kind, ...entry.detail })).join('\n') + '\n');
+      } catch {}
+    }, 2000);
+    // 修改 .dev-data/probe.js 即在游戏页执行一次，结果写入 probe-result.json 与 probe.png。
+    const probePath = path.join(data, 'probe.js');
+    let lastProbe = '';
+    const probeMonitor = setInterval(async () => {
+      if (contents.isDestroyed() || !fs.existsSync(probePath)) return;
+      const source = fs.readFileSync(probePath, 'utf8');
+      if (!source.trim() || source === lastProbe) return;
+      lastProbe = source;
+      let result;
+      try { result = await contents.executeJavaScript(source); } catch (error) { result = { probeError: String(error?.stack || error) }; }
+      try { fs.writeFileSync(path.join(data, 'probe-result.json'), JSON.stringify(result, null, 2)); } catch (error) { fs.writeFileSync(path.join(data, 'probe-result.json'), JSON.stringify({ serializeError: String(error) })); }
+      try { fs.writeFileSync(path.join(data, 'probe.png'), (await contents.capturePage()).toPNG()); } catch {}
+    }, 1000);
+    contents.once('destroyed',()=>{ clearInterval(monitor); clearInterval(traceMonitor); clearInterval(skinTraceMonitor); clearInterval(probeMonitor); });
   }
   contents.on('console-message', details => {
     if (details.level === 'error' || details.level === 3) log('renderer-error', {message: details.message, source: details.sourceId, line: details.lineNumber});

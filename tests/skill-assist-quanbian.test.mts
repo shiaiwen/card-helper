@@ -138,11 +138,11 @@ describe('mingpai engine', () => {
 });
 
 describe('skill-assist', () => {
-  it('quanbian suits and reads unknown zone from mingpai', () => {
+  it('渐营记录花色点数序列，权变面板读取明牌 unknown 分区', () => {
     const catalog = createFakeCatalog();
     const engine = createMingpaiEngine(null);
     const store = createSkillAssistStore(engine, catalog);
-    const scene = createSeatScene({ 1: [0x1eb] });
+    const scene = createSeatScene({ 1: [491, 7011] });
     store.handleGameEvent({ type: 'game-started' }, scene);
     store.refreshVisibility(scene);
     store.handleGameEvent({ type: 'turn-started', seatId: 1, turnCount: 1, round: 0 }, scene);
@@ -155,7 +155,7 @@ describe('skill-assist', () => {
       isSend: false
     }, scene);
     assert.deepEqual(
-      store.getSnapshot().panels.find((p) => p.id === 'quanbian')?.suitTokens,
+      store.getSnapshot().panels.find((p) => p.id === 'jianying')?.suitTokens,
       [cardIdToSuitToken(1, catalog)]
     );
     engine.projectSkillCards(MINGPAI_ZONE.UNKNOWN, [9]);

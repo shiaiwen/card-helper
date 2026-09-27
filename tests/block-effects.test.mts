@@ -36,6 +36,8 @@ function fakeLocator(overrides: Partial<LayaObjectLocator>): LayaObjectLocator {
     findInLayer: () => [],
     managerFromList: () => null,
     obfuscatedMethodName: () => null,
+    createInstance: () => null,
+    layer: () => null,
     ...overrides
   };
 }

@@ -105,6 +105,105 @@ export function solveYanjiao(ranks: readonly number[]): YanjiaoSplit[] {
   return results;
 }
 
+export interface ChengxiangCombo {
+  ranks: number[];
+  /** 界称象点数和恰为 13（可重置武将牌）。 */
+  exact: boolean;
+}
+
+/**
+ * 称象：点数和不超过 13 的极大组合（不被更长组合包含）。
+ * 界称象下和为 13 的优先，其余按张数降序。
+ */
+export function solveChengxiang(ranks: readonly number[], isJie: boolean): ChengxiangCombo[] {
+  const sorted = validRanks(ranks).sort((left, right) => left - right);
+  if (!sorted.length) return [];
+  const combos: { ranks: number[]; k: number }[] = [];
+  const walk = (picked: number[], start: number, sum: number) => {
+    if (sum > ZIYUAN_TARGET) return;
+    combos.unshift({ ranks: [...picked], k: isJie && sum === ZIYUAN_TARGET ? picked.length : 0 });
+    for (let index = start; index < sorted.length; index += 1) {
+      if (index > start && sorted[index] === sorted[index - 1]) continue;
+      picked.push(sorted[index]);
+      walk(picked, index + 1, sum + sorted[index]);
+      picked.pop();
+    }
+  };
+  walk([], 0, 0);
+  return combos
+    .filter((combo) => !combos.some((other) =>
+      combo.ranks.length < other.ranks.length && combo.ranks.every((rank) => other.ranks.includes(rank))))
+    .sort((left, right) => right.k - left.k || right.ranks.length - left.ranks.length)
+    .map((combo) => ({ ranks: combo.ranks, exact: combo.k > 0 }));
+}
+
+/**
+ * 易城：手牌换亮出牌的可行方案，格式「手牌点数→亮出点数」。
+ * 多张交换要求手牌和更大、两侧点数不重复；任一侧超过 2 张时至少一位手牌更小。
+ */
+export function solveYicheng(shownRanks: readonly number[], handRanks: readonly number[]): string[] {
+  const shown = validRanks(shownRanks).sort((left, right) => left - right);
+  const hand = validRanks(handRanks).sort((left, right) => left - right);
+  if (!shown.length || !hand.length) return [];
+  const maxSize = Math.max(shown.length, hand.length);
+  const results: string[] = [];
+  for (let size = 2; size <= maxSize; size += 1) {
+    const shownCombos = sizedCombos(shown, size);
+    for (const handCombo of sizedCombos(hand, size)) {
+      for (const shownCombo of shownCombos) {
+        if (sum(handCombo) <= sum(shownCombo)) continue;
+        if (handCombo.some((rank) => shownCombo.includes(rank))) continue;
+        if (maxSize >= 3 && !handCombo.some((rank, index) => rank < shownCombo[index])) continue;
+        results.push(`${handCombo.map(formatRank).join(',')}→${shownCombo.map(formatRank).join(',')}`);
+      }
+    }
+  }
+  const uniqueShown = [...new Set(shown)];
+  for (const rank of new Set(hand)) {
+    const smaller = uniqueShown.filter((shownRank) => shownRank < rank);
+    if (smaller.length) results.push(`${formatRank(rank)}→${smaller.map(formatRank).join('/')}`);
+  }
+  return results;
+}
+
+export interface RankComparison {
+  greater: number;
+  less: number;
+  equal: number;
+}
+
+export function compareRanks(ranks: readonly number[], pivot: number): RankComparison {
+  return validRanks(ranks).reduce((result, rank) => {
+    if (rank > pivot) result.greater += 1;
+    else if (rank < pivot) result.less += 1;
+    else result.equal += 1;
+    return result;
+  }, { greater: 0, less: 0, equal: 0 });
+}
+
+/** 按点数升序、去重的定长组合。 */
+function sizedCombos(sorted: readonly number[], size: number): number[][] {
+  const results: number[][] = [];
+  const walk = (picked: number[], start: number) => {
+    if (picked.length === size) {
+      results.push([...picked]);
+      return;
+    }
+    for (let index = start; index < sorted.length; index += 1) {
+      if (index > start && sorted[index] === sorted[index - 1]) continue;
+      picked.push(sorted[index]);
+      walk(picked, index + 1);
+      picked.pop();
+    }
+  };
+  walk([], 0);
+  return results;
+}
+
+function sum(ranks: readonly number[]): number {
+  return ranks.reduce((total, rank) => total + rank, 0);
+}
+
 function validRanks(ranks: readonly number[]): number[] {
   return ranks.filter((rank) => Number.isInteger(rank) && rank >= 1 && rank <= MAX_RANK);
 }
