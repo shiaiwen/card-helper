@@ -25,7 +25,7 @@ import { installCardLabelController } from '../features/cards/card-label-control
 import { installCardConfigSource } from '../adapters/card-config-source';
 import { installNativeRecentCardController } from '../features/recent-cards/native-recent-card-controller';
 import { createMingpaiEngine, installMingpaiController } from '../features/mingpai';
-import { installLegacyMingpaiSuppressor } from '../features/mingpai/legacy-mingpai-suppressor';
+import { installLegacyOverlaySuppressor } from '../features/legacy/legacy-overlay-suppressor';
 import { installNativeMingpaiPreviewController } from '../features/mingpai/native-mingpai-preview-controller';
 import { createSkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import { installSkillAssistController } from '../features/skill-assist/skill-assist-controller';
@@ -77,7 +77,7 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(installSeatStateController(seatStateStore));
   lifecycle.register(installGameLifecycleEvents(seatStateStore, gameEvents));
   lifecycle.register(mingpaiRuntime.dispose);
-  lifecycle.register(installLegacyMingpaiSuppressor(window));
+  lifecycle.register(installLegacyOverlaySuppressor(window));
   lifecycle.register(installNativeMingpaiPreviewController(configStore, seatStateStore, gameCardCatalog));
   lifecycle.register(installCountdownSecondsController(configStore));
   lifecycle.register(installCardLabelController(configStore));

@@ -105,7 +105,6 @@ export function installNativeDeckRecordController(
   let popupCards: OfficialCardView[] = [];
   let popupSignature = '';
   let hideTimer = 0;
-  let destroyedLegacyOverlay = false;
 
   const clearHideTimer = () => {
     if (!hideTimer) return;
@@ -215,14 +214,10 @@ export function installNativeDeckRecordController(
 
   const sync = () => {
     if (stopped) return;
-    if (!destroyedLegacyOverlay) {
-      destroyLegacyDeckOverlay();
-      destroyedLegacyOverlay = true;
-    }
     const nextScene = asRecord(locateGameScene(window));
     const roundInfo = asRecord(nextScene?.gameRoundInfo);
     const nextParent = asRecord(roundInfo?._parent) ?? roundInfo ?? nextScene;
-    const enabled = configStore.get('display.deckRecordEnabled');
+    const enabled = configStore.get('display.deckHudEnabled');
     if (!enabled || !nextScene || !roundInfo || !nextParent || nextScene.destroyed || roundInfo.destroyed) {
       destroyOverlay();
       return;
@@ -272,7 +267,7 @@ export function installNativeDeckRecordController(
   };
 
   const stopStore = deckRecordStore.subscribe(sync);
-  const stopConfigEnabled = configStore.subscribe('display.deckRecordEnabled', sync);
+  const stopConfigEnabled = configStore.subscribe('display.deckHudEnabled', sync);
   const stopConfigSort = configStore.subscribe('display.discardSortMode', sync);
   const stopInteraction = interaction.subscribe((snapshot) => {
     if (snapshot.activeList) clearHideTimer();
@@ -565,39 +560,6 @@ function toGlobalPoint(node: UnknownRecord | null, x: number, y: number): { x: n
   } catch {
     return null;
   }
-}
-
-function destroyLegacyDeckOverlay(): void {
-  const stage = asRecord(asRecord(globalThis as UnknownRecord)?.Laya)?.stage;
-  if (!stage) return;
-  for (const name of ['xcNativeGameCardOverlay', 'xcNativeGameCardList']) {
-    const node = asRecord(call(stage, 'getChildByName', name))
-      ?? findNamedChild(stage, name, 6);
-    if (!node) continue;
-    try {
-      call(node, 'removeSelf');
-      call(node, 'destroy', true);
-    } catch {
-      // 忽略已销毁节点。
-    }
-  }
-}
-
-function findNamedChild(root: UnknownRecord, name: string, depth: number): UnknownRecord | null {
-  if (depth < 0) return null;
-  const children = readArray(root, '_children');
-  for (const child of children) {
-    const node = asRecord(child);
-    if (!node) continue;
-    if (node.name === name) return node;
-    const nested = findNamedChild(node, name, depth - 1);
-    if (nested) return nested;
-  }
-  return null;
-}
-
-function readArray(record: UnknownRecord | null, key: string): unknown[] {
-  return Array.isArray(record?.[key]) ? record[key] as unknown[] : [];
 }
 
 function call(target: UnknownRecord | null | undefined, methodName: string, ...args: unknown[]): unknown {

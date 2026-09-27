@@ -17,7 +17,11 @@ interface Rect { x: number; y: number; width: number; height: number }
 const TILE_WIDTH = 41;
 const TILE_HEIGHT = 50;
 const TILE_GAP = 4;
+const ROW_GAP = 4;
 const MAX_VISIBLE_TILES = 5;
+const POSSIBLE_ALPHA = 0.72;
+const POSSIBLE_MARK_COLOR = '#D90000';
+const POPUP_SECTION_GAP = 10;
 const STRIP_SCALE = 2 / 3;
 const VIEWPORT_MARGIN = 12;
 const STRIP_OFFSET_X = 2;
@@ -37,6 +41,7 @@ interface SeatStrip {
   hit: UnknownRecord;
   signature: string;
   cardIds: number[];
+  possibleIds: number[];
   anchor: Rect | null;
   nativeSprite: UnknownRecord | null;
 }
@@ -138,7 +143,9 @@ export function installNativeMingpaiPreviewController(
     hit.zOrder = 1000;
     call(strip, 'addChild', hit);
     call(host, 'addChild', strip);
-    const entry: SeatStrip = { seatId, strip, hit, signature: '', cardIds: [], anchor: null, nativeSprite: null };
+    const entry: SeatStrip = {
+      seatId, strip, hit, signature: '', cardIds: [], possibleIds: [], anchor: null, nativeSprite: null
+    };
     const Event = readLayaEvent();
     call(hit, 'on', Event?.ROLL_OVER ?? 'mouseover', entry, () => {
       if (pinnedSeatId !== null && pinnedSeatId !== seatId) return;
@@ -157,52 +164,61 @@ export function installNativeMingpaiPreviewController(
     return entry;
   }
 
-  function renderStrip(entry: SeatStrip, cardIds: number[], anchor: Rect): void {
-    const signature = cardIds.join(',');
+  function renderStrip(entry: SeatStrip, cardIds: number[], possibleIds: number[], anchor: Rect): void {
+    const rows = [
+      { cardIds, possible: false },
+      { cardIds: possibleIds, possible: true }
+    ].filter((row) => row.cardIds.length);
+    const signature = `${cardIds.join(',')}|${possibleIds.join(',')}`;
     if (entry.signature !== signature) {
       readChildren(entry.strip)
         .filter((child) => child !== entry.hit)
         .forEach(destroyNode);
-      const truncated = cardIds.length > MAX_VISIBLE_TILES;
-      const visible = truncated ? cardIds.slice(0, MAX_VISIBLE_TILES - 1) : cardIds;
-      visible.forEach((cardId, index) => {
-        const tile = createTile(cardId);
-        if (!tile) return;
-        call(tile, 'pos', (TILE_WIDTH + TILE_GAP) * index, 0);
-        tile.zOrder = index + 2;
-        call(entry.strip, 'addChild', tile);
-      });
-      if (truncated) {
-        const ellipsis = createEllipsisTile();
-        if (ellipsis) {
-          call(ellipsis, 'pos', (TILE_WIDTH + TILE_GAP) * visible.length, 0);
-          ellipsis.zOrder = visible.length + 2;
-          call(entry.strip, 'addChild', ellipsis);
+      rows.forEach((row, rowIndex) => {
+        const y = rowIndex * (TILE_HEIGHT + ROW_GAP);
+        const truncated = row.cardIds.length > MAX_VISIBLE_TILES;
+        const visible = truncated ? row.cardIds.slice(0, MAX_VISIBLE_TILES - 1) : row.cardIds;
+        visible.forEach((cardId, index) => {
+          const tile = createTile(cardId, row.possible);
+          if (!tile) return;
+          call(tile, 'pos', (TILE_WIDTH + TILE_GAP) * index, y);
+          tile.zOrder = index + 2;
+          call(entry.strip, 'addChild', tile);
+        });
+        if (truncated) {
+          const ellipsis = createEllipsisTile();
+          if (ellipsis) {
+            call(ellipsis, 'pos', (TILE_WIDTH + TILE_GAP) * visible.length, y);
+            ellipsis.zOrder = visible.length + 2;
+            call(entry.strip, 'addChild', ellipsis);
+          }
         }
-      }
+      });
       call(entry.strip, 'sortChildren');
       entry.signature = signature;
     }
     entry.cardIds = cardIds;
+    entry.possibleIds = possibleIds;
     entry.anchor = anchor;
-    const tileCount = Math.min(cardIds.length, MAX_VISIBLE_TILES);
+    const tileCount = Math.max(0, ...rows.map((row) => Math.min(row.cardIds.length, MAX_VISIBLE_TILES)));
     const width = tileCount * TILE_WIDTH + Math.max(0, tileCount - 1) * TILE_GAP;
+    const height = rows.length * TILE_HEIGHT + Math.max(0, rows.length - 1) * ROW_GAP;
     const viewport = readViewport(root);
     const scaledWidth = width * STRIP_SCALE;
-    const scaledHeight = TILE_HEIGHT * STRIP_SCALE;
+    const scaledHeight = height * STRIP_SCALE;
     const x = clamp(anchor.x - STRIP_OFFSET_X, viewport.x + VIEWPORT_MARGIN, viewport.x + viewport.width - scaledWidth - VIEWPORT_MARGIN);
     const y = clamp(anchor.y + anchor.height + STRIP_OFFSET_Y, viewport.y + VIEWPORT_MARGIN, viewport.y + viewport.height - scaledHeight - VIEWPORT_MARGIN);
-    call(entry.strip, 'size', width, TILE_HEIGHT);
+    call(entry.strip, 'size', width, height);
     call(entry.strip, 'scale', STRIP_SCALE, STRIP_SCALE);
     entry.strip.scaleX = STRIP_SCALE;
     entry.strip.scaleY = STRIP_SCALE;
     call(entry.strip, 'pos', x, y);
-    call(entry.hit, 'size', width, TILE_HEIGHT);
+    call(entry.hit, 'size', width, height);
     call(entry.hit, 'pos', 0, 0);
-    entry.strip.visible = cardIds.length > 0;
+    entry.strip.visible = rows.length > 0;
   }
 
-  function createTile(cardId: number): UnknownRecord | null {
+  function createTile(cardId: number, possible = false): UnknownRecord | null {
     const card = gameCardCatalog.resolve(cardId);
     const tile = createSprite(`xcVueMingpaiPreviewTag-${cardId}`);
     if (!tile) return null;
@@ -242,6 +258,18 @@ export function installNativeMingpaiPreviewController(
       call(shortName, 'pos', 0, headHeight - 1);
       call(tile, 'addChild', shortName);
     }
+    if (possible) {
+      const markWidth = Math.max(9, Math.round(TILE_WIDTH * 0.27));
+      const markHeight = Math.max(14, Math.round(TILE_HEIGHT * 0.34));
+      const mark = createText('?', Math.max(13, Math.round(TILE_HEIGHT * 0.28)), POSSIBLE_MARK_COLOR, 'center', true);
+      if (mark) {
+        mark.name = 'xcVueMingpaiPossibleMark';
+        call(mark, 'size', markWidth, markHeight);
+        call(mark, 'pos', TILE_WIDTH - markWidth, TILE_HEIGHT - markHeight);
+        call(tile, 'addChild', mark);
+      }
+      tile.alpha = POSSIBLE_ALPHA;
+    }
     return tile;
   }
 
@@ -262,7 +290,7 @@ export function installNativeMingpaiPreviewController(
   }
 
   function showPopup(entry: SeatStrip): void {
-    if (!root || !entry.anchor || !entry.cardIds.length) {
+    if (!root || !entry.anchor || (!entry.cardIds.length && !entry.possibleIds.length)) {
       destroyPopup();
       return;
     }
@@ -273,14 +301,22 @@ export function installNativeMingpaiPreviewController(
       : entry.anchor.x - viewport.x - VIEWPORT_MARGIN - POPUP_OFFSET;
     const cardWidth = Math.round(OFFICIAL_CARD_BASE_WIDTH * POPUP_CARD_SCALE);
     const cardHeight = Math.round(OFFICIAL_CARD_BASE_HEIGHT * POPUP_CARD_SCALE);
-    const count = entry.cardIds.length;
     const available = Math.max(cardWidth + POPUP_PADDING * 2, maxWidth || 1600);
-    const gap = count > 1
-      ? Math.max(5, Math.min(cardWidth + 8, (available - POPUP_PADDING * 2 - cardWidth) / (count - 1)))
-      : 0;
-    const width = Math.min(available, POPUP_PADDING * 2 + cardWidth + gap * (count - 1));
-    const height = POPUP_PADDING * 2 + POPUP_TITLE_HEIGHT + cardHeight;
-    const signature = `${entry.seatId}:${entry.cardIds.join(',')}:${Math.round(width)}:${direction}`;
+    const sections = [
+      { label: `确定牌（${entry.cardIds.length}）`, color: '#FFF3D0', cardIds: entry.cardIds, possible: false },
+      { label: `可能牌（${entry.possibleIds.length}）`, color: '#C9C1B1', cardIds: entry.possibleIds, possible: true }
+    ].filter((section) => section.cardIds.length).map((section) => {
+      const count = section.cardIds.length;
+      const gap = count > 1
+        ? Math.max(5, Math.min(cardWidth + 8, (available - POPUP_PADDING * 2 - cardWidth) / (count - 1)))
+        : 0;
+      return { ...section, gap, width: POPUP_PADDING * 2 + cardWidth + gap * (count - 1) };
+    });
+    const width = Math.min(available, Math.max(...sections.map((section) => section.width)));
+    const sectionHeight = POPUP_TITLE_HEIGHT + cardHeight;
+    const height = POPUP_PADDING * 2 + sections.length * sectionHeight
+      + Math.max(0, sections.length - 1) * POPUP_SECTION_GAP;
+    const signature = `${entry.seatId}:${entry.cardIds.join(',')}|${entry.possibleIds.join(',')}:${Math.round(width)}:${direction}`;
 
     if (!popup || popupSignature !== signature) {
       destroyPopup();
@@ -294,18 +330,32 @@ export function installNativeMingpaiPreviewController(
       const Event = readLayaEvent();
       call(created, 'on', Event?.ROLL_OVER ?? 'mouseover', created, clearHideTimer);
       call(created, 'on', Event?.ROLL_OUT ?? 'mouseout', created, scheduleHide);
-      const title = createText(`确定牌（${count}）`, 14, '#FFF3D0', 'left');
-      if (title) {
-        call(title, 'size', Math.max(1, width - POPUP_PADDING * 2), POPUP_TITLE_HEIGHT);
-        call(title, 'pos', POPUP_PADDING, POPUP_PADDING);
-        call(created, 'addChild', title);
-      }
       call(root, 'addChild', created);
-      entry.cardIds.forEach((cardId, index) => {
-        const view = createOfficialCardView(created, cardId, cardWidth, cardHeight);
-        if (!view) return;
-        call(view.ui, 'pos', POPUP_PADDING + gap * index, POPUP_PADDING + POPUP_TITLE_HEIGHT);
-        popupCards.push(view);
+      sections.forEach((section, sectionIndex) => {
+        const top = POPUP_PADDING + sectionIndex * (sectionHeight + POPUP_SECTION_GAP);
+        const title = createText(section.label, 14, section.color, 'left');
+        if (title) {
+          call(title, 'size', Math.max(1, width - POPUP_PADDING * 2), POPUP_TITLE_HEIGHT);
+          call(title, 'pos', POPUP_PADDING, top);
+          call(created, 'addChild', title);
+        }
+        section.cardIds.forEach((cardId, index) => {
+          const view = createOfficialCardView(created, cardId, cardWidth, cardHeight);
+          if (!view) return;
+          const x = POPUP_PADDING + section.gap * index;
+          const y = top + POPUP_TITLE_HEIGHT;
+          call(view.ui, 'pos', x, y);
+          popupCards.push(view);
+          if (!section.possible) return;
+          view.ui.alpha = POSSIBLE_ALPHA;
+          const mark = createText('?', 22, POSSIBLE_MARK_COLOR, 'center', true);
+          if (!mark) return;
+          mark.name = `xcVueMingpaiPopupPossibleMark-${cardId}`;
+          mark.zOrder = 900 + index;
+          call(mark, 'size', 18, 24);
+          call(mark, 'pos', x + cardWidth - 22, y + cardHeight - 30);
+          call(created, 'addChild', mark);
+        });
       });
       popup = created;
       popupSignature = signature;
@@ -343,15 +393,16 @@ export function installNativeMingpaiPreviewController(
       const seatUi = seatUis.get(seat.seatId);
       const anchor = seatUi ? readAnchorRect(seatUi, host) : null;
       const cardIds = seat.knownCards.map((card) => card.cardId).filter((cardId) => cardId > 0);
+      const possibleIds = (seat.possibleCards ?? []).map((card) => card.cardId).filter((cardId) => cardId > 0);
       const existing = strips.get(seat.seatId);
-      if (!seatUi || !anchor || !cardIds.length) {
+      if (!seatUi || !anchor || (!cardIds.length && !possibleIds.length)) {
         if (existing) destroyStrip(existing);
         continue;
       }
       const entry = existing ?? createStrip(seat.seatId, host);
       if (!entry) continue;
       hideNativeSprite(entry, seatUi);
-      renderStrip(entry, cardIds, anchor);
+      renderStrip(entry, cardIds, possibleIds, anchor);
       activeSeatIds.add(seat.seatId);
       if (popupSeatId === seat.seatId) showPopup(entry);
     }
@@ -534,7 +585,13 @@ function createSprite(name: string): UnknownRecord | null {
   return sprite;
 }
 
-function createText(text: string, fontSize: number, color: string, align: 'left' | 'center'): UnknownRecord | null {
+function createText(
+  text: string,
+  fontSize: number,
+  color: string,
+  align: 'left' | 'center',
+  bold = false
+): UnknownRecord | null {
   const Text = asRecord((globalThis as UnknownRecord).Laya)?.Text;
   if (typeof Text !== 'function') return null;
   const node = asRecord(new (Text as unknown as new () => object)());
@@ -546,7 +603,7 @@ function createText(text: string, fontSize: number, color: string, align: 'left'
   node.stroke = 0;
   node.align = align;
   node.valign = 'middle';
-  node.bold = false;
+  node.bold = bold;
   node.mouseEnabled = false;
   return node;
 }

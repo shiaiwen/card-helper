@@ -14,8 +14,12 @@ import { resolveOptTargetReveals } from './rules/opt-target-rules.ts';
 import { traceMingpai } from '../../runtime/mingpai-trace.ts';
 import { resolveSpellOptRepReveals } from './rules/spell-opt-rep-rules.ts';
 import {
+  isIgnoredMove,
   isSameZoneShow,
+  isWholeHandMove,
+  normalizeMoveCardIds,
   remapDrawPileFromPosition,
+  remapDrawPileToPosition,
   sanitizeMoveCardIds
 } from './rules/move-card-rules.ts';
 import { DRAW_PILE_OWNER } from './rules/reveal-types.ts';
@@ -186,10 +190,12 @@ export function installMingpaiController(
 
   function handleCardsMoved(rawEvent: MoveCardEvent): void {
     // 明牌专用纠偏：半透明卡号清空 + 牌堆顶/底纠偏。只影响明牌，不改总线原事件。
+    if (isIgnoredMove(rawEvent)) return;
     const event: MoveCardEvent = {
       ...rawEvent,
-      cardIds: sanitizeMoveCardIds(rawEvent.cardCount, rawEvent.cardIds),
-      fromPosition: remapDrawPileFromPosition(rawEvent)
+      cardIds: sanitizeMoveCardIds(rawEvent.cardCount, normalizeMoveCardIds(rawEvent)),
+      fromPosition: remapDrawPileFromPosition(rawEvent),
+      toPosition: remapDrawPileToPosition(rawEvent)
     };
     if (isSameZoneShow(event) && applySameZoneShow(event)) return;
 
@@ -203,13 +209,24 @@ export function installMingpaiController(
     const movementWithTemporaryCards = { ...event, cardIds: temporaryZoneCardIds };
     const preferredQiOwner = resolvePreferredQiOwner(event);
     const clueCardIds = recoverCardsFromSpellClue(movementWithTemporaryCards);
+    // 手牌区的已知牌不是整手，暗牌部分移走时不能按「候选数 = 张数」认定。
+    const partialHandDeparture = event.fromZone === HAND_ZONE
+      && !isWholeHandDeparture(movementWithTemporaryCards, seatStateStore);
     const resolvedCardIds = clueCardIds.some((cardId) => cardId > 0)
       ? clueCardIds
-      : engine.resolveHiddenMovement(movementWithTemporaryCards, preferredQiOwner);
+      : partialHandDeparture
+        ? [...movementWithTemporaryCards.cardIds]
+        : engine.resolveHiddenMovement(movementWithTemporaryCards, preferredQiOwner);
     // 本家手牌被顺手等技能拿走时，协议可能藏卡号；用控座位已知牌按位置补回。
-    const recoveredCardIds = resolvedCardIds.some((cardId) => cardId > 0)
+    const controlledSeatCardIds = resolvedCardIds.some((cardId) => cardId > 0)
       ? resolvedCardIds
       : recoverCardsFromControlledSeat(movementWithTemporaryCards, seatStateStore);
+    const hiddenHandDeparture = event.fromZone === HAND_ZONE
+      && !controlledSeatCardIds.some((cardId) => cardId > 0);
+    const wholeHand = hiddenHandDeparture && isWholeHandDeparture(movementWithTemporaryCards, seatStateStore);
+    const recoveredCardIds = wholeHand
+      ? recoverWholeHandMovement(movementWithTemporaryCards, seatStateStore)
+      : controlledSeatCardIds;
     if (preferredQiOwner !== null && recoveredCardIds.some((cardId) => cardId > 0)) {
       pendingQiTransfer = null;
       pendingQiDeath = null;
@@ -248,6 +265,13 @@ export function installMingpaiController(
       toSeatId: event.toId,
       toZone: event.toZone
     });
+    if (hiddenHandDeparture) {
+      seatStateStore.applyHiddenHandMovement({
+        fromSeatId: event.fromId,
+        toSeatId: event.toZone === HAND_ZONE ? event.toId : null,
+        wholeHand
+      });
+    }
   }
 
   function resetQiTransferState(): void {
@@ -441,6 +465,27 @@ function recoverCardsFromControlledSeat(
     return [...movement.cardIds];
   }
   return knownIds.slice(start, start + movement.cardCount);
+}
+
+/** 暗牌整手移走：密诏类技能，或张数 ≥ 当前手牌数。 */
+function isWholeHandDeparture(movement: TemporaryZoneMovement, seatStateStore: SeatStateStore): boolean {
+  if (movement.fromZone !== HAND_ZONE) return false;
+  if (isWholeHandMove(movement)) return true;
+  const seat = seatStateStore.getSnapshot().seats.find((entry) => entry.seatId === movement.fromId);
+  if (!seat) return false;
+  const handCount = seat.knownCards.length + seat.unknownCardCount;
+  return handCount > 0 && movement.cardCount >= handCount;
+}
+
+/** 整手移走时该座位已知牌必然全部随之离开。 */
+function recoverWholeHandMovement(
+  movement: TemporaryZoneMovement,
+  seatStateStore: SeatStateStore
+): number[] {
+  const seat = seatStateStore.getSnapshot().seats.find((entry) => entry.seatId === movement.fromId);
+  const knownIds = seat?.knownCards.map((card) => card.cardId).filter((cardId) => cardId > 0) ?? [];
+  if (!knownIds.length || knownIds.length > movement.cardCount) return [...movement.cardIds];
+  return [...knownIds, ...Array.from({ length: movement.cardCount - knownIds.length }, () => 0)];
 }
 
 function recoverCardsFromTemporaryZone(

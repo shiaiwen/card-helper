@@ -6,6 +6,8 @@ import { DRAW_PILE_POSITION } from './reveal-types.ts';
  */
 
 const DRAW_PILE_ZONE = 1;
+const IGNORED_TO_ZONE = 11;
+const UNTRACKED_DRAW_PILE_CARD_IDS = new Set([4400, 4401]);
 
 export interface MoveCardFields {
   cardCount: number;
@@ -18,6 +20,24 @@ export interface MoveCardFields {
   toPosition: number;
   moveType: number;
   spellId: number;
+}
+
+/** 原版对 ToZone=11 的移动整条忽略。 */
+export function isIgnoredMove(move: Readonly<MoveCardFields>): boolean {
+  return move.toZone === IGNORED_TO_ZONE;
+}
+
+/**
+ * 个别技能的 CardIDs 带额外前缀，先还原成 cardCount 张。
+ * 713 / MoveType 21：[index, ...ids]，去掉 index 本身和 ids[index]。
+ */
+export function normalizeMoveCardIds(move: Readonly<MoveCardFields>): number[] {
+  const ids = [...move.cardIds];
+  if (move.spellId === 713 && move.moveType === 21 && move.cardCount === ids.length - 2) {
+    const index = ids.splice(0, 1)[0];
+    ids.splice(index, 1);
+  }
+  return ids;
 }
 
 /**
@@ -60,6 +80,26 @@ export function remapDrawPileFromPosition(move: Readonly<MoveCardFields>): numbe
     return move.fromPosition;
   }
   return DRAW_PILE_FROM_RULES.find((rule) => rule.match(move))?.position ?? move.fromPosition;
+}
+
+/** 整手交出手牌的技能（605 密诏）：暗牌移动时该座位已知牌全部随之离开。 */
+const WHOLE_HAND_MOVE_SPELL_IDS = new Set([605]);
+
+export function isWholeHandMove(move: Readonly<Pick<MoveCardFields, 'spellId' | 'fromZone'>>): boolean {
+  return WHOLE_HAND_MOVE_SPELL_IDS.has(move.spellId) && move.fromZone === 5;
+}
+
+/** 放回牌堆顶但含不可追踪卡号（4400/4401）时，按位置未指定处理。 */
+export function remapDrawPileToPosition(move: Readonly<MoveCardFields>): number {
+  if (
+    move.toZone === DRAW_PILE_ZONE
+    && move.toId === 0xff
+    && move.toPosition === DRAW_PILE_POSITION.TOP
+    && move.cardIds.some((cardId) => UNTRACKED_DRAW_PILE_CARD_IDS.has(cardId))
+  ) {
+    return DRAW_PILE_POSITION.UNSPECIFIED;
+  }
+  return move.toPosition;
 }
 
 /** 同区同主人的「移动」其实是展示（对照原版 KY.show），排除个别真实重排。 */

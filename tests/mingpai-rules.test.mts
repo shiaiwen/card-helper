@@ -6,8 +6,11 @@ import {
   createMingpaiEngine,
   DRAW_PILE_POSITION,
   installMingpaiController,
+  isIgnoredMove,
   isSameZoneShow,
+  normalizeMoveCardIds,
   remapDrawPileFromPosition,
+  remapDrawPileToPosition,
   resolveOptTargetReveals,
   resolveSpellOptRepReveals,
   sanitizeMoveCardIds
@@ -108,6 +111,33 @@ describe('MoveCard 纠偏', () => {
     assert.equal(isSameZoneShow(move), true);
     assert.equal(isSameZoneShow({ ...move, toId: 3 }), false);
   });
+
+  it('713 / MoveType 21 去掉下标前缀和被指向的卡号', () => {
+    const move = {
+      cardCount: 2, cardIds: [1, 11, 12, 13], fromId: 2, fromZone: 5, fromPosition: 0,
+      toId: 2, toZone: 2, toPosition: 0, moveType: 21, spellId: 713
+    };
+    assert.deepEqual(normalizeMoveCardIds(move), [11, 13]);
+    assert.deepEqual(normalizeMoveCardIds({ ...move, spellId: 1 }), [1, 11, 12, 13]);
+  });
+
+  it('ToZone 11 的移动整条忽略', () => {
+    const move = {
+      cardCount: 1, cardIds: [7], fromId: 2, fromZone: 2, fromPosition: 0,
+      toId: 2, toZone: 11, toPosition: 0, moveType: 1, spellId: 0
+    };
+    assert.equal(isIgnoredMove(move), true);
+    assert.equal(isIgnoredMove({ ...move, toZone: 5 }), false);
+  });
+
+  it('放回牌堆顶含 4400/4401 时按未指定位置处理', () => {
+    const move = {
+      cardCount: 2, cardIds: [4400, 9], fromId: 2, fromZone: 2, fromPosition: 0,
+      toId: 0xff, toZone: 1, toPosition: DRAW_PILE_POSITION.TOP, moveType: 1, spellId: 0
+    };
+    assert.equal(remapDrawPileToPosition(move), DRAW_PILE_POSITION.UNSPECIFIED);
+    assert.equal(remapDrawPileToPosition({ ...move, cardIds: [8, 9] }), DRAW_PILE_POSITION.TOP);
+  });
 });
 
 describe('明牌控制器接入', () => {
@@ -135,7 +165,9 @@ describe('明牌控制器接入', () => {
     };
     const knownOf = (seatId: number) => seats.getSnapshot().seats
       .find((seat) => seat.seatId === seatId)?.knownCards.map((card) => card.cardId) ?? [];
-    return { engine, dispose, publishRaw, knownOf };
+    const possibleOf = (seatId: number) => (seats.getSnapshot().seats
+      .find((seat) => seat.seatId === seatId)?.possibleCards ?? []).map((card) => card.cardId);
+    return { engine, dispose, publishRaw, knownOf, possibleOf };
   }
 
   it('GsCRoleOptTargetNtf 攻心 → 目标座位明牌', () => {
@@ -147,6 +179,84 @@ describe('明牌控制器接入', () => {
     assert.deepEqual(knownOf(2), [21, 22]);
     assert.deepEqual(engine.getHandCardIds(2), [21, 22]);
     dispose();
+  });
+
+  it('密诏暗牌整手交出后，原座位明牌清空', () => {
+    const { engine, dispose, publishRaw, knownOf } = setup();
+    publishRaw({
+      ClassName: 'GsCRoleOptTargetNtf',
+      SeatID: 1, SrcSeatID: 1, targetSeatID: 2, SpellID: 921, Param: 0, Params: [21, 22]
+    });
+    publishRaw({
+      ClassName: 'PubGsCMoveCard', SpellID: 605, MoveType: 27, CardCount: 3, CardIDs: [],
+      FromID: 2, FromZone: 5, FromPosition: 0xff02, ToID: 1, ToZone: 5, ToPosition: 0xff00
+    });
+    assert.deepEqual(knownOf(2), []);
+    assert.deepEqual(engine.getHandCardIds(2), []);
+    dispose();
+  });
+
+  describe('暗牌部分移走 → 可能牌', () => {
+    const giveOneHidden = (publishRaw: (payload: Record<string, unknown>) => void, from: number, to: number) => {
+      publishRaw({
+        ClassName: 'PubGsCMoveCard', SpellID: 1, MoveType: 27, CardCount: 1, CardIDs: [],
+        FromID: from, FromZone: 5, FromPosition: 0xff02, ToID: to, ToZone: 5, ToPosition: 0xff00
+      });
+    };
+    const reveal = (publishRaw: (payload: Record<string, unknown>) => void, cardIds: number[]) => {
+      publishRaw({
+        ClassName: 'GsCRoleOptTargetNtf',
+        SeatID: 1, SrcSeatID: 1, targetSeatID: 2, SpellID: 921, Param: 0, Params: cardIds
+      });
+    };
+
+    it('原座位与接收方都显示为可能牌', () => {
+      const { dispose, publishRaw, knownOf, possibleOf } = setup();
+      reveal(publishRaw, [21, 22]);
+      giveOneHidden(publishRaw, 2, 1);
+      assert.deepEqual(knownOf(2), []);
+      assert.deepEqual(possibleOf(2), [21, 22]);
+      assert.deepEqual(possibleOf(1), [21, 22]);
+      dispose();
+    });
+
+    it('可能牌以明确卡号进入弃牌堆后两边都清除', () => {
+      const { dispose, publishRaw, possibleOf } = setup();
+      reveal(publishRaw, [21, 22]);
+      giveOneHidden(publishRaw, 2, 1);
+      publishRaw({
+        ClassName: 'PubGsCMoveCard', SpellID: 0, MoveType: 16, CardCount: 1, CardIDs: [21],
+        FromID: 1, FromZone: 5, FromPosition: 0xff02, ToID: 0, ToZone: 2, ToPosition: 0xff00
+      });
+      assert.deepEqual(possibleOf(2), [22]);
+      assert.deepEqual(possibleOf(1), [22]);
+      dispose();
+    });
+
+    it('接收方整手交出后，可能牌随之转移', () => {
+      const { dispose, publishRaw, possibleOf } = setup();
+      reveal(publishRaw, [21]);
+      giveOneHidden(publishRaw, 2, 1);
+      publishRaw({
+        ClassName: 'PubGsCMoveCard', SpellID: 605, MoveType: 27, CardCount: 3, CardIDs: [],
+        FromID: 1, FromZone: 5, FromPosition: 0xff02, ToID: 3, ToZone: 5, ToPosition: 0xff00
+      });
+      assert.deepEqual(possibleOf(1), []);
+      assert.deepEqual(possibleOf(2), [21]);
+      dispose();
+    });
+
+    it('原座位整手被看且没有该牌 → 确定在接收方', () => {
+      const { dispose, publishRaw, knownOf, possibleOf } = setup();
+      reveal(publishRaw, [21, 22]);
+      giveOneHidden(publishRaw, 2, 1);
+      reveal(publishRaw, [22]);
+      assert.deepEqual(knownOf(2), [22]);
+      assert.deepEqual(possibleOf(2), []);
+      assert.deepEqual(possibleOf(1), []);
+      assert.ok(knownOf(1).includes(21));
+      dispose();
+    });
   });
 
   it('CGsRoleSpellOptRep 牌堆鉴定写入引擎牌堆区', () => {

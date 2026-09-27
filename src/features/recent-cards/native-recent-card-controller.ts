@@ -25,6 +25,7 @@ export function installNativeRecentCardController(
   let parent: UnknownRecord | null = null;
   let root: UnknownRecord | null = null;
   let cardView: OfficialCardView | null = null;
+  let placeholder: UnknownRecord | null = null;
   let label: UnknownRecord | null = null;
   let hitArea: UnknownRecord | null = null;
   let displayedCardId = 0;
@@ -39,7 +40,7 @@ export function installNativeRecentCardController(
   const destroyOverlay = () => {
     clearCard();
     try { call(root, 'removeSelf'); call(root, 'destroy', true); } catch { /* 已随场景销毁 */ }
-    scene = parent = root = label = hitArea = null;
+    scene = parent = root = placeholder = label = hitArea = null;
   };
 
   const sync = () => {
@@ -67,7 +68,7 @@ export function installNativeRecentCardController(
       parent = nextParent;
     }
 
-    const enabled = configStore.get('display.recentCardsEnabled');
+    const enabled = configStore.get('display.deckHudEnabled');
     const snapshot = recentCardStore.getSnapshot();
     const cardId = enabled ? Number(snapshot.displayedCardId || 0) : 0;
     const roundHeight = Math.max(43, Number(roundInfo.height || 43));
@@ -84,19 +85,21 @@ export function installNativeRecentCardController(
       if (cardId > 0) cardView = createOfficialCardView(root, cardId, width, height, nextScene);
       displayedCardId = cardView ? cardId : 0;
     }
-    label = updateModeLabel(root, label, snapshot.displayMode === 'current' ? '当前' : '玩家', width, height);
+    const modeText = snapshot.displayMode === 'current' ? '当前' : '玩家';
+    placeholder = updatePlaceholder(root, placeholder, `${modeText}\n用牌`, width, height);
+    label = updateModeLabel(root, label, modeText, width, height);
     hitArea = updateHitArea(root, hitArea, width, height, () => {
       const nextMode = recentCardStore.getSnapshot().displayMode === 'current' ? 'player' : 'current';
       recentCardStore.setDisplayMode(nextMode);
       configStore.set('display.recentCardMode', nextMode);
       sync();
     });
+    if (placeholder) placeholder.visible = !cardView;
     if (label) label.visible = Boolean(cardView);
-    if (hitArea) hitArea.visible = Boolean(cardView);
   };
 
   const stopStore = recentCardStore.subscribe(sync);
-  const stopConfig = configStore.subscribe('display.recentCardsEnabled', sync);
+  const stopConfig = configStore.subscribe('display.deckHudEnabled', sync);
   const timer = window.setInterval(sync, 250);
   sync();
   return () => {
@@ -106,6 +109,44 @@ export function installNativeRecentCardController(
     stopConfig();
     destroyOverlay();
   };
+}
+
+/** 没有可显示的牌时占住牌位，样式对照原版“当前/玩家 用牌”空框。 */
+function updatePlaceholder(host: UnknownRecord, existing: UnknownRecord | null, text: string, width: number, height: number): UnknownRecord | null {
+  const laya = asRecord((globalThis as UnknownRecord).Laya);
+  const Sprite = laya?.Sprite;
+  const Text = laya?.Text;
+  let box = existing;
+  if (!box && typeof Sprite === 'function' && typeof Text === 'function') {
+    box = asRecord(new (Sprite as unknown as new () => object)());
+    const textNode = asRecord(new (Text as unknown as new () => object)());
+    if (!box || !textNode) return null;
+    box.name = 'xcNativeRecentCardPlaceholder';
+    box.mouseEnabled = false;
+    box.mouseThrough = true;
+    textNode.name = 'xcNativeRecentCardPlaceholderText';
+    textNode.fontSize = 12;
+    textNode.color = '#B7AA8B';
+    textNode.align = 'center';
+    textNode.valign = 'middle';
+    textNode.leading = 2;
+    call(box, 'addChild', textNode);
+    call(host, 'addChild', box);
+  }
+  if (!box) return null;
+  call(box, 'size', width, height);
+  call(box, 'pos', 0, 0);
+  const graphics = asRecord(box.graphics);
+  call(graphics, 'clear');
+  call(graphics, 'drawRect', 0, 0, width, height, 'rgba(29,23,18,0.7)', '#8B744C', 1);
+  const textNode = asRecord(readArray(box, '_children')[0]);
+  if (textNode) {
+    textNode.text = text;
+    textNode.width = width;
+    textNode.height = height;
+    call(textNode, 'pos', 0, 0);
+  }
+  return box;
 }
 
 function updateModeLabel(host: UnknownRecord, existing: UnknownRecord | null, text: string, cardWidth: number, cardHeight: number): UnknownRecord | null {

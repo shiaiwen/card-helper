@@ -12,7 +12,7 @@ type SortMode = 'suit-type-number' | 'type-suit-number' | 'number-suit-type';
 
 /**
  * 局内顶/底/弃按钮与官方牌面弹层由 native-deck-record-controller 负责。
- * 这里只处理快捷键 1–6，避免与 Laya 入口叠两套 DOM 按钮。
+ * 这里只处理快捷键 1–5，避免与 Laya 入口叠两套 DOM 按钮。
  */
 const props = defineProps<{
   configStore: XiaochaoConfigStore;
@@ -21,7 +21,7 @@ const props = defineProps<{
   seatStateStore: SeatStateStore;
 }>();
 
-const enabled = ref(props.configStore.get('display.deckRecordEnabled'));
+const enabled = ref(props.configStore.get('display.deckHudEnabled'));
 const inGame = ref(props.seatStateStore.getSnapshot().inGame);
 
 const stops = [
@@ -29,7 +29,7 @@ const stops = [
     inGame.value = value.inGame;
     if (!value.inGame) props.deckRecordInteraction.setActiveList(null);
   }),
-  props.configStore.subscribe('display.deckRecordEnabled', ({ value }) => {
+  props.configStore.subscribe('display.deckHudEnabled', ({ value }) => {
     enabled.value = value;
     if (!value) props.deckRecordInteraction.setActiveList(null);
   })

@@ -38,14 +38,10 @@ onBeforeUnmount(() => {
 const currentTurnDiscardCards = computed(() =>
   sortCards(snapshot.value.currentTurnDiscardCardIds)
 );
-const discardCount = computed(() =>
-  currentTurnDiscardCards.value.length + snapshot.value.currentTurnHiddenDiscardCount
-);
 const discardTitle = computed(() =>
-  `本回合弃牌堆 · ${sortModeLabels[sortMode.value] ?? sortModeLabels[sortModes[0]]} · ${discardCount.value}张`
+  `本回合弃牌 · ${sortModeLabels[sortMode.value] ?? sortModeLabels[sortModes[0]]}`
 );
 const sortModeLabels = {
-  time: '先后顺序',
   'suit-type-number': '花色→类型→点数',
   'type-suit-number': '类型→花色→点数',
   'number-suit-type': '点数→花色→类型',
@@ -202,6 +198,9 @@ function rankOrder(rank: string): number {
 }
 .xc-deck-record__discard-title {
   display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   width: calc(100% - 12px);
   margin: 0 6px 2px;
   padding: 2px 0;

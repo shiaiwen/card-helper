@@ -18,8 +18,12 @@ export { applyCardReveals } from './reveal-sink.ts';
 export { resolveOptTargetReveals, hasOptTargetRule } from './rules/opt-target-rules.ts';
 export { resolveSpellOptRepReveals } from './rules/spell-opt-rep-rules.ts';
 export {
+  isIgnoredMove,
   isSameZoneShow,
+  isWholeHandMove,
+  normalizeMoveCardIds,
   remapDrawPileFromPosition,
+  remapDrawPileToPosition,
   sanitizeMoveCardIds
 } from './rules/move-card-rules.ts';
 export {

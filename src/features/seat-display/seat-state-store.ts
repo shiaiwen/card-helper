@@ -10,6 +10,8 @@ export interface SeatStateStore {
   getSnapshot(): Readonly<SeatStateSnapshot>;
   replace(candidate: Partial<SeatStateSnapshot>): void;
   applyKnownHandMovement(movement: KnownHandMovement): void;
+  /** 暗牌离开手牌：部分移走时已知牌降为可能牌，整手移走时可能牌随之转移（对照 nD.pack）。 */
+  applyHiddenHandMovement(movement: HiddenHandMovement): void;
   revealKnownHand(seatId: number, cardIds: readonly number[]): void;
   /** 部分展示：并入该座位已知手牌，不覆盖已有明牌。 */
   mergeKnownHand(seatId: number, cardIds: readonly number[]): void;
@@ -29,7 +31,16 @@ export interface KnownHandMovement {
   toZone: number;
 }
 
+export interface HiddenHandMovement {
+  fromSeatId: number;
+  /** 目标不是座位手牌（牌堆、武将牌上等暗区）时为 null。 */
+  toSeatId: number | null;
+  wholeHand: boolean;
+}
+
 const HAND_ZONE = 5;
+/** 可能位置里的「座位手牌以外的暗区」。 */
+const ELSEWHERE = -1;
 const KNOWN_HAND_STORAGE_KEY = 'XC::knownHands';
 const KNOWN_HAND_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
@@ -41,15 +52,46 @@ export function createSeatStateStore(storage: Storage | null = getSessionStorage
   const trackedOccupants = new Map<number, string>();
   const suppressedCardsBySeat = new Map<number, Set<number>>();
   const persistentTagsByCardId = new Map<number, string[]>();
-  const restored = restoreKnownHands(storage, trackedHands, trackedOccupants, persistentTagsByCardId);
+  /** cardId → 可能所在的座位（ELSEWHERE 表示其它暗区）。 */
+  const possibleLocations = new Map<number, Set<number>>();
+  const restored = restoreKnownHands(storage, trackedHands, trackedOccupants, persistentTagsByCardId, possibleLocations);
   let hasRestoredState = restored;
   const subscribers = new Set<SeatStateSubscriber>();
 
   function publish(nextSnapshot: SeatStateSnapshot): void {
     if (JSON.stringify(snapshot) === JSON.stringify(nextSnapshot)) return;
     snapshot = freezeSnapshot(nextSnapshot);
-    persistKnownHands(storage, trackedHands, trackedOccupants, persistentTagsByCardId);
+    persistKnownHands(storage, trackedHands, trackedOccupants, persistentTagsByCardId, possibleLocations);
     subscribers.forEach((subscriber) => subscriber(snapshot));
+  }
+
+  function publishMerged(): void {
+    publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId, possibleLocations));
+  }
+
+  /** 牌以明确卡号出现后，位置已确定，不再是任何座位的可能牌。 */
+  function resolvePossible(cardIds: readonly number[]): void {
+    cardIds.forEach((cardId) => { if (cardId > 0) possibleLocations.delete(cardId); });
+  }
+
+  function settlePossible(cardId: number, locations: Set<number>): void {
+    const seats = [...locations].filter((location) => location !== ELSEWHERE);
+    if (!seats.length) {
+      possibleLocations.delete(cardId);
+    } else if (locations.size === 1) {
+      possibleLocations.delete(cardId);
+      addTrackedCards(trackedHands, seats[0], [cardId], 1);
+      rememberTrackedOccupant(trackedOccupants, baseSnapshot, seats[0]);
+    }
+  }
+
+  function clearAllTracking(): void {
+    trackedHands.clear();
+    trackedOccupants.clear();
+    suppressedCardsBySeat.clear();
+    persistentTagsByCardId.clear();
+    possibleLocations.clear();
+    hasRestoredState = false;
   }
 
   return {
@@ -59,11 +101,7 @@ export function createSeatStateStore(storage: Storage | null = getSessionStorage
       const nextBaseSnapshot = normalizeSeatState(candidate);
       // 场景消失即视为本局结束，避免缺失 game-ended 消息时把明牌带入下一局。
       if (baseSnapshot.inGame && !nextBaseSnapshot.inGame) {
-        trackedHands.clear();
-        trackedOccupants.clear();
-        suppressedCardsBySeat.clear();
-        persistentTagsByCardId.clear();
-        hasRestoredState = false;
+        clearAllTracking();
       } else {
         remapTrackedHandsAfterSeatChange(
           trackedHands,
@@ -75,9 +113,10 @@ export function createSeatStateStore(storage: Storage | null = getSessionStorage
         confirmSuppressedCardsRemoved(suppressedCardsBySeat, nextBaseSnapshot);
       }
       baseSnapshot = freezeSnapshot(nextBaseSnapshot);
-      publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId));
+      publishMerged();
     },
     applyKnownHandMovement(movement) {
+      resolvePossible(movement.cardIds);
       if (movement.fromZone === HAND_ZONE) {
         removeTrackedCards(trackedHands, movement.fromSeatId, movement.cardIds, movement.cardCount);
         suppressDepartedKnownCards(suppressedCardsBySeat, movement.fromSeatId, movement.cardIds);
@@ -88,24 +127,57 @@ export function createSeatStateStore(storage: Storage | null = getSessionStorage
         addTrackedCards(trackedHands, movement.toSeatId, movement.cardIds, movement.cardCount);
         rememberTrackedOccupant(trackedOccupants, baseSnapshot, movement.toSeatId);
       }
-      publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId));
+      publishMerged();
+    },
+    applyHiddenHandMovement({ fromSeatId, toSeatId, wholeHand }) {
+      if (!Number.isInteger(fromSeatId) || fromSeatId < 0 || fromSeatId >= 0xff) return;
+      const destination = toSeatId !== null && Number.isInteger(toSeatId) && toSeatId >= 0 && toSeatId < 0xff
+        ? toSeatId
+        : ELSEWHERE;
+      if (destination === fromSeatId) return;
+      const departedKnown = trackedHands.get(fromSeatId)?.cardIds ?? [];
+      trackedHands.delete(fromSeatId);
+      trackedOccupants.delete(fromSeatId);
+      if (wholeHand) {
+        if (destination !== ELSEWHERE && departedKnown.length) {
+          addTrackedCards(trackedHands, destination, departedKnown, departedKnown.length);
+          rememberTrackedOccupant(trackedOccupants, baseSnapshot, destination);
+        }
+        for (const [cardId, locations] of possibleLocations) {
+          if (!locations.delete(fromSeatId)) continue;
+          locations.add(destination);
+          settlePossible(cardId, locations);
+        }
+      } else {
+        departedKnown.forEach((cardId) => possibleLocations.set(cardId, new Set([fromSeatId, destination])));
+        for (const locations of possibleLocations.values()) {
+          if (locations.has(fromSeatId)) locations.add(destination);
+        }
+      }
+      publishMerged();
     },
     revealKnownHand(seatId, cardIds) {
       if (!Number.isInteger(seatId) || seatId < 0 || seatId >= 0xff) return;
       const uniqueCardIds = [...new Set(cardIds.filter((cardId) => cardId > 0))];
       if (!uniqueCardIds.length) return;
+      resolvePossible(uniqueCardIds);
       trackedHands.set(seatId, { cardIds: uniqueCardIds });
       rememberTrackedOccupant(trackedOccupants, baseSnapshot, seatId);
-      publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId));
+      // 整手已知：没出现的可能牌一定不在这里。
+      for (const [cardId, locations] of possibleLocations) {
+        if (locations.delete(seatId)) settlePossible(cardId, locations);
+      }
+      publishMerged();
     },
     mergeKnownHand(seatId, cardIds) {
       if (!Number.isInteger(seatId) || seatId < 0 || seatId >= 0xff) return;
       const knownIds = cardIds.filter((cardId) => cardId > 0);
       if (!knownIds.length) return;
+      resolvePossible(knownIds);
       restoreReturnedKnownCards(suppressedCardsBySeat, seatId, knownIds);
       addTrackedCards(trackedHands, seatId, knownIds, knownIds.length);
       rememberTrackedOccupant(trackedOccupants, baseSnapshot, seatId);
-      publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId));
+      publishMerged();
     },
     setPersistentKnownCardTags(cardId, tags) {
       if (!(cardId > 0)) return;
@@ -114,22 +186,14 @@ export function createSeatStateStore(storage: Storage | null = getSessionStorage
       if (JSON.stringify(previousTags) === JSON.stringify(normalizedTags)) return;
       if (normalizedTags.length) persistentTagsByCardId.set(cardId, normalizedTags);
       else persistentTagsByCardId.delete(cardId);
-      publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId));
+      publishMerged();
     },
     resetKnownHands() {
-      trackedHands.clear();
-      trackedOccupants.clear();
-      suppressedCardsBySeat.clear();
-      persistentTagsByCardId.clear();
-      hasRestoredState = false;
-      publish(mergeTrackedHands(baseSnapshot, trackedHands, suppressedCardsBySeat, persistentTagsByCardId));
+      clearAllTracking();
+      publishMerged();
     },
     clear: () => {
-      trackedHands.clear();
-      trackedOccupants.clear();
-      suppressedCardsBySeat.clear();
-      persistentTagsByCardId.clear();
-      hasRestoredState = false;
+      clearAllTracking();
       baseSnapshot = freezeSnapshot(createEmptySeatState());
       publish(createEmptySeatState());
     },
@@ -145,16 +209,21 @@ function persistKnownHands(
   storage: Storage | null,
   hands: Map<number, { cardIds: number[] }>,
   occupants: Map<number, string>,
-  persistentTags: Map<number, string[]>
+  persistentTags: Map<number, string[]>,
+  possible: Map<number, Set<number>>
 ): void {
   if (!storage) return;
   try {
-    if (!hands.size && !persistentTags.size) {
+    if (!hands.size && !persistentTags.size && !possible.size) {
       storage.removeItem(KNOWN_HAND_STORAGE_KEY);
       return;
     }
     storage.setItem(KNOWN_HAND_STORAGE_KEY, JSON.stringify({
-      savedAt: Date.now(), hands: [...hands], occupants: [...occupants], persistentTags: [...persistentTags]
+      savedAt: Date.now(),
+      hands: [...hands],
+      occupants: [...occupants],
+      persistentTags: [...persistentTags],
+      possible: [...possible].map(([cardId, locations]) => [cardId, [...locations]])
     }));
   } catch { /* 存储失败不影响实时状态。 */ }
 }
@@ -163,7 +232,8 @@ function restoreKnownHands(
   storage: Storage | null,
   hands: Map<number, { cardIds: number[] }>,
   occupants: Map<number, string>,
-  persistentTags: Map<number, string[]>
+  persistentTags: Map<number, string[]>,
+  possible: Map<number, Set<number>>
 ): boolean {
   if (!storage) return false;
   try {
@@ -183,7 +253,13 @@ function restoreKnownHands(
       const normalized = Array.isArray(tags) ? tags.map(String).filter(Boolean) : [];
       if (Number(cardId) > 0 && normalized.length) persistentTags.set(Number(cardId), normalized);
     }
-    return hands.size > 0 || persistentTags.size > 0;
+    for (const [cardId, locations] of Array.isArray(document.possible) ? document.possible : []) {
+      const normalized = Array.isArray(locations)
+        ? locations.map(Number).filter((location: number) => Number.isInteger(location) && location >= ELSEWHERE && location < 0xff)
+        : [];
+      if (Number(cardId) > 0 && normalized.length) possible.set(Number(cardId), new Set(normalized));
+    }
+    return hands.size > 0 || persistentTags.size > 0 || possible.size > 0;
   } catch { return false; }
 }
 
@@ -269,19 +345,40 @@ function mergeTrackedHands(
   state: SeatStateSnapshot,
   hands: Map<number, { cardIds: number[] }>,
   suppressedCardsBySeat: Map<number, Set<number>> = new Map(),
-  persistentTagsByCardId: Map<number, string[]> = new Map()
+  persistentTagsByCardId: Map<number, string[]> = new Map(),
+  possibleLocations: Map<number, Set<number>> = new Map()
 ): SeatStateSnapshot {
   if (!state.inGame) return state;
+  // 任何座位上确定可见的牌都不再作为可能牌展示。
+  const certainCardIds = new Set<number>([
+    ...state.seats.flatMap((seat) => seat.knownCards.map((card) => card.cardId)),
+    ...[...hands.values()].flatMap((hand) => hand.cardIds)
+  ]);
+  const possibleBySeat = new Map<number, number[]>();
+  for (const [cardId, locations] of possibleLocations) {
+    if (certainCardIds.has(cardId)) continue;
+    locations.forEach((seatId) => {
+      if (seatId < 0) return;
+      possibleBySeat.set(seatId, [...(possibleBySeat.get(seatId) ?? []), cardId]);
+    });
+  }
   return normalizeSeatState({
     ...state,
     seats: state.seats.map((seat) => {
       const tracked = hands.get(seat.seatId);
+      const possibleCards = (possibleBySeat.get(seat.seatId) ?? []).map((cardId) => ({
+        cardId,
+        name: '',
+        tags: [...(persistentTagsByCardId.get(cardId) ?? [])]
+      }));
       const suppressedCardIds = suppressedCardsBySeat.get(seat.seatId);
       const visibleSceneCards = suppressedCardIds
         ? seat.knownCards.filter((card) => !suppressedCardIds.has(card.cardId))
         : seat.knownCards;
       const hasPersistentTags = visibleSceneCards.some((card) => persistentTagsByCardId.has(card.cardId));
-      if (!tracked && visibleSceneCards.length === seat.knownCards.length && !hasPersistentTags) return seat;
+      if (!tracked && visibleSceneCards.length === seat.knownCards.length && !hasPersistentTags) {
+        return possibleCards.length ? { ...seat, possibleCards } : seat;
+      }
       const knownCardIds = new Set(visibleSceneCards.map((card) => card.cardId));
       const mergedKnownCards = [
         ...visibleSceneCards.map((card) => ({
@@ -301,6 +398,7 @@ function mergeTrackedHands(
       return {
         ...seat,
         knownCards: mergedKnownCards,
+        ...(possibleCards.length ? { possibleCards } : {}),
         unknownCardCount: Math.max(0, sceneHandCount - mergedKnownCards.length)
       };
     })
@@ -367,11 +465,12 @@ function remapSeatCardSetsAfterSeatChange(
 
 function freezeSnapshot(snapshot: SeatStateSnapshot): Readonly<SeatStateSnapshot> {
   snapshot.seats.forEach((seat) => {
-    seat.knownCards.forEach((card) => {
+    [...seat.knownCards, ...(seat.possibleCards ?? [])].forEach((card) => {
       Object.freeze(card.tags);
       Object.freeze(card);
     });
     Object.freeze(seat.knownCards);
+    if (seat.possibleCards) Object.freeze(seat.possibleCards);
     Object.freeze(seat);
   });
   Object.freeze(snapshot.seats);

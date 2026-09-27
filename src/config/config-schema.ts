@@ -14,7 +14,7 @@ export interface XiaochaoConfig {
   'panel.dockedRight': boolean;
   'panel.position': PanelPositionConfig | null;
   'display.seatUiEnabled': boolean;
-  'display.recentCardsEnabled': boolean;
+  'display.deckHudEnabled': boolean;
   'display.recentCardMode': 'current' | 'player';
   'display.deckRecordEnabled': boolean;
   'display.discardSortMode': 'suit-type-number' | 'type-suit-number' | 'number-suit-type';
@@ -80,19 +80,17 @@ export const CONFIG_SCHEMA: {
     }
   },
   'display.seatUiEnabled': booleanDefinition(true, 'SEAT_UI_SWITCH'),
-  'display.recentCardsEnabled': booleanDefinition(true, 'RECENT_CARD_SWITCH'),
+  'display.deckHudEnabled': booleanDefinition(true),
   'display.recentCardMode': {
     defaultValue: 'current',
     parse: (value) => value === 'current' || value === 'player' ? value : undefined
   },
   'display.deckRecordEnabled': booleanDefinition(true, 'DECK_RECORD_SWITCH'),
   'display.discardSortMode': {
-    // 「先后顺序」无实际区分度，默认取第一项花色排序；旧配置 time 一并映射过来。
     defaultValue: 'suit-type-number',
     legacyStorageKey: 'DISCARD_SORT_MODE',
     parse: (value) => {
       const mode = String(value);
-      if (mode === 'time') return 'suit-type-number';
       return [
         'suit-type-number',
         'type-suit-number',

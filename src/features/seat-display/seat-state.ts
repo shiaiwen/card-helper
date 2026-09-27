@@ -27,6 +27,8 @@ export interface GameSeatSnapshot {
   isAlive: boolean;
   anchor: GameSeatAnchorSnapshot | null;
   knownCards: KnownHandCardSnapshot[];
+  /** 暗牌移动后「可能在该座位」的牌（对照 app.bak 可能牌），不计入已知手牌数。 */
+  possibleCards?: KnownHandCardSnapshot[];
   unknownCardCount: number;
 }
 
@@ -84,6 +86,17 @@ export function normalizeSeatState(
         tags: [...new Set([...(existing?.tags ?? []), ...tags])]
       });
     }
+    const possibleCards: KnownHandCardSnapshot[] = [];
+    for (const card of Array.isArray(seat.possibleCards) ? seat.possibleCards : []) {
+      const cardId = Number(card?.cardId);
+      if (!Number.isInteger(cardId) || cardId <= 0 || knownCardsById.has(cardId)
+        || possibleCards.some((entry) => entry.cardId === cardId)) continue;
+      possibleCards.push({
+        cardId,
+        name: typeof card.name === 'string' ? card.name : '',
+        tags: normalizeCardTags(card?.tags)
+      });
+    }
     seatsById.set(seatId, {
       seatId,
       displayOrder: normalizeDisplayOrder(seat.displayOrder, seatsById.size + 1),
@@ -92,6 +105,7 @@ export function normalizeSeatState(
       isAlive: seat.isAlive !== false,
       anchor: normalizeSeatAnchor(seat.anchor),
       knownCards: [...knownCardsById.values()],
+      ...(possibleCards.length ? { possibleCards } : {}),
       unknownCardCount: Math.max(0, Math.floor(Number(seat.unknownCardCount) || 0))
     });
   }

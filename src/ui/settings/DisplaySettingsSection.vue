@@ -15,14 +15,14 @@ const settings = [
     tooltip: '在其他武将牌下方显示明牌',
   },
   {
-    key: 'display.recentCardsEnabled',
-    label: '最近用牌',
-    tooltip: '局内显示最近使用的一张牌',
+    key: 'display.deckHudEnabled',
+    label: '局内牌堆',
+    tooltip: '在游戏右上角轮次信息旁显示最近用牌与顶/底/弃入口，数字键 1–5 快速查看',
   },
   {
     key: 'display.deckRecordEnabled',
     label: '牌堆记录',
-    tooltip: '局内显示牌堆顶、牌堆底与弃牌记录入口',
+    tooltip: '在常规页显示牌堆顶、牌堆底与本回合弃牌',
   },
   {
     key: 'display.cardLabelsEnabled',
