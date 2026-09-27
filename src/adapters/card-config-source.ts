@@ -49,6 +49,8 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
     if (disposed || loading || dictionary) return;
     const codecs = readGameConfigCodecs(globalObject);
     if (!codecs) {
+      // 解码库随游戏脚本加载；登录页停留期间不计入超时。
+      if (!(globalObject as unknown as UnknownRecord).Laya) return;
       polls += 1;
       if (polls === 30) console.error('[xiaochao] 卡牌配置等待游戏解码库超时', describeMissingCodecs(globalObject));
       return;
