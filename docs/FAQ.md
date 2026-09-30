@@ -28,7 +28,7 @@
 
 - 参照 legacy 的做法改为 getter/setter：`get` 始终返回我们的包装，`set` 只替换包装内部的下游函数。
 - 轮询时如果发现 `console.log` 已被 `defineProperty` 整体替换，重新接管。
-- 回归测试：`tests/micro-client-message-source.test.mts`。
+- 回归测试：`tests/micro-client-message-source.test.ts`。
 
 **经验**：
 
@@ -108,3 +108,50 @@
 
 - 需要实机验证时，尽量在对局开始前改好代码，对局中不保存文件。
 - 如果必须在对局中改，改完后开新的一局验证，不要用刷新后的半局数据下结论。
+
+---
+
+## 6a. `npm run dev` 改样式/UI 完全不生效
+
+**现象**：改了 `panel-shell-styles` 或精简山河图/工具栏，保存后界面毫无变化。
+
+**根因**：`tools/dev.js` 曾回退到官方 `SGSOL.exe`。它是已打包应用，**不会**把 `D:\workspace\sgs-extension` 当 app 目录，始终跑 `Program Files\SGSOL\resources\app` + userData 脚本，和当前仓库 `dist` 无关。
+
+**修复**：dev 只接受真正的 `electron.exe`（`npm i -D electron@44.3.0`，或 `SGSOL_ELECTRON_PATH` / `xiaochao-electron-runtime`）。验证正式安装效果用 `.\deploy.bat`。
+
+---
+
+## 6. 打包进正式微端后面板样式丢失（开关变原生 checkbox / 滑块只剩白点）
+
+**现象**：`npm run dev` 里局内显示、屏蔽设置样式正常；`deploy` / 安装 `wd-xc.zip` 后：
+
+- 「局内显示」变成一排蓝色原生勾选框，「开/关」文字直接拼进下一行文案（如「开局内牌堆」）。
+- 「屏蔽设置」弹窗里开关轨道消失，只剩标签旁的米色圆点。
+
+**根因**：样式其实打进了脚本（`installPanelShellStyles` + Vite 注入的 `xiaochao-vue-styles`），不是「CSS 文件没打包」。正式 `SGSOL.exe` 自带的 Chromium 偏旧（约 Electron 10 / Chrome 85 一代），而开发用的 Electron 较新。面板壳 CSS 里用了旧引擎会整条丢弃的语法：
+
+- `:is(#createIframe, .xiaochao-dialog) …` → 设置开关整套规则失效，露出原生 checkbox 和行内「开/关」。
+- `inset: 0` → 滑块轨道定不住宽高，只剩 `::before` 圆点。
+- `:has(…)` 同理会被忽略（次要）。
+
+**修复**（`src/ui/panel/panel-shell-styles.ts` 等）：
+
+- `:is(A, B) .x` 改成 `A .x, B .x`。
+- `inset` 改成 `top/right/bottom/left`。
+- 避免在面板壳样式里依赖 `:has()` / 仅新 Chromium 才有的缩写。
+
+**经验**：
+
+- 开发能看见 ≠ 正式微端能看见；UI 样式要以正式 `SGSOL.exe` 的 Chromium 能力为准。
+- 改面板 CSS 后必须 `deploy`（或至少覆盖 userData 脚本）再在正式微端里看，不要只看 `npm run dev`。
+- 若「功能没了」而不是「样式丑了」，先看 FAQ 第 7 条（运行时脚本路径），不要先怀疑 Vite 没打 CSS。
+
+---
+
+## 7. 打包后功能还是旧的 / 开发改动不生效
+
+**现象**：`resources/app/xiaochao.js` 已是新构建，但正式微端行为仍像官网旧脚本。
+
+**根因**：正式微端注入的是 `%APPDATA%\\SGSOL\\xiaochao\\xiaochao.js`，不是 `app` 目录里那份。启动时若 userData 版本号更高（如 1.5.91 > 1.1.47），旧逻辑不会用 app 内置脚本覆盖；自动更新还可能再次拉回官网脚本。
+
+**修复**：壳按内容哈希把 `app/xiaochao.js` 同步进 userData；`deploy` 同时覆盖 userData 并清理旧远程更新字段。详见 `docs/ENGINEERING.md`。

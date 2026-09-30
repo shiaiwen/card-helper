@@ -2,6 +2,9 @@ const { app } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = __dirname;
+// 尽早关掉 Chromium 文件日志，避免在仓库里生成 debug.log
+app.commandLine.appendSwitch('disable-logging');
+app.commandLine.appendSwitch('log-file', process.platform === 'win32' ? 'NUL' : '/dev/null');
 // Hardware acceleration stays enabled for the game's WebGL rendering.
 // Opt into software rendering only when diagnosing a GPU-specific problem.
 if (process.env.SGSOL_SOFTWARE_RENDERING === '1') app.disableHardwareAcceleration();
@@ -11,7 +14,9 @@ fs.mkdirSync(path.join(data, 'xiaochao'), { recursive: true });
 app.setPath('userData', data);
 const configPath = path.join(data, 'xiaochao/config.json');
 const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
-Object.assign(config, { autoUpdateEnabled: false, firstTime: false, firstTimeAnnouncementSeen: true });
+Object.assign(config, { firstTime: false, firstTimeAnnouncementSeen: true });
+delete config.scriptUrl;
+delete config.autoUpdateEnabled;
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 const logPath = path.join(data, 'runtime.log');
 fs.writeFileSync(logPath, '');
@@ -99,4 +104,4 @@ app.on('browser-window-created', (_, win) => {
   });
 });
 log('runtime', {electron:process.versions.electron,appPath:app.getAppPath(),data});
-require('./main.js');
+require('./main.cjs');

@@ -40,6 +40,15 @@ export interface XiaochaoConfig {
   'skin.officialBackground': boolean;
   'skin.skinPaper': boolean;
   'skin.allPaper': boolean;
+  'autoTask.enabled': boolean;
+  'autoTask.skipTavern': boolean;
+  'autoTask.skipMail': boolean;
+  'autoTask.skipDailyGeneralBag': boolean;
+  'autoTask.skipSignTrialCard': boolean;
+  'autoTask.skipDiJiaQuan': boolean;
+  'autoTask.skipHuanLeDou': boolean;
+  'rogue.mapEnabled': boolean;
+  'rogue.hideStory': boolean;
 }
 
 export type XiaochaoConfigKey = keyof XiaochaoConfig;
@@ -141,7 +150,16 @@ export const CONFIG_SCHEMA: {
   'skin.otherLocalSkin': booleanDefinition(false, 'OTHER_LOCAL_SKIN_SWITCH'),
   'skin.officialBackground': booleanDefinition(true, 'OFFICIAL_BACKGROUND_SWITCH'),
   'skin.skinPaper': booleanDefinition(true, 'SKIN_PAPER_SWITCH'),
-  'skin.allPaper': booleanDefinition(false, 'ALL_PAPER_SWITCH')
+  'skin.allPaper': booleanDefinition(false, 'ALL_PAPER_SWITCH'),
+  'autoTask.enabled': booleanDefinition(false, 'AUTO_TASK_SWITCH'),
+  'autoTask.skipTavern': booleanDefinition(true, 'AUTO_TASK_TAVERN'),
+  'autoTask.skipMail': booleanDefinition(true, 'AUTO_TASK_SKIP_MAIL'),
+  'autoTask.skipDailyGeneralBag': booleanDefinition(true, 'AUTO_TASK_SKIP_DAILY_WU_JIANG'),
+  'autoTask.skipSignTrialCard': booleanDefinition(true, 'AUTO_SIGN_SKIP_SWITCH'),
+  'autoTask.skipDiJiaQuan': booleanDefinition(true, 'AUTO_TASK_SKIP_DI_JIA_QUAN'),
+  'autoTask.skipHuanLeDou': booleanDefinition(true, 'AUTO_TASK_SKIP_HUAN_LE_DOU'),
+  'rogue.mapEnabled': booleanDefinition(true, 'ROGUE_CITY_SWITCH'),
+  'rogue.hideStory': booleanDefinition(false, 'ROGUE_STORY_SWITCH')
 };
 
 export function getDefaultConfig(): XiaochaoConfig {

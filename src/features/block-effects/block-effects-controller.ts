@@ -55,6 +55,8 @@ const CLOSE_BY_SWITCH: Partial<Record<BlockSettingKey, string>> = {
 export interface BlockEffectsController {
   /** 协议分发前调用，按开关改写击杀、皮肤状态与势力口号消息。 */
   filterMessage(payload: UnknownRecord, className: string): void;
+  /** 对照 app.bak「清除红点」：清掉红点树上仍亮着的叶子。 */
+  clearRedDots(): { found: boolean; count: number };
   dispose(): void;
 }
 
@@ -625,11 +627,19 @@ export function installBlockEffectsController(
     ));
   }
 
+  function taskRedDotManager(): UnknownRecord | null {
+    const fromEvent = locator.manager('TaskRedDotManager');
+    const fromList = locator.managerFromList((item) => (
+      typeof item.setNodeState === 'function' && Boolean(asRecord(item.tree)?.root)
+    ));
+    const candidates = [fromEvent, fromList].filter((item): item is UnknownRecord => Boolean(item));
+    return candidates.find((item) => (
+      typeof item.setNodeState === 'function' && Boolean(asRecord(asRecord(item.tree)?.root)?.state)
+    )) ?? candidates.find((item) => typeof item.setNodeState === 'function') ?? null;
+  }
+
   async function installRedDotBlock(): Promise<void> {
-    const redDotManager = await poll(() => {
-      const manager = locator.manager('TaskRedDotManager');
-      return typeof manager?.setNodeState === 'function' ? manager : null;
-    }, 40, 500);
+    const redDotManager = await poll(() => taskRedDotManager(), 40, 500);
     patcher.wrap(redDotManager, 'setNodeState', (original) => function (this: UnknownRecord, node: unknown, state: unknown) {
       if (node === Infinity) {
         activeLeafNodes(asRecord(this.tree)?.root).forEach((leaf) => original.call(this, leaf, 0));
@@ -641,9 +651,11 @@ export function installBlockEffectsController(
   }
 
   function clearAllRedDots(): void {
-    const manager = locator.manager('TaskRedDotManager');
-    if (!patcher.isWrapped(manager, 'setNodeState')) return;
-    callMethod(manager, 'setNodeState', Infinity, 0);
+    const manager = taskRedDotManager();
+    if (!manager || typeof manager.setNodeState !== 'function') return;
+    for (const leaf of activeLeafNodes(asRecord(manager.tree)?.root)) {
+      callMethod(manager, 'setNodeState', leaf, 0);
+    }
   }
 
   function installResourceRequestFilter(): void {
@@ -708,6 +720,13 @@ export function installBlockEffectsController(
 
   return {
     filterMessage,
+    clearRedDots() {
+      const manager = taskRedDotManager();
+      if (typeof manager?.setNodeState !== 'function') return { found: false, count: 0 };
+      const leaves = activeLeafNodes(asRecord(manager.tree)?.root);
+      for (const leaf of leaves) callMethod(manager, 'setNodeState', leaf, 0);
+      return { found: true, count: leaves.length };
+    },
     dispose() {
       disposed = true;
       timers.forEach((timer) => clearTimeout(timer));
@@ -719,7 +738,7 @@ export function installBlockEffectsController(
   };
 }
 
-/** 原版红点清理：广度遍历找出所有仍亮着的叶子节点。 */
+/** 原版红点清理：广度遍历找出所有仍亮着的叶子。子节点只要有 filter 就走，不要求是普通数组。 */
 function activeLeafNodes(root: unknown): unknown[] {
   const rootRecord = asRecord(root);
   if (!rootRecord?.state) return [];
@@ -727,13 +746,19 @@ function activeLeafNodes(root: unknown): unknown[] {
   const queue: UnknownRecord[] = [rootRecord];
   while (queue.length) {
     const node = queue.shift()!;
-    const children = Array.isArray(node.children)
-      ? node.children.map(asRecord).filter((child): child is UnknownRecord => Boolean(child?.state))
-      : [];
+    const children = activeChildren(node);
     if (children.length) queue.push(...children);
     else leaves.push(node);
   }
   return leaves;
+}
+
+function activeChildren(node: UnknownRecord): UnknownRecord[] {
+  const children = node.children as { filter?: (predicate: (child: unknown) => unknown) => unknown[] } | undefined;
+  if (typeof children?.filter !== 'function') return [];
+  return children.filter((child) => Boolean(asRecord(child)?.state))
+    .map(asRecord)
+    .filter((child): child is UnknownRecord => Boolean(child));
 }
 
 function asRecord(value: unknown): UnknownRecord | null {

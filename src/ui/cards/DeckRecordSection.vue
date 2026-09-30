@@ -226,8 +226,7 @@ function rankOrder(rank: string): number {
   text-align: left;
   box-sizing: border-box;
 }
-.xc-deck-record__cards:empty::after,
-.xc-deck-record__cards:not(:has(.shoupai)):not(:has(.xc-deck-record__unknown))::after {
+.xc-deck-record__cards:empty::after {
   content: attr(data-empty);
   color: rgba(183, 170, 139, .75);
   font: 12px/36px SimSun, serif;

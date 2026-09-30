@@ -1,0 +1,21 @@
+# 禁止 debug.log（强制）
+
+仓库内不得出现、不得自动创建 `debug.log`。
+
+## 原因
+
+Chromium/Electron 默认会在 cwd 或 `electron.exe` 旁写 `debug.log`（crashpad 噪音）。这些文件污染源码树，不进版本库。
+
+## 禁止
+
+- 新增任何写入 `debug.log` / `**/debug.log` 的代码、脚本、agent 埋点
+- 用 `debug.log` 做临时调试输出（改写 `.dev-data/` 下有名字的日志，或控制台）
+- 提交 `debug.log`
+
+## 已有防护
+
+- `.gitignore`：`*.log` / `debug.log`
+- `tools/dev.js`：启动清残留 + Electron `--disable-logging --log-file=NUL`
+- `dev-main.cjs` / `main.cjs` / release 壳：`disable-logging`
+
+若仍看到新的 `debug.log`，先查是否有未带上述开关的 Electron 进程，再删文件。

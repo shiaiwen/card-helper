@@ -90,8 +90,12 @@ export function remainingSha(used: number, limit: number): number {
   return Math.max(0, limit - (Number.isFinite(used) ? used : 0));
 }
 
+/** 回合内六阶段：准备(1)～结束(6)；开局后展开/折叠都带序号。 */
 export function formatPhase(phase: number | null): string {
-  return phase === null ? '等待开局' : PHASE_LABELS[phase] ?? `阶段 ${phase}`;
+  if (phase === null) return '等待开局';
+  const label = PHASE_LABELS[phase] ?? `阶段 ${phase}`;
+  if (phase >= 1 && phase <= 6) return `${label}（${phase}）`;
+  return label;
 }
 
 export function formatShaRemaining(remaining: number | null): string {

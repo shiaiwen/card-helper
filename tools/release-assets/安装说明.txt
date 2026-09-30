@@ -1,0 +1,77 @@
+小抄微端安装说明
+====================
+
+解压下载的测试包后，请先完全关闭三国杀官方微端，再按系统选择对应步骤。
+
+
+Windows
+=======
+
+自动安装（推荐）
+----------------
+1. 把 app.zip、install.bat、restore.bat 放进官方微端的 resources 目录，通常位于：
+   C:\Program Files\SGSOL\resources
+2. 右键 install.bat，选择“以管理员身份运行”，完成后重新打开官方微端。
+
+卸载
+----
+- 右键 restore.bat，选择“以管理员身份运行”，即可恢复官方微端。
+
+手动安装（无法运行 install.bat 时）
+------------------------------------
+1. 进入官方微端的 resources 目录。
+2. 如果已有 app\config.json，先复制一份到桌面备份。
+3. 删除 resources 下的 app 文件夹（如果没有 app 文件夹则跳过）。
+4. 把 app.zip 解压到 resources 目录，确保 resources\app\package.json 直接存在。
+5. 把第 2 步备份的 config.json 复制回 resources\app\config.json（无备份则跳过）。
+6. 把 resources\app.asar 重命名为 app.asar.bak（让 Electron 使用 app 文件夹）。
+7. 重新打开三国杀微端。
+
+手动恢复官方微端（无法运行 restore.bat 时）
+--------------------------------------------
+1. 删除 resources\app 文件夹。
+2. 把 resources\app.asar.bak 重命名为 app.asar。
+3. 重新打开三国杀微端。
+
+
+macOS
+=====
+
+自动安装（推荐）
+----------------
+1. 把 app.zip、install.sh、restore.sh 放进官方微端的 Resources 目录，通常位于：
+   /Applications/SGSOL.app/Contents/Resources
+2. 在该目录打开“终端”，执行：
+   sudo bash install.sh
+   按提示输入系统密码，完成后重新打开官方微端。
+
+卸载
+----
+- 在同一目录执行：
+  sudo bash restore.sh
+  即可恢复官方微端。
+
+手动安装（无法运行 install.sh 时）
+------------------------------------
+1. 进入官方微端的 Resources 目录：
+   /Applications/SGSOL.app/Contents/Resources
+2. 如果已有 app/config.json，先复制一份到桌面备份。
+3. 删除 Resources 下的 app 文件夹（如果没有 app 文件夹则跳过）。
+4. 把 app.zip 解压到 Resources 目录，确保 Resources/app/package.json 直接存在。
+5. 把第 2 步备份的 config.json 复制回 Resources/app/config.json（无备份则跳过）。
+6. 把 Resources/app.asar 重命名为 app.asar.bak（让 Electron 使用 app 文件夹）。
+7. 重新打开三国杀微端。
+
+手动恢复官方微端（无法运行 restore.sh 时）
+--------------------------------------------
+1. 删除 Resources/app 文件夹。
+2. 把 Resources/app.asar.bak 重命名为 app.asar。
+3. 重新打开三国杀微端。
+
+
+注意
+----
+- Windows：修改 C:\Program Files 需要管理员权限，建议先把文件复制到桌面操作后再粘贴回去。
+- macOS：修改 /Applications 需要管理员权限；若终端提示 Operation not permitted，请先确认微端已完全退出。
+- 若删除/重命名 app.asar 后仍是旧界面，重启电脑即可。
+- 微端启动后会自动检查整包与小抄脚本更新；安装完成后一般无需手动重复上述步骤。

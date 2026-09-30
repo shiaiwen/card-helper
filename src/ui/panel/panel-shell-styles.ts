@@ -1,7 +1,13 @@
 export const PANEL_SHELL_STYLE_ID = 'xiaochao-vue-panel-shell-style';
 
-/** Vue 面板外壳的独立样式，不依赖 legacy HTML 模板中的 style 标签。 */
-export const PANEL_SHELL_CSS = `
+/**
+ * Vue 面板外壳的独立样式，不依赖 legacy HTML 模板中的 style 标签。
+ *
+ * 目标微端 Chromium 偏旧（约 Chrome 85 / Electron 10 一代）：
+ * 不要用 :is() / :has() / inset 等新语法，否则整条规则会被丢弃，
+ * 表现为打包后开关退回原生 checkbox、滑块只剩白点。
+ */
+const PANEL_SHELL_CSS_SOURCE = `
 #createIframe.createIframe {
   --xc-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
   position: fixed !important;
@@ -30,6 +36,8 @@ export const PANEL_SHELL_CSS = `
 }
 #createIframe.xiaochao-panel--collapsed {
   border: 0;
+  border-radius: 12px;
+  clip-path: inset(0 round 12px);
   box-shadow: 0 0 10px 2px rgba(255, 220, 120, .28);
 }
 #createIframe.xiaochao-panel--docked-right {
@@ -41,38 +49,9 @@ export const PANEL_SHELL_CSS = `
   cursor: grabbing;
   opacity: .96;
 }
-@property --xiaochao-border-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-#createIframe.xiaochao-panel--collapsed::before {
-  content: '';
-  position: absolute;
-  z-index: 5;
-  inset: 0;
-  padding: 2px;
-  border-radius: inherit;
-  pointer-events: none;
-  background: conic-gradient(
-    from var(--xiaochao-border-angle),
-    transparent 0deg 245deg,
-    rgba(210, 182, 111, .22) 270deg,
-    #fff4c2 305deg,
-    #d2b66f 330deg,
-    transparent 360deg
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: xiaochaoCollapsedBorderRun 2.2s linear infinite;
-}
-@keyframes xiaochaoCollapsedBorderRun {
-  to { --xiaochao-border-angle: 360deg; }
-}
 #createIframe .xc-frame-header {
-  min-height: 30px;
-  margin: 1px;
+  min-height: 26px;
+  margin: 0;
   display: flex;
   align-items: center;
   cursor: grab;
@@ -80,18 +59,27 @@ export const PANEL_SHELL_CSS = `
   pointer-events: auto;
 }
 #createIframe.xiaochao-panel--collapsed .xc-frame-header {
-  min-height: 26px;
+  min-height: 48px;
+  height: 48px;
+  padding: 0 2px 0 0;
 }
 #createIframe.xiaochao-panel--collapsed .xc-frame-toggle {
-  width: 24px;
-  height: 24px;
-  margin: 0 1px;
+  width: 30px;
+  height: 30px;
+  margin: 0 6px 0 0;
+  border-radius: 9px;
+  flex: 0 0 auto;
 }
-#createIframe #mini-label {
-  margin: 0 auto 0 6px;
-  color: #f2de9c;
-  font-size: 15px;
-  white-space: nowrap;
+#createIframe.xiaochao-panel--collapsed .xc-frame-header__status {
+  margin: 0;
+  align-self: stretch;
+}
+#createIframe .xc-frame-header__status {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  margin: 0 2px 0 0;
 }
 #createIframe .xc-frame-toggle {
   position: relative;
@@ -111,7 +99,14 @@ export const PANEL_SHELL_CSS = `
   background: rgba(242, 222, 156, .1);
   border-color: rgba(242, 222, 156, .2);
 }
-#createIframe .xc-frame-toggle__icon { position: absolute; inset: 0; pointer-events: none; }
+#createIframe .xc-frame-toggle__icon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
 #createIframe .xc-frame-toggle__arrow {
   position: absolute;
   width: 7px;
@@ -128,8 +123,7 @@ export const PANEL_SHELL_CSS = `
 #createIframe .xiaochao-panel__tabs {
   display: flex;
   flex-wrap: nowrap;
-  gap: 2px;
-  padding: 3px;
+  padding: 2px;
   background: linear-gradient(180deg, #2a241f 0%, #1a1714 100%);
   box-shadow: 0 2px 6px rgba(0, 0, 0, .22);
   pointer-events: auto;
@@ -137,12 +131,14 @@ export const PANEL_SHELL_CSS = `
 #createIframe .xiaochao-panel__tabs .xc-main-tab {
   flex: 1 1 0;
   min-width: 0;
-  padding: 5px 4px;
+  margin: 0 1px;
+  padding: 3px 3px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: #a09080;
-  font-size: 12.5px;
+  font-size: 12px;
+  line-height: 1.2;
   text-align: center;
   cursor: pointer;
 }
@@ -172,6 +168,154 @@ export const PANEL_SHELL_CSS = `
   pointer-events: auto;
 }
 #createIframe .xiaochao-panel__content::-webkit-scrollbar { width: 0; height: 0; display: none; }
+#createIframe .xiaochao-tools-entry { flex: 0 0 auto; overflow: hidden; padding-top: 0; }
+#createIframe .xiaochao-tools-entry .xiaochao-settings-section {
+  margin: 4px 0 0;
+}
+#createIframe .xiaochao-rogue-entry { flex: 0 0 auto; overflow: hidden; padding-top: 0; }
+#createIframe .xiaochao-rogue-entry .xiaochao-settings-section {
+  margin: 4px 0 0;
+}
+#createIframe .xiaochao-settings-grid.xiaochao-rogue-switch-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 6px;
+  margin-bottom: 4px;
+  padding: 4px 6px;
+}
+#createIframe .xiaochao-rogue-switch-grid > .xiaochao-block-switch {
+  min-width: 0;
+}
+#createIframe .xiaochao-settings-grid.xiaochao-display-switch-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 4px;
+  margin-bottom: 0;
+  padding: 6px 4px 8px;
+}
+#createIframe .xiaochao-display-switch-grid > .xiaochao-block-switch {
+  min-width: 0;
+}
+#createIframe .xiaochao-display-switch-grid .xiaochao-block-switch__label {
+  margin: 0 0 2px;
+  text-align: center;
+  font-size: 11px;
+}
+#createIframe .xiaochao-display-switch-grid .xiaochao-block-switch__toggle {
+  margin: 0 auto;
+}
+#createIframe .xiaochao-rogue-shop-btn {
+  width: calc(100% - 12px);
+  margin: 2px 6px 6px;
+}
+#createIframe .xiaochao-rogue-shop-preview {
+  margin: 2px 6px 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-sizing: border-box;
+}
+#createIframe .xiaochao-rogue-shop-preview__title {
+  margin: 0 2px 4px;
+  color: #c9c1b1;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+/*
+ * 接缝：只用 grid gap 露一次底色，禁止每格四边 border（会双线）。
+ * 等级辨识：左侧色条 + 同色浅底 + 文字色（对照 app.bak 1灰/2蓝/3紫/4橙）。
+ */
+#createIframe .xiaochao-rogue-shop-preview__list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: transparent;
+}
+#createIframe .xiaochao-rogue-shop-preview__item {
+  --rogue-shop-accent: rgba(242, 222, 156, 0.45);
+  --rogue-shop-glow: rgba(242, 222, 156, 0.08);
+  width: auto;
+  min-width: 0;
+  height: 24px;
+  margin: 0;
+  padding: 0 6px 0 8px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 3px;
+  color: #f2de9c;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 24px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  background:
+    linear-gradient(90deg, var(--rogue-shop-glow) 0%, transparent 42%),
+    linear-gradient(180deg, #342e27 0%, #251f1a 100%);
+  box-shadow: inset 3px 0 0 var(--rogue-shop-accent);
+}
+#createIframe .xiaochao-rogue-shop-preview__item[data-level="1"] {
+  --rogue-shop-accent: #b9b3a6;
+  --rogue-shop-glow: rgba(214, 210, 200, 0.14);
+  color: #e4e0d6;
+}
+#createIframe .xiaochao-rogue-shop-preview__item[data-level="2"] {
+  --rogue-shop-accent: #5ea6ff;
+  --rogue-shop-glow: rgba(94, 166, 255, 0.2);
+  color: #9cccff;
+}
+#createIframe .xiaochao-rogue-shop-preview__item[data-level="3"] {
+  --rogue-shop-accent: #c07cff;
+  --rogue-shop-glow: rgba(192, 124, 255, 0.22);
+  color: #d7b0ff;
+}
+#createIframe .xiaochao-rogue-shop-preview__item[data-level="4"] {
+  --rogue-shop-accent: #ff9f2e;
+  --rogue-shop-glow: rgba(255, 159, 46, 0.24);
+  color: #ffc56d;
+  text-shadow: 0 0 8px rgba(255, 159, 46, 0.28);
+}
+#createIframe .xc-two-column-switch-row {
+  justify-content: flex-start;
+  gap: 4px;
+}
+#createIframe .xc-two-column-switch-row > .switch-container {
+  flex: 0 0 calc(50% - 2px);
+  min-width: 0;
+  max-width: calc(50% - 2px);
+}
+#createIframe #xiaochao-tools-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin: 6px 0 8px;
+  padding: 0 8px 8px;
+  text-align: center;
+}
+#createIframe #xiaochao-tools-identity:empty { display: none; }
+#createIframe #xiaochao-tools-identity .uuid {
+  margin: 0;
+  max-height: none;
+  width: 100%;
+  text-align: center;
+  color: #f2de9c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+#createIframe #xiaochao-tools-identity__divider,
+#createIframe .xiaochao-tools-identity__divider {
+  width: 72%;
+  height: 0;
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid rgba(242, 222, 156, .28);
+}
 #createIframe #frame-resize-handle { pointer-events: auto; }
 .xiaochao-dock-preview {
   position: fixed;
@@ -209,7 +353,10 @@ export const PANEL_SHELL_CSS = `
 }
 .xiaochao-dialog {
   position: fixed;
-  inset: auto;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
   box-sizing: border-box;
   width: min(420px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
@@ -267,32 +414,39 @@ export const PANEL_SHELL_CSS = `
 .xiaochao-dialog__footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
   padding: 8px 12px;
   border-top: 1px solid rgba(242, 222, 156, .18);
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-settings-section {
+.xiaochao-dialog__footer > * + * {
+  margin-left: 8px;
+}
+#createIframe .xiaochao-settings-section,
+.xiaochao-dialog .xiaochao-settings-section {
   box-sizing: border-box;
-  margin: 0 0 10px;
+  margin: 0 0 6px;
 }
 #createIframe [data-migrated-to-vue="true"],
-#createIframe .switch-container-row[hidden],
-#createIframe .nav:has(#phrase) {
+#createIframe .switch-container-row[hidden] {
   display: none !important;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-settings-section__header {
+#createIframe .nav[data-xc-hide-phrase="1"] {
+  display: none !important;
+}
+#createIframe .xiaochao-settings-section__header,
+.xiaochao-dialog .xiaochao-settings-section__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 27px;
+  min-height: 22px;
   box-sizing: border-box;
-  margin: 0 2px 6px;
-  padding: 0 8px 0 9px;
+  margin: 0 2px 3px;
+  padding: 0 6px 0 7px;
   border-left: 3px solid #d7b66b;
   border-radius: 3px;
   background: linear-gradient(90deg, rgba(117, 84, 38, .32), rgba(44, 36, 28, .08) 72%, transparent);
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-settings-section__title {
+#createIframe .xiaochao-settings-section__title,
+.xiaochao-dialog .xiaochao-settings-section__title {
   margin: 0;
   color: #f2de9c;
   font-size: 12px;
@@ -300,12 +454,14 @@ export const PANEL_SHELL_CSS = `
   line-height: 1;
   letter-spacing: .5px;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-settings-section__summary {
+#createIframe .xiaochao-settings-section__summary,
+.xiaochao-dialog .xiaochao-settings-section__summary {
   color: rgba(214, 197, 156, .56);
   font-size: 10px;
   line-height: 1;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-settings-section__body {
+#createIframe .xiaochao-settings-section__body,
+.xiaochao-dialog .xiaochao-settings-section__body {
   overflow: hidden;
   border: 1px solid rgba(242, 222, 156, .16);
   border-radius: 7px;
@@ -314,21 +470,22 @@ export const PANEL_SHELL_CSS = `
     rgba(25, 22, 19, .66);
   box-shadow: inset 0 1px rgba(255, 242, 198, .035), 0 2px 6px rgba(0, 0, 0, .14);
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-settings-grid {
+#createIframe .xiaochao-settings-grid,
+.xiaochao-dialog .xiaochao-settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  padding: 3px 8px;
+  grid-gap: 0;
+  padding: 1px 6px;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 5px;
+#createIframe .xiaochao-setting-switch,
+.xiaochao-dialog .xiaochao-setting-switch {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   min-width: 0;
-  min-height: 34px;
+  min-height: 28px;
   box-sizing: border-box;
-  padding: 0 4px;
+  padding: 0 2px;
   border: 0;
   border-bottom: 1px solid rgba(242, 222, 156, .1);
   border-radius: 0;
@@ -336,77 +493,93 @@ export const PANEL_SHELL_CSS = `
   cursor: pointer;
   pointer-events: auto;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch:hover {
+#createIframe .xiaochao-setting-switch:hover,
+.xiaochao-dialog .xiaochao-setting-switch:hover {
   background: linear-gradient(90deg, rgba(215, 182, 107, .1), rgba(215, 182, 107, .025));
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch:last-child { border-bottom: 0; }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__label {
+#createIframe .xiaochao-setting-switch:last-child,
+.xiaochao-dialog .xiaochao-setting-switch:last-child { border-bottom: 0; }
+#createIframe .xiaochao-setting-switch__label,
+.xiaochao-dialog .xiaochao-setting-switch__label {
   flex: 1 1 auto;
   min-width: 0;
+  margin-right: 5px;
   color: #d6c59c;
   font-size: 12px;
-  line-height: 34px;
+  line-height: 28px;
   white-space: nowrap;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+#createIframe .xiaochao-setting-switch__input,
+.xiaochao-dialog .xiaochao-setting-switch__input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__track {
-  position: relative;
-  flex: 0 0 52px;
+#createIframe .xiaochao-setting-switch__track,
+.xiaochao-dialog .xiaochao-setting-switch__track {
+  position: relative !important;
+  display: block !important;
+  flex: 0 0 44px !important;
   box-sizing: border-box;
-  width: 52px;
-  height: 24px;
+  width: 44px !important;
+  height: 20px !important;
   border: 1px solid rgba(242, 222, 156, .26);
   border-radius: 999px;
   background: linear-gradient(180deg, #221e1a 0%, #1a1613 100%);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4);
   transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch:hover .xiaochao-setting-switch__track {
+#createIframe .xiaochao-setting-switch:hover .xiaochao-setting-switch__track,
+.xiaochao-dialog .xiaochao-setting-switch:hover .xiaochao-setting-switch__track {
   border-color: rgba(242, 222, 156, .42);
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__thumb {
+#createIframe .xiaochao-setting-switch__thumb,
+.xiaochao-dialog .xiaochao-setting-switch__thumb {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: linear-gradient(180deg, #f5e6b8 0%, #dcc98a 100%);
   box-shadow: 0 1px 3px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .28);
   transition: transform .2s cubic-bezier(.4, 0, .2, 1), background .2s ease;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__status {
+#createIframe .xiaochao-setting-switch__status,
+.xiaochao-dialog .xiaochao-setting-switch__status {
   position: absolute;
   top: 50%;
-  right: 6px;
+  right: 5px;
   transform: translateY(-50%);
   color: rgba(169, 149, 114, .92);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
   letter-spacing: .04em;
   pointer-events: none;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track {
+#createIframe .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track,
+.xiaochao-dialog .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track {
   border-color: rgba(242, 222, 156, .55);
   background: linear-gradient(180deg, #d4b56a 0%, #b8923f 100%);
   box-shadow: inset 0 1px 0 rgba(255, 248, 210, .25), 0 0 8px rgba(212, 181, 106, .18);
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__thumb {
-  transform: translateX(28px);
+#createIframe .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__thumb,
+.xiaochao-dialog .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__thumb {
+  transform: translateX(24px);
   background: linear-gradient(180deg, #fffaf0 0%, #f2de9c 100%);
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__status {
+#createIframe .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__status,
+.xiaochao-dialog .xiaochao-setting-switch__input:checked + .xiaochao-setting-switch__track .xiaochao-setting-switch__status {
   right: auto;
-  left: 6px;
+  left: 5px;
   color: #2a2010;
 }
-:is(#createIframe, .xiaochao-dialog) .xiaochao-setting-switch__input:focus-visible + .xiaochao-setting-switch__track {
+#createIframe .xiaochao-setting-switch__input:focus-visible + .xiaochao-setting-switch__track,
+.xiaochao-dialog .xiaochao-setting-switch__input:focus-visible + .xiaochao-setting-switch__track {
   box-shadow: 0 0 0 2px rgba(242, 222, 156, .2);
 }
 .xiaochao-block-dialog {
@@ -415,13 +588,48 @@ export const PANEL_SHELL_CSS = `
 .xiaochao-block-dialog .xiaochao-dialog__content {
   padding: 12px 10px 14px;
 }
+.xiaochao-block-select-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 10px;
+}
+.xiaochao-block-select-btn {
+  box-sizing: border-box;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(242, 222, 156, .42);
+  border-radius: 4px;
+  background: rgba(57, 47, 34, .72);
+  box-shadow: inset 0 1px rgba(255, 242, 198, .04);
+  color: #e6d6a8;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.xiaochao-block-select-btn:hover {
+  border-color: rgba(242, 222, 156, .62);
+  background: linear-gradient(90deg, rgba(215, 182, 107, .2), rgba(57, 47, 34, .78));
+  color: #f2de9c;
+}
+.xiaochao-block-select-btn:active {
+  border-color: rgba(242, 222, 156, .78);
+  background: linear-gradient(90deg, rgba(215, 182, 107, .36), rgba(215, 182, 107, .1));
+  color: #fff6d8;
+}
 .xiaochao-block-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin-top: 16px;
 }
+.xiaochao-block-group + .xiaochao-block-group {
+  margin-top: 16px;
+}
+.xiaochao-block-group__title + .xiaochao-block-group__grid {
+  margin-top: 8px;
+}
 .xiaochao-block-group:first-child { margin-top: 0; }
+.xiaochao-block-select-bar + .xiaochao-block-group { margin-top: 0; }
 .xiaochao-block-group__title {
   box-sizing: border-box;
   min-height: 26px;
@@ -439,7 +647,7 @@ export const PANEL_SHELL_CSS = `
 .xiaochao-block-group__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px 4px;
+  grid-gap: 10px 4px;
 }
 .xiaochao-block-switch {
   box-sizing: border-box;
@@ -451,6 +659,11 @@ export const PANEL_SHELL_CSS = `
   color: #f2de9c;
   font-size: 12.5px;
   white-space: nowrap;
+}
+.xiaochao-block-switch__label::before,
+.xiaochao-block-switch__label::after {
+  content: none !important;
+  display: none !important;
 }
 .xiaochao-block-switch__toggle {
   position: relative;
@@ -469,7 +682,10 @@ export const PANEL_SHELL_CSS = `
 }
 .xiaochao-block-switch__slider {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   border: 1px solid rgba(242, 222, 156, .26);
   border-radius: 999px;
   background: linear-gradient(180deg, #221e1a 0%, #1a1613 100%);
@@ -528,40 +744,144 @@ export const PANEL_SHELL_CSS = `
 .xiaochao-block-switch__toggle input:checked + .xiaochao-block-switch__slider + .xiaochao-block-switch__state::before {
   content: "开";
 }
+/* 快捷工具：屏蔽/红点/皮肤/领取 两行两列紧凑入口 */
+#createIframe .xiaochao-quick-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 6px;
+}
+#createIframe .xiaochao-quick-tools .xiaochao-settings-section {
+  margin: 0;
+  min-width: 0;
+}
+#createIframe .xiaochao-quick-tools .xiaochao-settings-section__body {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#createIframe .xiaochao-quick-tools .xiaochao-block-entry {
+  width: calc(100% - 2px);
+  min-height: 24px;
+  margin: 1px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  gap: 4px;
+}
+#createIframe .xiaochao-quick-tools .xiaochao-block-entry > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#createIframe .xiaochao-quick-tools .xiaochao-block-entry__count {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+/* 功能入口按钮：统一描边，避免看起来像静态文案 */
 #createIframe .xiaochao-block-entry {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  min-height: 34px;
+  width: calc(100% - 8px);
+  min-height: 28px;
   box-sizing: border-box;
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: #d6c59c;
+  margin: 3px 4px;
+  padding: 0 10px;
+  border: 1px solid rgba(242, 222, 156, .42);
+  border-radius: 5px;
+  background: rgba(57, 47, 34, .72);
+  box-shadow: inset 0 1px rgba(255, 242, 198, .04);
+  color: #e6d6a8;
   font: inherit;
   font-size: 12px;
   cursor: pointer;
   pointer-events: auto;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 #createIframe .xiaochao-block-entry:hover {
-  background: linear-gradient(90deg, rgba(215, 182, 107, .1), rgba(215, 182, 107, .025));
+  border-color: rgba(242, 222, 156, .62);
+  background: linear-gradient(90deg, rgba(215, 182, 107, .2), rgba(57, 47, 34, .78));
   color: #f2de9c;
+}
+#createIframe .xiaochao-block-entry:active,
+#createIframe .xiaochao-block-entry--flash {
+  border-color: rgba(242, 222, 156, .78);
+  background: linear-gradient(90deg, rgba(215, 182, 107, .36), rgba(215, 182, 107, .1));
+  color: #fff6d8;
+}
+#createIframe .xiaochao-block-entry--center {
+  justify-content: center;
+  text-align: center;
 }
 #createIframe .xiaochao-block-entry__count {
   color: rgba(214, 197, 156, .7);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+/* @property / conic 动画放到末尾：旧 Chromium 若解析失败，不影响上方开关等关键样式 */
+@property --xiaochao-border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+#createIframe.xiaochao-panel--collapsed::before {
+  content: '';
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--xiaochao-border-angle),
+    transparent 0deg 245deg,
+    rgba(210, 182, 111, .22) 270deg,
+    #fff4c2 305deg,
+    #d2b66f 330deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: xiaochaoCollapsedBorderRun 2.2s linear infinite;
+}
+@keyframes xiaochaoCollapsedBorderRun {
+  to { --xiaochao-border-angle: 360deg; }
+}
 `;
+
+export const PANEL_SHELL_CSS = PANEL_SHELL_CSS_SOURCE;
+
+const styleOwnerCounts = new WeakMap<Element, number>();
 
 /** 安装一次面板样式，并返回可供生命周期注册的清理函数。 */
 export function installPanelShellStyles(documentObject: Document = document): () => void {
-  const existingStyle = documentObject.getElementById(PANEL_SHELL_STYLE_ID);
-  if (existingStyle) return () => {};
-  const styleElement = documentObject.createElement('style');
-  styleElement.id = PANEL_SHELL_STYLE_ID;
-  styleElement.textContent = PANEL_SHELL_CSS;
-  (documentObject.head || documentObject.documentElement).appendChild(styleElement);
-  return () => styleElement.remove();
+  let styleElement = documentObject.getElementById(PANEL_SHELL_STYLE_ID);
+  if (!styleElement) {
+    styleElement = documentObject.createElement('style');
+    styleElement.id = PANEL_SHELL_STYLE_ID;
+    styleElement.textContent = PANEL_SHELL_CSS;
+    (documentObject.head || documentObject.documentElement).appendChild(styleElement);
+  } else {
+    styleElement.textContent = PANEL_SHELL_CSS;
+  }
+  styleOwnerCounts.set(styleElement, (styleOwnerCounts.get(styleElement) || 0) + 1);
+  let disposed = false;
+  return () => {
+    if (disposed || !styleElement) return;
+    disposed = true;
+    const remaining = (styleOwnerCounts.get(styleElement) || 1) - 1;
+    if (remaining <= 0) {
+      styleOwnerCounts.delete(styleElement);
+      styleElement.remove();
+      return;
+    }
+    styleOwnerCounts.set(styleElement, remaining);
+  };
 }

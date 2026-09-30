@@ -132,6 +132,8 @@ export function createSkillAssistStore(
   cardKnowledge: SkillAssistCardKnowledge = EMPTY_CARD_KNOWLEDGE,
   definitions: readonly SkillAssistDefinition[] = SKILL_ASSIST_DEFINITIONS
 ): SkillAssistStore {
+  /** 曹冲掉血后 GsCTriggerSpellNew 问过称象，亮牌才弹出。 */
+  let chengxiangTriggered = false;
   const panels = new Map<string, PanelRuntime>(
     definitions.map((definition) => [definition.id, {
       definition,
@@ -218,6 +220,7 @@ export function createSkillAssistStore(
 
   function resetAll(): void {
     resetTurnState();
+    chengxiangTriggered = false;
     panels.forEach((runtime) => {
       runtime.visible = false;
       runtime.pinned = false;
@@ -299,7 +302,12 @@ export function createSkillAssistStore(
       if (event.type === 'turn-started') {
         currentSeatId = event.seatId;
         resetTurnState();
+        hideChengxiang();
         publish(buildSnapshot());
+        return;
+      }
+      if (event.type === 'spell-triggered') {
+        if (event.spellIds.some((spellId) => isChengxiangSpell(spellId, scene))) chengxiangTriggered = true;
         return;
       }
       if (event.type === 'cards-used') {
@@ -316,7 +324,7 @@ export function createSkillAssistStore(
         return;
       }
       if (event.type === 'cards-moved') {
-        if (handleCardsMoved(event)) publish(buildSnapshot());
+        if (handleCardsMoved(event, scene)) publish(buildSnapshot());
         return;
       }
       if (event.type === 'spell-opt-rep') {
@@ -406,23 +414,48 @@ export function createSkillAssistStore(
     runtime.resultText = formatShuangxiong(resolveCards(cardIds));
   }
 
+  function isChengxiangSpell(spellId: number, scene: GameSceneSeatSource | null): boolean {
+    const definition = panels.get('chengxiang')?.definition;
+    const ids = definition
+      ? resolveSkillIds(definition, scene)
+      : [CHENGXIANG_SKILL_ID, JIE_CHENGXIANG_SKILL_ID];
+    return ids.includes(spellId);
+  }
+
+  function hideChengxiang(): void {
+    chengxiangTriggered = false;
+    const runtime = panels.get('chengxiang');
+    if (!runtime || (!runtime.visible && !runtime.pinned)) return;
+    runtime.pinned = false;
+    runtime.visible = false;
+    resetPanelContent(runtime);
+  }
+
   /** 称象 / 吉占 / 和衷都读技能亮出到展示区的牌；返回是否有面板更新。 */
-  function handleCardsMoved(event: CardsMovedEvent): boolean {
+  function handleCardsMoved(event: CardsMovedEvent, scene: GameSceneSeatSource | null): boolean {
     const shown = event.cardIds.filter((cardId) => cardId > 0);
-    if (
-      (event.spellId === CHENGXIANG_SKILL_ID || event.spellId === JIE_CHENGXIANG_SKILL_ID)
-      && event.toZone === JUDGE_SHOW_ZONE
-      && event.moveType === CHENGXIANG_MOVE_TYPE
-    ) {
+    if (isChengxiangSpell(event.spellId, scene)) {
       const runtime = panels.get('chengxiang');
-      if (!runtime || !shown.length) return false;
-      const combos = solveChengxiang(
-        shown.map((cardId) => rankNumber(gameCardCatalog.resolve(cardId))),
-        event.spellId === JIE_CHENGXIANG_SKILL_ID
-      );
-      pin(runtime);
-      setOptions(runtime, combos.map((combo) => formatRanks(combo.ranks)), combos.map((combo) => combo.exact));
-      return true;
+      if (!runtime) return false;
+      if (event.fromZone === JUDGE_SHOW_ZONE && runtime.visible) {
+        hideChengxiang();
+        return true;
+      }
+      if (
+        chengxiangTriggered
+        && event.toZone === JUDGE_SHOW_ZONE
+        && event.moveType === CHENGXIANG_MOVE_TYPE
+        && shown.length
+      ) {
+        const combos = solveChengxiang(
+          shown.map((cardId) => rankNumber(gameCardCatalog.resolve(cardId))),
+          event.spellId === JIE_CHENGXIANG_SKILL_ID
+        );
+        pin(runtime);
+        setOptions(runtime, combos.map((combo) => formatRanks(combo.ranks)), combos.map((combo) => combo.exact));
+        return true;
+      }
+      return false;
     }
     if (
       event.spellId === JIZHAN_SKILL_ID

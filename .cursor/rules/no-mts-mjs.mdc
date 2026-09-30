@@ -1,0 +1,16 @@
+---
+description: 禁止新增 .mts / .mjs；统一用 .ts / .js（CommonJS 用 .cjs）
+alwaysApply: true
+---
+
+# 扩展名约定（强制）
+
+以后不要再新增 `.mts` / `.mjs`。
+
+| 用途 | 扩展名 |
+|------|--------|
+| TypeScript 源码 / 测试 / Vite 配置 | `.ts` |
+| ESM JavaScript（`package.json` 已 `"type": "module"`） | `.js` |
+| 必须 CommonJS 的 Electron 壳 / 预加载等 | `.cjs` |
+
+对照：`tools/dev.js`、`vite.electron.config.ts`、`tests/*.test.ts`、`main.cjs`。

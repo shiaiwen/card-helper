@@ -16,13 +16,50 @@
 ```powershell
 npm install
 npm run dev                 # Vite 监听 + Electron 微端
-npm run build               # 只构建 Electron 微端
+npm run dev:ui              # 浏览器只挂面板 UI（不连游戏，方便改样式）
+npm run build               # 只构建 Electron 微端注入脚本
+npm run pack                # 打出可替换官方 app.asar 的发布包
 npm test
 ```
 
+`npm run dev` 必须用「可加载仓库目录」的 `electron.exe`（`SGSOL_ELECTRON_PATH` → `resources\xiaochao-electron-runtime` → `tools\electron-runtime` → `npm i -D electron`）。**不要用官方 `SGSOL.exe` 跑 dev**：它是已打包微端，会忽略仓库路径、始终加载 `Program Files` 里的 app，`dist` 热更新和样式改动会看起来完全没生效。验证正式包样式用 `.\deploy.bat`。
+
 修改 `src` 后 Vite 会生成 `dist/electron/xiaochao.js`，微端检测到产物变化后刷新游戏 webview。当前里程碑只维护 Electron 微端；`build:userscript` 和 `dev:userscript` 仅保留为后续兼容入口，不纳入日常开发与验收。
 
+仓库约定：新增脚本用 `.ts` / `.js`，不要再用 `.mts` / `.mjs`；Electron 壳等 CommonJS 用 `.cjs`。`package.json` 已设 `"type": "module"`。
+
+### 发布包
+
+`npm run pack` 会先构建脚本，再以 `tools/release-app-shell/`（已验证可启动的微端壳）为底板，只替换 `xiaochao.js`，打成：
+
+```text
+release/wd-xc.zip
+  ├── app.zip           # 解压后得到 app/（正式微端壳 + 当前小抄脚本）
+  ├── install.bat / install.sh
+  ├── restore.bat / restore.sh
+  └── 安装说明.txt
+```
+
+解压 `wd-xc.zip` 后，把其中文件放进 `C:\Program Files\SGSOL\resources`，管理员运行 `install.bat`。仓库根目录的 `main.js` 仅给 `npm run dev` 用，不打进发布包。
+
+本地一键部署（打包并覆盖安装到官方微端目录）：
+
+```powershell
+.\deploy.bat                 # 提权 → npm pack → 解压安装到 C:\Program Files\SGSOL\resources
+.\deploy.bat --no-pack       # 只安装已有的 release\wd-xc.zip
+```
+
+或已有管理员终端时：`npm run deploy`。目录可用环境变量 `SGSOL_RESOURCES` 或参数 `--resources=路径` 覆盖。部署前需退出 `SGSOL.exe`。
+
+开发能看到、打包后没有：正式微端注入的是 `%APPDATA%\SGSOL\xiaochao\xiaochao.js`，不是 `resources\app\xiaochao.js`。`npm run dev` 直接读 `dist/electron/xiaochao.js`；安装后若 userData 里仍是旧脚本，不会自动用 app 里的新版本。`deploy` 会同时覆盖 userData 脚本并清理旧的远程更新字段；壳启动时也会按内容哈希把 app 内置脚本同步进 userData。不再从 `xiaochao.org` 拉脚本或微端包。
+
 TypeScript 类型检查当前暂时关闭：`tsconfig.json` 使用 `noCheck`，`npm run typecheck` 只输出关闭提示。Vite 仍会转译 TypeScript；无法解析的语法错误仍会阻止构建。
+
+## 后续 TODO（暂缓）
+
+- 统一去掉 `.cjs`：把 `dev-main.cjs`、`tools/*.cjs`、`script/runtime-startup.cjs` 等改成 `.js` 或 `.ts`，并理顺模块加载；**现在不做**（见 `docs/功能清单.md` 阶段 G）。
+
+完整剩余事项（删 legacy 阻断、面板缺口、待实机、明确不做）见 **`docs/剩余工作.md`**。
 
 ## 迁移规则
 

@@ -1,3 +1,15 @@
+import {
+  AUTO_TASK_CONFIG_FILES,
+  buildAutoTaskConfigData,
+  configDayStamp,
+  type AutoTaskConfigData,
+  type AutoTaskConfigFileName
+} from '../features/auto-task/auto-task-config-data.ts';
+import {
+  buildRogueMapConfigData,
+  type RogueMapConfigData
+} from '../features/rogue/rogue-map-config-data.ts';
+
 type UnknownRecord = Record<string, unknown>;
 export type CardConfigDictionary = Record<number, UnknownRecord>;
 
@@ -12,6 +24,10 @@ export interface CardConfigSource {
   getCard(cardId: number): UnknownRecord | null;
   /** 按技能名查技能 ID（来自 cha_spell.sgs），配置未就绪时返回空数组。 */
   findSpellIdsByName(name: string): number[];
+  /** 自动任务用的任务 id、武将灯系列与物品名；配置未就绪时返回 null。 */
+  getAutoTaskData(): AutoTaskConfigData | null;
+  /** 山河地图透视表（hd_roguelike.sgs）；配置未就绪时返回 null。 */
+  getRogueMapData(): RogueMapConfigData | null;
   size(): number;
   dispose(): void;
 }
@@ -27,17 +43,20 @@ interface GameConfigCodecs {
 const CONFIG_PATH = '/220/h5_2/res/config/Config_w.sgs';
 const CONFIG_ORIGIN = 'https://web.sanguosha.com';
 const TEST_CONFIG_URL = 'https://test.sanguosha.com/h5/res/config//Config_w.sgs';
+const ROGUE_MAP_CONFIG_FILE = 'hd_roguelike.sgs';
 const POLL_INTERVAL_MS = 1000;
 const DOWNLOAD_TIMEOUT_MS = 20000;
 const DOWNLOAD_ATTEMPTS = 3;
 
 /**
  * 自行下载游戏的 Config_w.sgs，并用游戏页面自带的 JSZip / CtrUtil / Zlib 解出
- * sys_playcard 与 cha_spell，构建按卡牌 ID 索引的官方字典。
+ * sys_playcard、cha_spell、自动任务表与山河地图表。
  */
 export function installCardConfigSource(globalObject: Window = window): CardConfigSource {
   let dictionary: CardConfigDictionary | null = null;
   let spellIdsByName = new Map<string, number[]>();
+  let autoTaskData: AutoTaskConfigData | null = null;
+  let rogueMapData: RogueMapConfigData | null = null;
   let disposed = false;
   let loading = false;
   let failures = 0;
@@ -61,6 +80,8 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
         if (disposed) return;
         dictionary = result.cards;
         spellIdsByName = result.spellIdsByName;
+        autoTaskData = result.autoTaskData;
+        rogueMapData = result.rogueMapData;
         globalObject.__XIAOCHAO_OFFICIAL_CARD_DICTIONARY__ = result.cards;
         globalObject.clearInterval(timer);
       })
@@ -81,6 +102,12 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
     findSpellIdsByName(name) {
       return [...(spellIdsByName.get(name) ?? [])];
     },
+    getAutoTaskData() {
+      return autoTaskData;
+    },
+    getRogueMapData() {
+      return rogueMapData;
+    },
     size() {
       return dictionary ? Object.keys(dictionary).length : 0;
     },
@@ -94,13 +121,118 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
 async function loadCardDictionary(
   globalObject: Window,
   codecs: GameConfigCodecs
-): Promise<{ cards: CardConfigDictionary; spellIdsByName: Map<string, number[]> }> {
+): Promise<{
+  cards: CardConfigDictionary;
+  spellIdsByName: Map<string, number[]>;
+  autoTaskData: AutoTaskConfigData | null;
+  rogueMapData: RogueMapConfigData | null;
+}> {
   const archive = await codecs.loadZip(await downloadArchive(resolveConfigUrl(globalObject)));
-  const [playCards, spells] = await Promise.all([
+  const [playCards, spells, autoTaskData, rogueRaw] = await Promise.all([
     readConfigFile(archive, codecs, 'sys_playcard.sgs'),
-    readConfigFile(archive, codecs, 'cha_spell.sgs')
+    readConfigFile(archive, codecs, 'cha_spell.sgs'),
+    loadAutoTaskData(archive, codecs),
+    readConfigFile(archive, codecs, ROGUE_MAP_CONFIG_FILE).catch((error) => {
+      console.warn(`[xiaochao] 山河配置读取失败: ${ROGUE_MAP_CONFIG_FILE}`, error);
+      return null;
+    })
   ]);
-  return { cards: buildCardDictionary(playCards, spells), spellIdsByName: buildSpellIdsByName(spells) };
+  const cards = buildCardDictionary(playCards, spells);
+  let rogueMapData: RogueMapConfigData | null = null;
+  if (rogueRaw) {
+    try {
+      rogueMapData = buildRogueMapConfigData(rogueRaw, buildRogueNameTables(playCards, spells));
+      if (!Object.keys(rogueMapData.Rcity).length) {
+        console.warn('[xiaochao] 山河配置解析后 Rcity 为空');
+        rogueMapData = null;
+      }
+    } catch (error) {
+      console.warn('[xiaochao] 山河配置解析失败', error);
+    }
+  }
+  return {
+    cards,
+    spellIdsByName: buildSpellIdsByName(spells),
+    autoTaskData,
+    rogueMapData
+  };
+}
+
+/** 自动任务配置缺失或损坏不影响卡牌字典。 */
+async function loadAutoTaskData(archive: ZipArchive, codecs: GameConfigCodecs): Promise<AutoTaskConfigData | null> {
+  const files: Partial<Record<AutoTaskConfigFileName, unknown>> = {};
+  await Promise.all(AUTO_TASK_CONFIG_FILES.map(async (fileName) => {
+    try {
+      files[fileName] = await readConfigFile(archive, codecs, fileName);
+    } catch (error) {
+      console.warn(`[xiaochao] 自动任务配置读取失败: ${fileName}`, error);
+    }
+  }));
+  try {
+    return buildAutoTaskConfigData(files, configDayStamp(new Date()));
+  } catch (error) {
+    console.warn('[xiaochao] 自动任务配置解析失败', error);
+    return null;
+  }
+}
+
+/** 山河 Rplot 需要技能名 / 牌名；与卡牌字典同源解析。 */
+function buildRogueNameTables(playCards: unknown, spells: unknown): {
+  spells: Map<number, { name: string; desc: string }>;
+  cards: Map<number, {
+    name: string;
+    desc?: string;
+    subType?: number;
+    type?: number;
+    color?: unknown;
+    number?: unknown;
+  }>;
+} {
+  const spellMap = new Map<number, { name: string; desc: string }>();
+  for (const entry of asArray(asRecord(asRecord(spells)?.GameSpells)?.spell)) {
+    const record = asRecord(entry);
+    const spellId = Number(record?.a);
+    if (!Number.isFinite(spellId)) continue;
+    spellMap.set(spellId, {
+      name: typeof record?.c === 'string' ? record.c : '',
+      desc: typeof record?.o === 'string' ? stripSpellMarkup(record.o) : ''
+    });
+  }
+
+  const playCardRoot = asRecord(playCards);
+  const abbreviation = new Map<string, string>();
+  for (const entry of asArray(playCardRoot?.abbreviation)) {
+    const record = asRecord(entry);
+    if (typeof record?.Short === 'string' && typeof record.Long === 'string') {
+      abbreviation.set(record.Short, record.Long);
+    }
+  }
+  const cardMap = new Map<number, {
+    name: string;
+    desc?: string;
+    subType?: number;
+    type?: number;
+    color?: unknown;
+    number?: unknown;
+  }>();
+  for (const entry of asArray(asRecord(playCardRoot?.GamePlayCards)?.card)) {
+    const record = asRecord(entry);
+    if (!record) continue;
+    const card: UnknownRecord = {};
+    for (const [key, value] of Object.entries(record)) card[abbreviation.get(key) ?? key] = value;
+    const cardId = Number(card.id);
+    if (!Number.isInteger(cardId) || cardId <= 0) continue;
+    const spell = spellMap.get(Number(card.spellId));
+    cardMap.set(cardId, {
+      name: typeof card.name === 'string' ? card.name : (spell?.name ?? ''),
+      desc: spell?.desc,
+      subType: Number(card.subType),
+      type: Number(card.type),
+      color: card.color,
+      number: card.number ?? card.num
+    });
+  }
+  return { spells: spellMap, cards: cardMap };
 }
 
 export function buildSpellIdsByName(spells: unknown): Map<string, number[]> {

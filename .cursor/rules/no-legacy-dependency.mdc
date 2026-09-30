@@ -1,0 +1,25 @@
+---
+description: 功能实现不得依赖 xiaochao-legacy；legacy 文件即将删除
+alwaysApply: true
+---
+
+# 不依赖 legacy（强制）
+
+`src/legacy/xiaochao-legacy.js` 即将删除。新写/改动的功能**不得**把正确性建立在 legacy 上。
+
+## 禁止（功能模块内）
+
+- 读写 `XC.globalConfig` / `nS.*` / legacy 开关 DOM（`#rogueCitySwitch`、`#rogueStorySwitch` 等）来驱动业务
+- 调用或包装 `xiaochao-legacy.js` 里的符号、钩子、`silenceLegacy*` 当功能主路径
+- 为了「兼容 legacy」在 `src/features/**` 里加共存补丁（卸开关、藏 DOM、防 legacy 崩溃）
+- 注释/测试以「现网 legacy」「对照 legacy 开关」当运行时契约
+
+## 允许
+
+- **对照 `app.bak` / 可读摘录**实现行为（算法、窗口名、协议字段），这是需求来源，不是运行时依赖
+- **只读迁移**：配置从旧独立键（如 `ROGUE_STORY_SWITCH`）读入新 `configStore`；不要反过来靠写旧键维持功能
+- **过渡桥**只能放在 `src/ui/legacy/**` 等明确即将随 legacy 删除的目录；功能本体在无 legacy 时必须可跑（`XC_NO_LEGACY` / `dev:no-legacy`）
+
+## 自检
+
+改完问自己：删掉 `xiaochao-legacy.js` 后，这个功能是否仍完整？若否，把逻辑收回 TypeScript 功能模块。

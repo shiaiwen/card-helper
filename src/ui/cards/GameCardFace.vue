@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
   background: #1d1712;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
 }
-.xc-game-card__art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; background: #1d1712; }
+.xc-game-card__art { position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: fill; background: #1d1712; }
 .xc-game-card__corner,
 .xc-game-card__name,
 .xc-game-card__tag { position: relative; z-index: 1; }

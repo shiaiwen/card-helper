@@ -27,11 +27,22 @@ const unsubscribe = ALL_BLOCK_SETTINGS.map(({ key }) => props.configStore.subscr
   values[key] = value;
 }));
 const enabledCount = computed(() => ALL_BLOCK_SETTINGS.filter(({ key }) => values[key]).length);
+const allEnabled = computed(() => enabledCount.value === ALL_BLOCK_SETTINGS.length);
 
 onBeforeUnmount(() => unsubscribe.forEach((stop) => stop()));
 
 function updateSetting(key, event) {
   props.configStore.set(key, event.currentTarget.checked);
+}
+
+function setAll(enabled) {
+  for (const { key } of ALL_BLOCK_SETTINGS) {
+    props.configStore.set(key, enabled);
+  }
+}
+
+function toggleSelectAll() {
+  setAll(!allEnabled.value);
 }
 </script>
 
@@ -54,6 +65,16 @@ function updateSetting(key, event) {
       dialog-class="xiaochao-block-dialog"
       @close="isOpen = false"
     >
+      <div class="xiaochao-block-select-bar">
+        <button
+          type="button"
+          class="xiaochao-block-select-btn"
+          :data-tooltip="allEnabled ? '关闭全部屏蔽项' : '开启全部屏蔽项'"
+          @click="toggleSelectAll"
+        >
+          {{ allEnabled ? '一键取消' : '一键全选' }}
+        </button>
+      </div>
       <section
         v-for="group in groups"
         :key="group.id"

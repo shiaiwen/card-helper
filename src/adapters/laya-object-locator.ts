@@ -21,18 +21,34 @@ export interface LayaRuntimeWindow extends GameRuntimeWindow {
  * 从监听者的 caller 取回单例。格式：[事件名, 分发器, 单例上必有的键]。
  */
 const MANAGER_LOOKUPS: Record<string, readonly [string, string?, string?]> = {
+  ActivityGameDataManager: ['RksSWJGDataNtf'],
   ActivityManager: ['ClientJDInfoNtf'],
+  BlessManager: ['ClientQifuRankRep'],
   ChatSysNewsManager: ['decodeSSCChatmsgNtf', 'ServerProxy', 'timeOutNoticeId'],
+  GameGeneralManager: ['ClientGeneralFromRep'],
+  GameGoodsManager: ['DbsCcMovegoodsRep'],
+  GameShopManager: ['CcGoodsPriceRep'],
   GeneralSkinManager: ['ClientSkinFromRep'],
+  MailManager: ['decodeClientGetMailNtf'],
+  NewFuLiManager: ['decodeSetOutGiftInfoResp'],
+  OfficerManager: ['ClientOfficerInfoRep'],
   RogueLikePveManager: ['decodeRogueLikeDataSync'],
+  TaskManager: ['SmsgTaskFailed'],
   TaskRedDotManager: ['EXCHANGE_RED_VIEW_FIRST_UPDATE', 'ActivityManager'],
   UserInfoManger: ['ClientTTRankInfoRep'],
+  WelfareManger: ['ClientLotteryRep'],
   WindowManager: ['HIDE_WINDOW', 'GameEventDispatcher']
 };
 
-/** 混淆后的方法名按函数源码中的特征文本恢复。 */
-const METHOD_SIGNATURES: Record<string, Record<string, string>> = {
-  GameEventDispatcher: { ShowWindow: '弹窗被功能关闭拦截' }
+/** 混淆后的方法名按函数源码中的特征文本恢复；数组表示需同时包含。 */
+const METHOD_SIGNATURES: Record<string, Record<string, string | readonly string[]>> = {
+  ActivityManager: { SendGetWyqjTiyanCardReq: 'CLIENT_NEWBIE_WANT_STRONG_GENERAL_EXPERIENCE_CARD_REQ' },
+  GameEventDispatcher: { ShowWindow: '弹窗被功能关闭拦截' },
+  GameShopManager: { BuySingleItem: ['triggerTask', 'extraOperate', 'DealPassId'] },
+  TaskManager: {
+    RequestTaskAward: 'TaskRewardSelectWindow',
+    GetAllTaskDataByTaskID: 'GetNoGetTaskDataByTaskID'
+  }
 };
 
 const LAYER_ORDER = [
@@ -209,6 +225,7 @@ export function createLayaObjectLocator(
     const signature = METHOD_SIGNATURES[owner]?.[method];
     const record = asRecord(target);
     if (!signature || !record) return null;
+    const fragments = typeof signature === 'string' ? [signature] : signature;
     const prototype = Object.getPrototypeOf(record) ?? asRecord(record.constructor)?.prototype;
     if (!prototype) return null;
     for (const key of Object.getOwnPropertyNames(prototype)) {
@@ -222,9 +239,11 @@ export function createLayaObjectLocator(
           // 访问器抛错时跳过。
         }
       }
-      if (candidates.some((candidate) => (
-        typeof candidate === 'function' && Function.prototype.toString.call(candidate).includes(signature)
-      ))) {
+      if (candidates.some((candidate) => {
+        if (typeof candidate !== 'function') return false;
+        const source = Function.prototype.toString.call(candidate);
+        return fragments.every((fragment) => source.includes(fragment));
+      })) {
         return key;
       }
     }

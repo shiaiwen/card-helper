@@ -57,26 +57,25 @@ function updateSetting(key, event) {
       <span class="xiaochao-settings-section__summary">对局界面辅助信息</span>
     </header>
     <div class="xiaochao-settings-section__body">
-      <div class="xiaochao-settings-grid">
-        <label
+      <div class="xiaochao-settings-grid xiaochao-display-switch-grid">
+        <div
           v-for="setting in settings"
           :key="setting.key"
-          class="xiaochao-setting-switch"
+          class="xiaochao-block-switch"
           :data-tooltip="setting.tooltip"
-          :title="setting.tooltip"
         >
-          <span class="xiaochao-setting-switch__label">{{ setting.label }}</span>
-          <input
-            class="xiaochao-setting-switch__input"
-            type="checkbox"
-            :checked="values[setting.key]"
-            @change="updateSetting(setting.key, $event)"
-          >
-          <span class="xiaochao-setting-switch__track" aria-hidden="true">
-            <span class="xiaochao-setting-switch__thumb" />
-            <span class="xiaochao-setting-switch__status">{{ values[setting.key] ? '开' : '关' }}</span>
-          </span>
-        </label>
+          <span class="xiaochao-block-switch__label">{{ setting.label }}</span>
+          <label class="xiaochao-block-switch__toggle">
+            <input
+              type="checkbox"
+              :aria-label="setting.label"
+              :checked="values[setting.key]"
+              @change="updateSetting(setting.key, $event)"
+            >
+            <span class="xiaochao-block-switch__slider" />
+            <span class="xiaochao-block-switch__state" aria-hidden="true" />
+          </label>
+        </div>
       </div>
     </div>
   </section>

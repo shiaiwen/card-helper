@@ -4,10 +4,6 @@ defineProps({
     type: Boolean,
     required: true,
   },
-  platformLabel: {
-    type: String,
-    required: true,
-  },
 });
 
 defineEmits(['toggle', 'drag-start']);
@@ -19,7 +15,9 @@ defineEmits(['toggle', 'drag-start']);
     class="xc-frame-header xiaochao-panel__header"
     @pointerdown="$emit('drag-start', $event)"
   >
-    <span id="mini-label">三国杀小抄 · {{ platformLabel }}</span>
+    <div class="xc-frame-header__status">
+      <slot />
+    </div>
     <button
       type="button"
       id="toggle-me"

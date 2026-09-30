@@ -37,15 +37,18 @@
   "license": "CC0-1.0",
   "scripts": {
     "build": "npm run build:electron",
-    "build:electron": "vite build --config vite.electron.config.mts",
-    "build:userscript": "vite build --config vite.userscript.config.mts",
+    "build:electron": "vite build --config vite.electron.config.ts",
+    "build:userscript": "vite build --config vite.userscript.config.ts",
+    "pack": "node tools/pack-release.js",
+    "deploy": "node tools/deploy-release.js",
     "dev": "npm run dev:electron",
-    "dev:electron": "node tools/dev.mjs",
-    "dev:no-legacy": "node tools/dev.mjs --no-legacy",
-    "dev:userscript": "vite --config vite.userscript.config.mts",
+    "dev:electron": "node tools/dev.js",
+    "dev:no-legacy": "node tools/dev.js --no-legacy",
+    "dev:userscript": "vite --config vite.userscript.config.ts",
+    "dev:ui": "vite --config vite.ui.config.ts",
     "typecheck": "node -e \"console.log('TypeScript checking is temporarily disabled.')\"",
     "check": "node tools/check.cjs",
-    "test": "node --test tests/*.test.mjs && node --experimental-strip-types --test tests/*.test.mts && node tools/test-startup.cjs"
+    "test": "node --test tests/*.test.js && node --experimental-strip-types --test tests/*.test.ts && node tools/test-startup.cjs"
   },
   "dependencies": {
     "vue": "^3.5.43"
@@ -53,9 +56,11 @@
   "devDependencies": {
     "@types/node": "^26.6.2",
     "@vitejs/plugin-vue": "^6.0.9",
+    "electron": "^44.3.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vite-plugin-monkey": "^8.1.1"
-  }
+  },
+  "type": "module"
 }

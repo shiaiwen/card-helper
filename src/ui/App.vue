@@ -11,7 +11,11 @@ import TooltipLayer from './tooltip/TooltipLayer.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import DisplaySettingsSection from './settings/DisplaySettingsSection.vue';
 import BlockSettingsSection from './settings/BlockSettingsSection.vue';
+import ClearRedDotSection from './settings/ClearRedDotSection.vue';
+import GuanXingSection from './settings/GuanXingSection.vue';
 import SkinBackgroundSettingsSection from './settings/SkinBackgroundSettingsSection.vue';
+import AutoTaskSettingsSection from './settings/AutoTaskSettingsSection.vue';
+import RogueSettingsSection from './settings/RogueSettingsSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import DeckRecordSection from './cards/DeckRecordSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
@@ -33,10 +37,13 @@ import type { GameCardCatalog } from '../features/cards/game-card-catalog';
 import type { DeckRecordStore } from '../features/deck-record/deck-record-store';
 import type { DeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
+import type { AutoTaskController } from '../features/auto-task';
+import type { RogueController } from '../features/rogue';
 import type { XiaochaoPanelLayout } from './mount-xiaochao-app';
 import {
   findLegacyTabPane,
-  LEGACY_TAB_CONTENT_READY_EVENT
+  LEGACY_TAB_CONTENT_READY_EVENT,
+  placeToolsIdentity
 } from './legacy/prepare-legacy-tab-panes';
 import { constrainPanelPosition, hasExceededDragThreshold, shouldDockToRight } from './panel/panel-drag';
 import {
@@ -59,8 +66,13 @@ const props = defineProps<{
   gameCardCatalog: GameCardCatalog;
   skillAssistStore: SkillAssistStore;
   turnStatusStore: TurnStatusStore;
+  autoTaskController: AutoTaskController | null;
+  clearRedDots: () => { found: boolean; count: number };
+  rogueController: RogueController | null;
 }>();
-const COLLAPSED_PANEL_HEIGHT = '28px';
+/** 折叠态做成近 3:1 胶囊：两行叠阶段/出杀，避免扁长条。 */
+const COLLAPSED_PANEL_HEIGHT = '48px';
+const COLLAPSED_PANEL_WIDTH = '148px';
 const savedTabId = props.configStore.get('panel.activeTab');
 const initialTabId: XiaochaoPanelTabId = XIAOCHAO_PANEL_TABS.some((tab) => tab.id === savedTabId)
   ? savedTabId
@@ -72,7 +84,6 @@ const panel = createXiaochaoPanelModel(
   initialCollapsed,
   persistCollapsedState
 );
-const platformLabel = props.platform === 'electron' ? '微端' : '油猴';
 const panelElement = ref<HTMLElement>();
 const isDockedRight = ref(props.configStore.get('panel.dockedRight'));
 const isDockPreviewVisible = ref(false);
@@ -133,15 +144,15 @@ function toggleCollapsed(): void {
   else syncDockedGameLayout(shell);
 }
 
-/** 折叠态只保留标题栏，固定宽度避免旧内容尺寸影响悬浮框。 */
+/** 折叠态只保留标题栏，固定宽高做成状态胶囊。 */
 function applyCollapsedDimensions(shell: HTMLElement): void {
   setOwnedPanelLayout(shell, {
     height: COLLAPSED_PANEL_HEIGHT,
     minHeight: COLLAPSED_PANEL_HEIGHT,
     maxHeight: COLLAPSED_PANEL_HEIGHT,
-    width: '168px',
-    minWidth: '168px',
-    maxWidth: '168px'
+    width: COLLAPSED_PANEL_WIDTH,
+    minWidth: COLLAPSED_PANEL_WIDTH,
+    maxWidth: COLLAPSED_PANEL_WIDTH
   });
 }
 
@@ -178,6 +189,7 @@ function showSelectedTabContent(): void {
 /** legacy 内容整理完毕后把未迁移的旧配置追加到“常规”页。 */
 function handleLegacyContentReady(): void {
   moveSettingsPaneIntoGeneralTab();
+  placeToolsIdentity();
   showSelectedTabContent();
 }
 
@@ -387,18 +399,18 @@ function handleResizeStart(event: PointerEvent): void {
   >
     <PanelHeader
       :collapsed="panel.isCollapsed.value"
-      :platform-label="platformLabel"
       @toggle="toggleCollapsed"
       @drag-start="handleDragStart"
-    />
+    >
+      <TurnStatusBar
+        :turn-status-store="turnStatusStore"
+        :compact="panel.isCollapsed.value"
+      />
+    </PanelHeader>
     <PanelTabs
       v-show="!panel.isCollapsed.value"
       :active-tab-id="panel.activeTabId.value"
       @select="panel.selectTab"
-    />
-    <TurnStatusBar
-      v-show="!panel.isCollapsed.value"
-      :turn-status-store="turnStatusStore"
     />
     <main
       v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'cards'"
@@ -414,14 +426,38 @@ function handleResizeStart(event: PointerEvent): void {
         :game-card-catalog="gameCardCatalog"
       />
       <DisplaySettingsSection :config-store="configStore" />
-      <BlockSettingsSection :config-store="configStore" />
-      <SkinBackgroundSettingsSection :config-store="configStore" />
+      <div class="xiaochao-quick-tools" aria-label="快捷工具">
+        <BlockSettingsSection :config-store="configStore" />
+        <ClearRedDotSection :clear-red-dots="clearRedDots" />
+        <SkinBackgroundSettingsSection :config-store="configStore" />
+        <AutoTaskSettingsSection
+          :config-store="configStore"
+          :auto-task-controller="autoTaskController"
+        />
+      </div>
       <div ref="settingsHostElement" class="xiaochao-general-settings" />
+    </main>
+    <main
+      v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'rogue'"
+      class="xiaochao-panel__content xiaochao-rogue-entry"
+    >
+      <RogueSettingsSection
+        :config-store="configStore"
+        :open-shop="() => rogueController?.openShop() ?? false"
+        :get-shop-preview="() => rogueController?.getShopPreview() ?? []"
+        :subscribe-shop-preview="(listener) => rogueController?.subscribeShopPreview(listener) ?? (() => {})"
+      />
+    </main>
+    <main
+      v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'tools'"
+      class="xiaochao-panel__content xiaochao-tools-entry"
+    >
+      <GuanXingSection />
     </main>
     <main
       id="iframe-source"
       class="xiaochao-panel__content"
-      :style="{ display: panel.isCollapsed.value || panel.activeTabId.value === 'cards' ? 'none' : '' }"
+      :style="{ display: panel.isCollapsed.value || panel.activeTabId.value === 'cards' || panel.activeTabId.value === 'tools' || panel.activeTabId.value === 'rogue' ? 'none' : '' }"
     />
     <div
       v-show="!panel.isCollapsed.value"

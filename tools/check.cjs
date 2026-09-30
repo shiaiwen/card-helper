@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '..');
-for (const file of ['main.js','interceptor.js','shared-store.js','micro-client-updater.js','report-window.js','script/electron_frame.js','script/electron_renderer.js','dist/electron/xiaochao.js','dev-main.cjs']) {
+for (const file of ['main.cjs','interceptor.cjs','shared-store.cjs','report-window.cjs','script/electron_frame.cjs','script/electron_renderer.cjs','dist/electron/xiaochao.js','dev-main.cjs']) {
   new vm.Script(fs.readFileSync(path.join(root,file),'utf8'),{filename:file});
 }
 const html = fs.readFileSync(path.join(root,'index_wd.html'),'utf8').replace(/<!--[\s\S]*?-->/g, '');

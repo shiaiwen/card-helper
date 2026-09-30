@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小抄面板 UI 沙盒</title>
+    <style>
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(ellipse at 30% 20%, #3a3228 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 80%, #2a2218 0%, transparent 45%),
+          #1a1714;
+        font-family: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+        color: #f2de9c;
+      }
+      .ui-sandbox-hint {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        z-index: 1;
+        max-width: 280px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, .45);
+        font-size: 12px;
+        line-height: 1.5;
+        pointer-events: none;
+      }
+      .ui-sandbox-hint code {
+        color: #fff1bd;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="ui-sandbox-hint">
+      仅用于改面板 UI，不连游戏。<br />
+      折叠 / 拖拽 / 标签页可点；局内数据为假样。<br />
+      启动：<code>npm run dev:ui</code>
+    </p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
-import { createLifecycle } from '../runtime/lifecycle.mjs';
-import { installRuntimeBridge } from '../runtime/wait-for-game-runtime.mjs';
+import { createLifecycle } from '../runtime/lifecycle.js';
+import { installRuntimeBridge } from '../runtime/wait-for-game-runtime.js';
 import type { PlatformAdapter } from '../adapters/platform';
 import {
   mountXiaochaoApp,
@@ -38,6 +38,8 @@ import {
 } from '../features/skin-background/official-background-controller';
 import { installSkinChangeController } from '../features/skin-background/skin-change-controller';
 import { installSkinPaperController } from '../features/skin-background/skin-paper-controller';
+import { installAutoTaskController } from '../features/auto-task';
+import { installRogueController } from '../features/rogue';
 
 /** Electron 和油猴共用的启动边界；平台差异只能通过 adapter 注入。 */
 export function bootstrapXiaochao(platform: PlatformAdapter): void {
@@ -111,7 +113,18 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     menuExtension: skinPaper.menuExtension
   });
   lifecycle.register(officialBackground.dispose);
-  const messageFilters = [blockEffects.filterMessage, skinChange.filterMessage, skinPaper.filterMessage];
+  const autoTask = installAutoTaskController(configStore, gameEvents, {
+    cardConfigSource
+  });
+  lifecycle.register(autoTask.dispose);
+  const rogue = installRogueController(configStore, { cardConfigSource });
+  lifecycle.register(rogue.dispose);
+  const messageFilters = [
+    blockEffects.filterMessage,
+    skinChange.filterMessage,
+    skinPaper.filterMessage,
+    rogue.filterMessage
+  ];
   lifecycle.register(installMicroClientMessageSource(gameEvents, window, {
     mutateMessage: (payload, className) => {
       for (const filter of messageFilters) {
@@ -159,7 +172,10 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
       deckRecordInteraction,
       gameCardCatalog,
       skillAssistStore,
-      turnStatusStore
+      turnStatusStore,
+      autoTask,
+      () => blockEffects.clearRedDots(),
+      rogue
     );
     lifecycle.register(mountedApp.unmount);
     return mountedApp;
