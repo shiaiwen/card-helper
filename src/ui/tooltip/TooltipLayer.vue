@@ -39,8 +39,13 @@ onBeforeUnmount(() => {
 
 /** 事件委托允许后续动态创建的按钮直接使用 data-tooltip，无需重复绑定监听器。 */
 function findTooltipTarget(eventTarget) {
-  if (!(eventTarget instanceof Element)) return null;
-  return eventTarget.closest('[data-tooltip]');
+  const element = eventTarget instanceof Element
+    ? eventTarget
+    : eventTarget instanceof Node
+      ? eventTarget.parentElement
+      : null;
+  if (!element) return null;
+  return element.closest('[data-tooltip]');
 }
 
 /**

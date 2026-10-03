@@ -23,8 +23,8 @@ function hasIdentityFields(value: UnknownRecord | null): value is UnknownRecord 
 
 function identityFrom(value: UnknownRecord | null): { userId: string; nickname: string } | null {
   if (!hasIdentityFields(value)) return null;
-  const userId = readText(value.clientId ?? value.ClientId ?? value.userID);
-  const nickname = readText(value.nickname ?? value.NickName ?? value.name ?? value.Name);
+  const userId = readText(value.clientId ?? value.ClientId ?? value.userID ?? value.UserID);
+  const nickname = readText(value.nickname ?? value.NickName ?? value.nickName);
   if (!userId && !nickname) return null;
   return { userId, nickname };
 }
@@ -115,6 +115,30 @@ export function readSelfIdentity(): { userId: string; nickname: string } {
   return identityFrom(self) ?? { userId: '', nickname: '' };
 }
 
+function loginIdentity(): UnknownRecord | null {
+  const engineering = asRecord((window as unknown as { __XIAOCHAO_ENGINEERING__?: unknown }).__XIAOCHAO_ENGINEERING__);
+  const locator = asRecord(engineering?.locator);
+  const manager = locator?.manager;
+  let user: UnknownRecord | null = null;
+  if (typeof manager === 'function') {
+    try {
+      user = asRecord(manager.call(locator, 'UserInfoManger'))
+        ?? asRecord(manager.call(locator, 'UserInfoManager'));
+    } catch {
+      user = null;
+    }
+  }
+  const context = asRecord((window as unknown as { GameContext?: unknown }).GameContext);
+  const source = user ?? context;
+  if (!source) return null;
+  const userId = readText(source.myID ?? source.MyID ?? source.clientId ?? source.ClientId ?? source.userID ?? source.UserID);
+  const nickname = readText(
+    source.nickname ?? source.NickName ?? source.nickName ?? source.showName ?? source.ShowName ?? source.userName
+  );
+  if (!userId && !nickname) return null;
+  return { clientId: userId, nickname };
+}
+
 function resolveUserSelf(): UnknownRecord | null {
   const laya = asRecord((window as unknown as { Laya?: unknown }).Laya);
   const classUtils = asRecord(laya?.ClassUtils);
@@ -125,18 +149,17 @@ function resolveUserSelf(): UnknownRecord | null {
       if (fromClass && hasIdentityFields(fromClass)) return fromClass;
     }
   } catch {
-    // 类表没有 Self 时走窗口路径。
+    // 类表没有 Self 时走登录账号。
   }
+
+  const loggedIn = loginIdentity();
+  if (loggedIn) return loggedIn;
 
   const fromWindows = eachWindowInstance((win) => {
     const byName = String(win.name || '') === 'BirthdayWishWin' || String(asRecord(win.constructor)?.name || '') === 'BirthdayWishWin';
-    const userData = win.userData ?? (byName ? win.userData : undefined);
-    if (userData) {
-      const self = selfFromUserDataInstance(userData);
-      if (self && hasIdentityFields(self)) return self;
-    }
-    if (hasIdentityFields(asRecord(win.Self))) return asRecord(win.Self);
-    if (hasIdentityFields(win) && (win.clientId != null || win.ClientId != null)) return win;
+    if (!byName || win.userData == null) return null;
+    const self = selfFromUserDataInstance(win.userData);
+    if (self && hasIdentityFields(self)) return self;
     return null;
   });
   if (fromWindows) return fromWindows;
@@ -144,16 +167,9 @@ function resolveUserSelf(): UnknownRecord | null {
   return null;
 }
 
-function valueFromNode(node: HTMLElement | null, label: string): string {
-  if (!node?.textContent) return '';
-  const text = node.textContent.trim();
-  if (text === '复制成功') return '';
-  return text.startsWith(label) ? text.slice(label.length).trim() : text;
-}
-
 /**
- * 节点必须长期存在给旧脚本 getElementById 写入。
- * 这里不往 Vue 模板塞文案，避免被虚拟 DOM 盖掉。
+ * 只展示当前登录账号。文案由脚本写入，避免 Vue 重绘盖掉。
+ * 其它窗口上的 clientId、节点 name，以及页面里残留的同名节点，都不是这个账号。
  */
 export function placeToolsIdentity(_root: ParentNode = document): void {
   const host = document.getElementById('xiaochao-tools-identity');
@@ -163,25 +179,17 @@ export function placeToolsIdentity(_root: ParentNode = document): void {
   const nameNode = host.querySelector<HTMLElement>('#nickName');
   if (!idNode || !nameNode) return;
 
-  // 删掉 iframe 里的同名节点，避免旧脚本写到隐藏副本。
   for (const node of Array.from(document.querySelectorAll('#uuid, #nickName'))) {
     const element = node as HTMLElement;
     if (!element || host.contains(element) || element === idNode || element === nameNode) continue;
-    const label = element.id === 'uuid' ? 'id：' : '昵称：';
-    const value = valueFromNode(element, label);
-    if (value) {
-      if (element.id === 'uuid' && !valueFromNode(idNode, 'id：')) idNode.textContent = `id：${value}`;
-      if (element.id === 'nickName' && !valueFromNode(nameNode, '昵称：')) nameNode.textContent = `昵称：${value}`;
-    }
     element.remove?.();
   }
 
   const identity = readSelfIdentity();
   if (identity.userId) idNode.textContent = `id：${identity.userId}`;
-  else if (!valueFromNode(idNode, 'id：')) idNode.textContent = 'id：';
-
+  else if (!idNode.textContent?.trim()) idNode.textContent = 'id：';
   if (identity.nickname) nameNode.textContent = `昵称：${identity.nickname}`;
-  else if (!valueFromNode(nameNode, '昵称：')) nameNode.textContent = '昵称：';
+  else if (!nameNode.textContent?.trim()) nameNode.textContent = '昵称：';
 }
 
 /** 登录后账号信息会晚到；旧脚本写入后也在这里同步。 */

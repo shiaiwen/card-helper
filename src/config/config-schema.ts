@@ -49,6 +49,12 @@ export interface XiaochaoConfig {
   'autoTask.skipHuanLeDou': boolean;
   'rogue.mapEnabled': boolean;
   'rogue.hideStory': boolean;
+  'assist.extraEnabled': boolean;
+  'assist.autoBotEnabled': boolean;
+  'assist.autoHGEnabled': boolean;
+  'assist.baiShengEnabled': boolean;
+  'assist.autoBotTavernTarget': 'none' | 'dailyGame' | 'dailyWin' | 'weeklyWin';
+  'update.dismissedVersion': string;
 }
 
 export type XiaochaoConfigKey = keyof XiaochaoConfig;
@@ -159,7 +165,26 @@ export const CONFIG_SCHEMA: {
   'autoTask.skipDiJiaQuan': booleanDefinition(true, 'AUTO_TASK_SKIP_DI_JIA_QUAN'),
   'autoTask.skipHuanLeDou': booleanDefinition(true, 'AUTO_TASK_SKIP_HUAN_LE_DOU'),
   'rogue.mapEnabled': booleanDefinition(true, 'ROGUE_CITY_SWITCH'),
-  'rogue.hideStory': booleanDefinition(false, 'ROGUE_STORY_SWITCH')
+  'rogue.hideStory': booleanDefinition(false, 'ROGUE_STORY_SWITCH'),
+  'assist.extraEnabled': booleanDefinition(false, 'EXTRA_ASSIST_SWITCH'),
+  'assist.autoBotEnabled': booleanDefinition(false),
+  'assist.autoHGEnabled': booleanDefinition(false),
+  'assist.baiShengEnabled': booleanDefinition(false),
+  'assist.autoBotTavernTarget': {
+    defaultValue: 'none',
+    legacyStorageKey: 'XC_AUTO_BOT_TAVERN_TARGET',
+    parse(value) {
+      return value === 'none' || value === 'dailyGame' || value === 'dailyWin' || value === 'weeklyWin'
+        ? value
+        : undefined;
+    }
+  },
+  'update.dismissedVersion': {
+    defaultValue: '',
+    parse(value) {
+      return typeof value === 'string' ? value : undefined;
+    }
+  }
 };
 
 export function getDefaultConfig(): XiaochaoConfig {

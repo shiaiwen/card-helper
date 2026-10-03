@@ -226,7 +226,7 @@ export function installRogueShopController(
     // 有商品 id 但 Rplot 尚未加载：空列表不推占位，等配置就绪后再解析。
     if (ids.length && !isRplotReady(rplot)) {
       pendingShopItemIds = ids;
-      publishPreview([]);
+      if (!previewItems.length) publishPreview([]);
       ensureRplotThenRefresh();
       return;
     }
@@ -283,7 +283,8 @@ export function installRogueShopController(
       return;
     }
     forceShopVisible(shopData, originalShopVisible === null);
-    refreshPreviewFromShopData(shopData);
+    const ids = asArray(shopData.itemId ?? shopData.ItemId);
+    if (ids.length) refreshPreviewFromShopData(shopData);
   }
 
   function openShop(): boolean {

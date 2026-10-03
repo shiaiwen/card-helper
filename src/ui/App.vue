@@ -16,6 +16,9 @@ import GuanXingSection from './settings/GuanXingSection.vue';
 import SkinBackgroundSettingsSection from './settings/SkinBackgroundSettingsSection.vue';
 import AutoTaskSettingsSection from './settings/AutoTaskSettingsSection.vue';
 import RogueSettingsSection from './settings/RogueSettingsSection.vue';
+import GameAssistSettingsSection from './settings/GameAssistSettingsSection.vue';
+// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+import VersionNoticeSection from './settings/VersionNoticeSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import DeckRecordSection from './cards/DeckRecordSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
@@ -37,11 +40,12 @@ import type { GameCardCatalog } from '../features/cards/game-card-catalog';
 import type { DeckRecordStore } from '../features/deck-record/deck-record-store';
 import type { DeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
+import type { PeixiuRouteStore } from '../features/extra-assist/peixiu-route-store';
 import type { AutoTaskController } from '../features/auto-task';
 import type { RogueController } from '../features/rogue';
+import type { UpdateNoticeController } from '../features/update-notice';
 import type { XiaochaoPanelLayout } from './mount-xiaochao-app';
 import {
-  findLegacyTabPane,
   LEGACY_TAB_CONTENT_READY_EVENT,
   placeToolsIdentity
 } from './legacy/prepare-legacy-tab-panes';
@@ -65,10 +69,12 @@ const props = defineProps<{
   deckRecordInteraction: DeckRecordInteraction;
   gameCardCatalog: GameCardCatalog;
   skillAssistStore: SkillAssistStore;
+  peixiuRouteStore: PeixiuRouteStore;
   turnStatusStore: TurnStatusStore;
   autoTaskController: AutoTaskController | null;
   clearRedDots: () => { found: boolean; count: number };
   rogueController: RogueController | null;
+  updateNoticeController: UpdateNoticeController | null;
 }>();
 /** 折叠态做成近 3:1 胶囊：两行叠阶段/出杀，避免扁长条。 */
 const COLLAPSED_PANEL_HEIGHT = '48px';
@@ -89,6 +95,10 @@ const isDockedRight = ref(props.configStore.get('panel.dockedRight'));
 const isDockPreviewVisible = ref(false);
 const isDockPreviewActive = ref(false);
 const settingsHostElement = ref<HTMLElement>();
+const toolsHasUpdate = ref(props.updateNoticeController?.getSnapshot().hasUpdate ?? false);
+const stopUpdateNotice = props.updateNoticeController?.subscribe((snapshot) => {
+  toolsHasUpdate.value = snapshot.hasUpdate;
+});
 let expandedHeight = '';
 let expandedWidth = '';
 let stopDragging: (() => void) | undefined;
@@ -116,6 +126,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopDragging?.();
   stopResizing?.();
+  stopUpdateNotice?.();
   window.removeEventListener(LEGACY_TAB_CONTENT_READY_EVENT, handleLegacyContentReady);
   window.removeEventListener('resize', keepPanelInsideViewport);
   restoreFullGameArea();
@@ -172,13 +183,10 @@ function showLegacyTabContent(tabId: XiaochaoPanelTabId): void {
   contentElement.scrollTop = 0;
 }
 
-/** 原“配置”页整体移入“常规”页底部；legacy 事件绑定在元素上，移动节点不影响旧开关逻辑。 */
+/** 配置已全部在 Vue；不再把 legacy 配置残页挂进常规。 */
 function moveSettingsPaneIntoGeneralTab(): void {
   const host = settingsHostElement.value;
-  const settingsPane = findLegacyTabPane('settings');
-  if (!host || !settingsPane) return;
-  if (settingsPane.parentElement !== host) host.appendChild(settingsPane);
-  settingsPane.classList.add('active');
+  if (host) host.replaceChildren();
 }
 
 /** 旧页面内容整理完成后，由 Vue 应用当前选中的标签状态。 */
@@ -410,6 +418,7 @@ function handleResizeStart(event: PointerEvent): void {
     <PanelTabs
       v-show="!panel.isCollapsed.value"
       :active-tab-id="panel.activeTabId.value"
+      :tools-has-update="toolsHasUpdate"
       @select="panel.selectTab"
     />
     <main
@@ -426,6 +435,7 @@ function handleResizeStart(event: PointerEvent): void {
         :game-card-catalog="gameCardCatalog"
       />
       <DisplaySettingsSection :config-store="configStore" />
+      <GameAssistSettingsSection :config-store="configStore" />
       <div class="xiaochao-quick-tools" aria-label="快捷工具">
         <BlockSettingsSection :config-store="configStore" />
         <ClearRedDotSection :clear-red-dots="clearRedDots" />
@@ -435,7 +445,7 @@ function handleResizeStart(event: PointerEvent): void {
           :auto-task-controller="autoTaskController"
         />
       </div>
-      <div ref="settingsHostElement" class="xiaochao-general-settings" />
+      <div ref="settingsHostElement" class="xiaochao-general-settings" hidden />
     </main>
     <main
       v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'rogue'"
@@ -452,6 +462,7 @@ function handleResizeStart(event: PointerEvent): void {
       v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'tools'"
       class="xiaochao-panel__content xiaochao-tools-entry"
     >
+      <VersionNoticeSection :update-notice-controller="updateNoticeController" />
       <GuanXingSection />
     </main>
     <main

@@ -102,6 +102,10 @@ describe('MoveCard 纠偏', () => {
     };
     assert.equal(remapDrawPileFromPosition(move), DRAW_PILE_POSITION.TOP);
     assert.equal(remapDrawPileFromPosition({ ...move, spellId: 1 }), DRAW_PILE_POSITION.UNSPECIFIED);
+    const guo = { ...move, spellId: 7016 };
+    assert.equal(remapDrawPileFromPosition(guo), DRAW_PILE_POSITION.TOP);
+    assert.equal(remapDrawPileFromPosition(guo, { nationWar: true }), DRAW_PILE_POSITION.UNSPECIFIED);
+    assert.equal(remapDrawPileFromPosition({ ...guo, spellId: 7017 }, { nationWar: true }), DRAW_PILE_POSITION.UNSPECIFIED);
   });
 
   it('3746 智绝翻牌堆顶当火攻纠成顶', () => {

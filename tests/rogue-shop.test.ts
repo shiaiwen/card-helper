@@ -264,6 +264,33 @@ test('Rplot 晚于同步包：先空列表，配置就绪后补刷透视', async
   }
 });
 
+test('打开集市时管理器没有商品 id，已有透视列表保留', () => {
+  const shopData = { bShow: false, itemId: [] as number[] };
+  const dispatcher = { ShowWindow() {} };
+  const rplot = { 9: { name: '杀', money: 10, type: 4, level: 1, desc: '' } };
+  const controller = installRogueShopController({
+    globalObject: { setTimeout, clearTimeout } as never,
+    locator: fakeLocator({
+      manager: (name) => (name === 'RogueLikePveManager' ? { allData: { shopData } } : null),
+      dispatcher: () => dispatcher
+    }),
+    cardConfigSource: { getRogueMapData: () => ({ Rplot: rplot }) as never }
+  });
+
+  try {
+    controller.filterMessage({
+      ClassName: 'decodeRogueLikeDataSync',
+      ProtoObj: { shopData: { bShow: true, itemId: [9] } }
+    }, 'decodeRogueLikeDataSync');
+    assert.equal(controller.getPreview().length, 1);
+    assert.equal(controller.openShop(), true);
+    assert.equal(controller.getPreview().length, 1);
+    assert.equal(controller.getPreview()[0]?.label, '杀 10铜');
+  } finally {
+    controller.dispose();
+  }
+});
+
 test('打开集市：对管理器缓存启用透视并 ShowWindow', () => {
   const shown: string[] = [];
   const shopData = { bShow: false, itemId: [] as number[] };

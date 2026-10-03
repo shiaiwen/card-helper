@@ -40,6 +40,10 @@ import { installSkinChangeController } from '../features/skin-background/skin-ch
 import { installSkinPaperController } from '../features/skin-background/skin-paper-controller';
 import { installAutoTaskController } from '../features/auto-task';
 import { installRogueController } from '../features/rogue';
+import { createPeixiuRouteStore, installExtraAssistController } from '../features/extra-assist';
+import { installAutoHgController } from '../features/auto-hg';
+import { installAutoBotController } from '../features/auto-bot';
+import { installUpdateNoticeController } from '../features/update-notice';
 
 /** Electron 和油猴共用的启动边界；平台差异只能通过 adapter 注入。 */
 export function bootstrapXiaochao(platform: PlatformAdapter): void {
@@ -90,6 +94,7 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
       }
     }
   );
+  const peixiuRouteStore = createPeixiuRouteStore();
   lifecycle.register(cardConfigSource.dispose);
   lifecycle.register(installSeatDisplayVisibility(configStore));
   lifecycle.register(installSeatStateController(seatStateStore));
@@ -117,13 +122,30 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     cardConfigSource
   });
   lifecycle.register(autoTask.dispose);
+  const extraAssist = installExtraAssistController(configStore, {
+    getExtraAssistData: () => cardConfigSource.getExtraAssistData(),
+    getSpellExtendRaw: () => cardConfigSource.getSpellExtendRaw(),
+    getCard: (cardId) => cardConfigSource.getCard(cardId),
+    peixiuRouteStore
+  });
+  lifecycle.register(extraAssist.dispose);
+  const autoHg = installAutoHgController(configStore, { gameEvents });
+  lifecycle.register(autoHg.dispose);
+  const autoBot = installAutoBotController(configStore, { gameEvents });
+  lifecycle.register(autoBot.dispose);
+  const updateNotice = installUpdateNoticeController(configStore, (url) => platform.openExternal(url), {
+    skipRemoteCheck: import.meta.env.DEV
+  });
+  lifecycle.register(updateNotice.dispose);
   const rogue = installRogueController(configStore, { cardConfigSource });
   lifecycle.register(rogue.dispose);
   const messageFilters = [
     blockEffects.filterMessage,
     skinChange.filterMessage,
     skinPaper.filterMessage,
-    rogue.filterMessage
+    rogue.filterMessage,
+    autoHg.filterMessage,
+    autoBot.filterMessage
   ];
   lifecycle.register(installMicroClientMessageSource(gameEvents, window, {
     mutateMessage: (payload, className) => {
@@ -156,6 +178,7 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(deckRecordStore.clear);
   lifecycle.register(deckRecordInteraction.clear);
   lifecycle.register(skillAssistStore.clear);
+  lifecycle.register(peixiuRouteStore.clear);
   lifecycle.register(mingpaiEngine.clear);
   let mountedApp: ReturnType<typeof mountXiaochaoApp> | undefined;
   function mountPanelShell(layout: XiaochaoPanelLayout = DEFAULT_PANEL_LAYOUT) {
@@ -172,10 +195,12 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
       deckRecordInteraction,
       gameCardCatalog,
       skillAssistStore,
+      peixiuRouteStore,
       turnStatusStore,
       autoTask,
       () => blockEffects.clearRedDots(),
-      rogue
+      rogue,
+      updateNotice
     );
     lifecycle.register(mountedApp.unmount);
     return mountedApp;

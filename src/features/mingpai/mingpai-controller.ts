@@ -217,7 +217,9 @@ export function installMingpaiController(
     const normalizedEvent: MoveCardEvent = {
       ...rawEvent,
       cardIds: sanitizeMoveCardIds(rawEvent.cardCount, normalizeMoveCardIds(rawEvent)),
-      fromPosition: remapDrawPileFromPosition(rawEvent),
+      fromPosition: remapDrawPileFromPosition(rawEvent, {
+        nationWar: seatStateStore.getSnapshot().mode === 'nation-war'
+      }),
       toPosition: remapDrawPileToPosition(rawEvent)
     };
     const specialCardIds = specialRecovery.recover(normalizedEvent);

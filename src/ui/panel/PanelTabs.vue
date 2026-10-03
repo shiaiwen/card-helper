@@ -6,6 +6,10 @@ defineProps({
     type: String,
     required: true,
   },
+  toolsHasUpdate: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 defineEmits(['select']);
@@ -24,7 +28,10 @@ defineEmits(['select']);
       role="tab"
       class="xc-main-tab"
       :aria-selected="tab.id === activeTabId"
-      :class="{ active: tab.id === activeTabId }"
+      :class="{
+        active: tab.id === activeTabId,
+        'xc-main-tab--update': tab.id === 'tools' && toolsHasUpdate
+      }"
       @click="$emit('select', tab.id)"
     >
       {{ tab.label }}

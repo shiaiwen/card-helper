@@ -9,6 +9,8 @@ import {
   buildRogueMapConfigData,
   type RogueMapConfigData
 } from '../features/rogue/rogue-map-config-data.ts';
+import type { ExtraAssistConfigData } from '../features/extra-assist/extra-assist-config-data.ts';
+import { buildExtraAssistConfigData } from '../features/extra-assist/extra-assist-config-data.ts';
 
 type UnknownRecord = Record<string, unknown>;
 export type CardConfigDictionary = Record<number, UnknownRecord>;
@@ -28,6 +30,10 @@ export interface CardConfigSource {
   getAutoTaskData(): AutoTaskConfigData | null;
   /** 山河地图透视表（hd_roguelike.sgs）；配置未就绪时返回 null。 */
   getRogueMapData(): RogueMapConfigData | null;
+  /** 进阶辅助用的南华/许劭表（cha_spellextend.sgs）；配置未就绪时返回 null。 */
+  getExtraAssistData(): ExtraAssistConfigData | null;
+  /** 进阶辅助原始表，供控制器按需解析；配置未就绪时返回 null。 */
+  getSpellExtendRaw(): unknown;
   size(): number;
   dispose(): void;
 }
@@ -57,6 +63,8 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
   let spellIdsByName = new Map<string, number[]>();
   let autoTaskData: AutoTaskConfigData | null = null;
   let rogueMapData: RogueMapConfigData | null = null;
+  let extraAssistData: ExtraAssistConfigData | null = null;
+  let spellExtendRaw: unknown = null;
   let disposed = false;
   let loading = false;
   let failures = 0;
@@ -82,6 +90,8 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
         spellIdsByName = result.spellIdsByName;
         autoTaskData = result.autoTaskData;
         rogueMapData = result.rogueMapData;
+        extraAssistData = result.extraAssistData;
+        spellExtendRaw = result.spellExtendRaw;
         globalObject.__XIAOCHAO_OFFICIAL_CARD_DICTIONARY__ = result.cards;
         globalObject.clearInterval(timer);
       })
@@ -108,6 +118,12 @@ export function installCardConfigSource(globalObject: Window = window): CardConf
     getRogueMapData() {
       return rogueMapData;
     },
+    getExtraAssistData() {
+      return extraAssistData;
+    },
+    getSpellExtendRaw() {
+      return spellExtendRaw;
+    },
     size() {
       return dictionary ? Object.keys(dictionary).length : 0;
     },
@@ -126,14 +142,20 @@ async function loadCardDictionary(
   spellIdsByName: Map<string, number[]>;
   autoTaskData: AutoTaskConfigData | null;
   rogueMapData: RogueMapConfigData | null;
+  extraAssistData: ExtraAssistConfigData | null;
+  spellExtendRaw: unknown;
 }> {
   const archive = await codecs.loadZip(await downloadArchive(resolveConfigUrl(globalObject)));
-  const [playCards, spells, autoTaskData, rogueRaw] = await Promise.all([
+  const [playCards, spells, autoTaskData, rogueRaw, spellExtendRaw] = await Promise.all([
     readConfigFile(archive, codecs, 'sys_playcard.sgs'),
     readConfigFile(archive, codecs, 'cha_spell.sgs'),
     loadAutoTaskData(archive, codecs),
     readConfigFile(archive, codecs, ROGUE_MAP_CONFIG_FILE).catch((error) => {
       console.warn(`[xiaochao] 山河配置读取失败: ${ROGUE_MAP_CONFIG_FILE}`, error);
+      return null;
+    }),
+    readConfigFile(archive, codecs, 'cha_spellextend.sgs').catch((error) => {
+      console.warn('[xiaochao] 进阶辅助配置读取失败: cha_spellextend.sgs', error);
       return null;
     })
   ]);
@@ -150,11 +172,21 @@ async function loadCardDictionary(
       console.warn('[xiaochao] 山河配置解析失败', error);
     }
   }
+  let extraAssistData: ExtraAssistConfigData | null = null;
+  if (spellExtendRaw) {
+    try {
+      extraAssistData = buildExtraAssistConfigData(spellExtendRaw);
+    } catch (error) {
+      console.warn('[xiaochao] 进阶辅助配置解析失败', error);
+    }
+  }
   return {
     cards,
     spellIdsByName: buildSpellIdsByName(spells),
     autoTaskData,
-    rogueMapData
+    rogueMapData,
+    extraAssistData,
+    spellExtendRaw
   };
 }
 

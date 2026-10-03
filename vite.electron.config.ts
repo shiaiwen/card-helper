@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+
+const xiaochaoVersion = JSON.parse(
+  readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf8')
+).version as string;
 
 export default defineConfig({
   plugins: [vue(), injectBuiltCssIntoElectronBundle()],
@@ -8,7 +13,8 @@ export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
     // XC_NO_LEGACY=1 构建时不打包 legacy，用于验证新工程能否独立运行。
-    __XC_WITH_LEGACY__: JSON.stringify(process.env.XC_NO_LEGACY !== '1')
+    __XC_WITH_LEGACY__: JSON.stringify(process.env.XC_NO_LEGACY !== '1'),
+    __XIAOCHAO_VERSION__: JSON.stringify(String(xiaochaoVersion || '0.0.0'))
   },
   build: {
     outDir: 'dist/electron',

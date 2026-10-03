@@ -147,19 +147,22 @@ function removeMigratedAutoTaskSettings(legacyContent: HTMLElement): void {
 }
 
 /**
- * 暂缓：游戏辅助下「自动挂机 / 盖主速刷 / 进阶辅助」三个开关先往后放。
- * 只隐藏三列开关行，不影响同区块其它项。
+ * 已迁到 Vue「游戏辅助」：隐藏 legacy 三列开关行，避免与 Vue 双入口。
+ * 节点保留（只 hidden），防止仍依赖 id 的旧代码空引用。
  */
 function hideDeferredGameAssistSwitches(legacyContent: HTMLElement): void {
   const row = legacyContent.querySelector<HTMLElement>('.xc-three-column-switch-row');
   if (row) {
     hideLegacyHookElement(row);
-    return;
   }
   for (const inputId of ['autoBotSwitch', 'autoHGSwitch', 'extraAssistSwitch'] as const) {
     const input = legacyContent.querySelector<HTMLInputElement>(`#${inputId}`);
+    if (inputId === 'extraAssistSwitch' && input?.checked) {
+      input.checked = false;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     const container = input?.closest<HTMLElement>('.switch-container');
-    if (container) hideLegacyHookElement(container);
+    if (container && container !== row) hideLegacyHookElement(container);
   }
 }
 

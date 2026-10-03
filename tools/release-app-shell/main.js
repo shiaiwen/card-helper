@@ -13,6 +13,7 @@ const { createSharedStore, createJsonConfig, normalizeCredentials: normalizeShar
 const { selectInstanceProfile } = require('./instance-profile')
 const instanceProfile = selectInstanceProfile(app)
 const { createHtmlReportOpener } = require('./report-window')
+const { scheduleMicroClientUpdate } = require('./micro-client-update')
 
 
 const steamAppID = 4209770;
@@ -250,6 +251,15 @@ async function createWindow() {
         }
     }
     mainWindow.loadFile('./index_wd.html');
+    scheduleMicroClientUpdate({
+        app,
+        dialog,
+        BrowserWindow,
+        screen,
+        getMainWindow: () => mainWindow,
+        logMessage,
+        getScriptPath: () => scriptPath
+    });
     if (config.get('firstTime', true) === true || config.get('firstTimeAnnouncementSeen', false) !== true) {
         firstTimeAnnouncement(mainWindow);
     }

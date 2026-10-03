@@ -1,6 +1,6 @@
 {
   "name": "SGSOL",
-  "version": "1.1.47",
+  "version": "1.1.48",
   "packageId": 1,
   "IsTest": false,
   "IsDebug": true,
@@ -40,6 +40,8 @@
     "build:electron": "vite build --config vite.electron.config.ts",
     "build:userscript": "vite build --config vite.userscript.config.ts",
     "pack": "node tools/pack-release.js",
+    "copy:portal": "node tools/copy-to-portal.js",
+    "pack:portal": "npm run pack && npm run copy:portal",
     "deploy": "node tools/deploy-release.js",
     "dev": "npm run dev:electron",
     "dev:electron": "node tools/dev.js",

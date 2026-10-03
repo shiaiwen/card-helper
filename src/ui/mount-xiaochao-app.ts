@@ -10,9 +10,11 @@ import type { GameCardCatalog } from '../features/cards/game-card-catalog';
 import type { DeckRecordStore } from '../features/deck-record/deck-record-store';
 import type { DeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
+import type { PeixiuRouteStore } from '../features/extra-assist/peixiu-route-store';
 import type { TurnStatusStore } from '../features/turn-status/turn-status-store';
 import type { AutoTaskController } from '../features/auto-task';
 import type { RogueController } from '../features/rogue';
+import type { UpdateNoticeController } from '../features/update-notice';
 
 export interface XiaochaoPanelLayout {
   top: number;
@@ -42,10 +44,12 @@ export function mountXiaochaoApp(
   deckRecordInteraction: DeckRecordInteraction,
   gameCardCatalog: GameCardCatalog,
   skillAssistStore: SkillAssistStore,
+  peixiuRouteStore: PeixiuRouteStore,
   turnStatusStore: TurnStatusStore,
   autoTaskController: AutoTaskController | null = null,
   clearRedDots: () => { found: boolean; count: number } = () => ({ found: false, count: 0 }),
-  rogueController: RogueController | null = null
+  rogueController: RogueController | null = null,
+  updateNoticeController: UpdateNoticeController | null = null
 ): MountedXiaochaoApp {
   const removePanelShellStyles = installPanelShellStyles();
   const rootElement = document.createElement('div');
@@ -61,10 +65,12 @@ export function mountXiaochaoApp(
     deckRecordInteraction,
     gameCardCatalog,
     skillAssistStore,
+    peixiuRouteStore,
     turnStatusStore,
     autoTaskController,
     clearRedDots,
-    rogueController
+    rogueController,
+    updateNoticeController
   });
   app.mount(rootElement);
   const panelElement = rootElement.querySelector<HTMLElement>('#createIframe');

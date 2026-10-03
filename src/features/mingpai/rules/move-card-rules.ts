@@ -56,7 +56,7 @@ export function sanitizeMoveCardIds(cardCount: number, cardIds: readonly number[
  * 新技能需要纠偏时在这里加一条 { match, position }。
  */
 const DRAW_PILE_FROM_RULES: ReadonlyArray<{
-  match: (move: Readonly<MoveCardFields>) => boolean;
+  match: (move: Readonly<MoveCardFields>, nationWar: boolean) => boolean;
   position: number;
 }> = [
   { match: (m) => [3208, 7011, 987, 988, 3903].includes(m.spellId), position: DRAW_PILE_POSITION.TOP },
@@ -77,16 +77,21 @@ const DRAW_PILE_FROM_RULES: ReadonlyArray<{
     position: DRAW_PILE_POSITION.BOTTOM
   },
   {
-    match: (m) => [7016, 7017].includes(m.spellId) && m.toZone === 5 && m.cardCount === 1,
+    // 原版这两条只在非国战生效。
+    match: (m, nationWar) => !nationWar && [7016, 7017].includes(m.spellId) && m.toZone === 5 && m.cardCount === 1,
     position: DRAW_PILE_POSITION.TOP
   }
 ];
 
-export function remapDrawPileFromPosition(move: Readonly<MoveCardFields>): number {
+export function remapDrawPileFromPosition(
+  move: Readonly<MoveCardFields>,
+  options: { nationWar?: boolean } = {}
+): number {
   if (move.fromZone !== DRAW_PILE_ZONE || move.fromPosition !== DRAW_PILE_POSITION.UNSPECIFIED) {
     return move.fromPosition;
   }
-  return DRAW_PILE_FROM_RULES.find((rule) => rule.match(move))?.position ?? move.fromPosition;
+  const nationWar = options.nationWar === true;
+  return DRAW_PILE_FROM_RULES.find((rule) => rule.match(move, nationWar))?.position ?? move.fromPosition;
 }
 
 /** 整手交出手牌的技能（605 密诏）：暗牌移动时该座位已知牌全部随之离开。 */

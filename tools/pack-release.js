@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import {
   copyFileSync,
@@ -111,14 +112,27 @@ async function main() {
 
   mkdirSync(path.join(root, 'release'), { recursive: true });
   const releaseZipPath = path.join(root, 'release', RELEASE_ZIP_NAME);
+  const releaseAppZipPath = path.join(root, 'release', 'app.zip');
+  copyFileSync(appZipPath, releaseAppZipPath);
   console.log(`[pack] 生成 ${RELEASE_ZIP_NAME}…`);
   await createZip(releaseZipPath, RELEASE_ASSET_FILES.concat('app.zip'), packDir);
 
   rmSync(stagingRoot, { recursive: true, force: true });
 
   const zipSize = statSync(releaseZipPath).size;
+  const appSha256 = createHash('sha256').update(readFileSync(releaseAppZipPath)).digest('hex');
+  const manifest = {
+    version: scriptVersion,
+    notes: '',
+    pageUrl: 'https://xc.95chong.cn/downloads',
+    appUrl: 'https://xc.95chong.cn/downloads/app.zip',
+    appSha256
+  };
+  const manifestPath = path.join(root, 'release', 'xiaochao-manifest.json');
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`[pack] 完成: ${releaseZipPath}`);
   console.log(`[pack] ${(zipSize / 1024).toFixed(1)} KB（脚本 v${scriptVersion}，微端壳 v${shellPackage.version}）`);
+  console.log(`[pack] 清单: ${manifestPath}（copy:portal 会放到门户 /downloads/manifest.json）`);
 }
 
 main().catch((error) => {

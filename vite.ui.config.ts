@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
@@ -8,7 +9,10 @@ export default defineConfig({
   root: resolve(import.meta.dirname, 'tools/ui-sandbox'),
   define: {
     'process.env.NODE_ENV': JSON.stringify('development'),
-    __XC_WITH_LEGACY__: 'false'
+    __XC_WITH_LEGACY__: 'false',
+    __XIAOCHAO_VERSION__: JSON.stringify(
+      JSON.parse(readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf8')).version || '0.0.0'
+    )
   },
   server: {
     port: 5179,

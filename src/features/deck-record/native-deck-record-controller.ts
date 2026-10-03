@@ -190,9 +190,7 @@ export function installNativeDeckRecordController(
         ? deck.deckBottomCardIds
         : sortCardIds(deck.currentTurnDiscardCardIds, sortMode);
     const knownCount = cardIds.filter(Boolean).length;
-    const title = activeList === 'discard'
-      ? LIST_TITLES.discard
-      : `${LIST_TITLES[activeList]}${knownCount ? ` · ${knownCount}张` : ''}`;
+    const title = `${LIST_TITLES[activeList]}${knownCount ? ` · ${knownCount}张` : ''}`;
     const signature = `${activeList}:${sortMode}:${cardIds.join(',')}:${title}`;
     if (popup && popupSignature === signature) return;
 
@@ -208,8 +206,10 @@ export function installNativeDeckRecordController(
 
     const rowWidth = BUTTON_WIDTH * BUTTON_KINDS.length + BUTTON_GAP * (BUTTON_KINDS.length - 1);
     const popupWidth = Number(popup.width || created.width);
+    const roundHeight = Math.max(43, Number(asRecord(root.__xcRoundInfo)?.height || 43));
+    const rowY = roundHeight + BUTTON_ROW_GAP;
     const x = Math.max(4 - Number(root.x || 0), rowWidth - popupWidth);
-    call(popup, 'pos', x, Number(created.buttonRowOffset));
+    call(popup, 'pos', x, rowY + BUTTON_HEIGHT + 4);
   };
 
   const sync = () => {
@@ -228,6 +228,7 @@ export function installNativeDeckRecordController(
       if (!created) return;
       root = created.root;
       buttons = created.buttons;
+      root.__xcRoundInfo = roundInfo;
       scene = nextScene;
       parent = nextParent;
     }

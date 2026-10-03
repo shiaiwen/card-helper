@@ -153,6 +153,20 @@ const PANEL_SHELL_CSS_SOURCE = `
   color: #f2de9c;
   font-weight: 700;
 }
+#createIframe .xiaochao-panel__tabs .xc-main-tab--update {
+  position: relative;
+}
+#createIframe .xiaochao-panel__tabs .xc-main-tab--update::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d90000;
+  box-shadow: 0 0 0 1px rgba(35, 32, 29, .85);
+}
 #createIframe #iframe-source { pointer-events: auto; }
 #createIframe .xiaochao-panel__content {
   flex: 1 1 auto;
@@ -193,6 +207,11 @@ const PANEL_SHELL_CSS_SOURCE = `
 }
 #createIframe .xiaochao-display-switch-grid > .xiaochao-block-switch {
   min-width: 0;
+  pointer-events: auto;
+}
+#createIframe .xiaochao-game-assist-switch {
+  position: relative;
+  pointer-events: auto;
 }
 #createIframe .xiaochao-display-switch-grid .xiaochao-block-switch__label {
   margin: 0 0 2px;

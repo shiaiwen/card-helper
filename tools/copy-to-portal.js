@@ -1,0 +1,49 @@
+/**
+ * 把 release/wd-xc.zip、app.zip 和 xiaochao-manifest.json 拷到 portal 的 public/downloads。
+ * 网站上分别是 /downloads/wd-xc.zip、/downloads/app.zip 和 /downloads/manifest.json。
+ * 用法：
+ *   npm run copy:portal
+ *   npm run pack:portal   （先打包再拷贝）
+ */
+import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const zipName = 'wd-xc.zip';
+const releaseZip = path.join(root, 'release', zipName);
+const releaseAppZip = path.join(root, 'release', 'app.zip');
+const releaseManifest = path.join(root, 'release', 'xiaochao-manifest.json');
+const portalRoot = process.env.PORTAL_ROOT
+  ? path.resolve(process.env.PORTAL_ROOT)
+  : path.resolve(root, '..', 'portal');
+const portalDownloads = path.join(portalRoot, 'public', 'downloads');
+const portalZip = path.join(portalDownloads, zipName);
+const portalAppZip = path.join(portalDownloads, 'app.zip');
+const portalManifest = path.join(portalDownloads, 'manifest.json');
+
+if (!existsSync(releaseZip) || !existsSync(releaseAppZip) || !existsSync(releaseManifest)) {
+  console.error(`[portal] 缺少 ${releaseZip}、${releaseAppZip} 或 ${releaseManifest}`);
+  console.error('[portal] 请先执行 npm run pack，或直接 npm run pack:portal');
+  process.exitCode = 1;
+  process.exit();
+}
+
+if (!existsSync(portalRoot)) {
+  console.error(`[portal] 找不到门户目录: ${portalRoot}`);
+  console.error('[portal] 可用环境变量 PORTAL_ROOT 指定路径');
+  process.exitCode = 1;
+  process.exit();
+}
+
+mkdirSync(portalDownloads, { recursive: true });
+copyFileSync(releaseZip, portalZip);
+copyFileSync(releaseAppZip, portalAppZip);
+copyFileSync(releaseManifest, portalManifest);
+
+const kb = (statSync(portalZip).size / 1024).toFixed(1);
+console.log(`[portal] 已拷贝到 ${portalZip}`);
+console.log(`[portal] 已拷贝到 ${portalAppZip}`);
+console.log(`[portal] 已拷贝到 ${portalManifest}`);
+console.log(`[portal] ${kb} KB`);
+console.log('[portal] 网站发布请到 portal 目录执行 npm run deploy');
