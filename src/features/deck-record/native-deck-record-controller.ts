@@ -1,5 +1,5 @@
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
-import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
+import { isDianweiArmCardName, type GameCardCatalog } from '../cards/game-card-catalog.ts';
 import {
   createOfficialCardView,
   detachOfficialDrawLayer,
@@ -112,7 +112,7 @@ export function installNativeDeckRecordController(
   const displayableCardIds = (cardIds: readonly number[]) => cardIds.filter((cardId) => {
     if (!(cardId > 0)) return false;
     const name = gameCardCatalog?.resolve(cardId).name ?? '';
-    return !/臂膀/.test(name);
+    return !isDianweiArmCardName(name);
   });
 
   const clearHideTimer = () => {
@@ -199,8 +199,8 @@ export function installNativeDeckRecordController(
       : activeList === 'bottom'
         ? deck.deckBottomCardIds
         : sortCardIds(deck.currentTurnDiscardCardIds, sortMode);
-    // 神典韦“臂膀”属于技能派生物，不是可展示的实体牌。它进入弃牌区协议时
-    // 不能交给原生牌面池，否则会破坏后续整组弃牌的绘制。
+    // 神典韦“左膀/右膀”属于技能派生物，不是可展示的实体牌。它进入弃牌区协议时
+    // 不能交给原生牌面池，也不能出现在当前用牌。
     const cardIds = displayableCardIds(rawCardIds);
     const knownCount = cardIds.filter(Boolean).length;
     const title = `${LIST_TITLES[activeList]}${knownCount ? ` · ${knownCount}张` : ''}`;

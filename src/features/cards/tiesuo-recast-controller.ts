@@ -4,8 +4,12 @@ import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 
 type Node = Record<string, any>;
 
-const PATCHED_CLICK_KEY = '__xcTiesuoRecastClick';
-const TIESUO_NAME = /铁索连环|^铁索$/;
+/**
+ * 对照 app.bak：
+ * 1) 包 SelfSeatUi.ButtonBar_UpdateCallback：点确定时若 btnOK 走不通，改走 btnReset（重铸）。
+ * 2) 铁索未选目标时游戏会把确定置灰，需额外点亮，否则点不到、回调进不来。
+ * 绝不包装 onClick / setEnabled —— 之前那样会吞掉所有牌的确定。
+ */
 
 function asRecord(value: unknown): Node | null {
   return value !== null && (typeof value === 'object' || typeof value === 'function')
@@ -15,240 +19,149 @@ function asRecord(value: unknown): Node | null {
 
 export function isTiesuoCardName(name: unknown): boolean {
   const text = String(name ?? '').replace(/[♠♥♣♦\s0-9AJQK10]+/g, '');
-  return TIESUO_NAME.test(text);
+  return /铁索连环|^铁索$/.test(text);
 }
 
 export function shouldRecastTiesuo(input: {
-  tiesuoSelected: boolean;
+  selectedCardCount: number;
+  tiesuoOnly: boolean;
   selectedTargetCount: number;
 }): boolean {
-  return input.tiesuoSelected && input.selectedTargetCount <= 0;
+  return input.selectedCardCount === 1
+    && input.tiesuoOnly
+    && input.selectedTargetCount <= 0;
 }
 
-/** 选中铁索连环且未点目标时，让确定可点，点击后走重铸。 */
+function buttonList(bar: Node | null): Node[] {
+  if (!bar) return [];
+  const list = Array.isArray(bar.btns) ? bar.btns : Array.isArray(bar.btnList) ? bar.btnList : [];
+  return list.map(asRecord).filter(Boolean) as Node[];
+}
+
+function looksOn(button: Node | null): boolean {
+  if (!button || button.destroyed) return false;
+  return button.visible !== false
+    && button._visible !== false
+    && button.enabled !== false
+    && button._enabled !== false
+    && button.disabled !== true
+    && button.gray !== true;
+}
+
 export function installTiesuoRecastController(
   runtime: LayaRuntimeWindow = window as LayaRuntimeWindow
 ): () => void {
   const locator = createLayaObjectLocator(runtime);
   const patcher = createMethodPatcher();
   let stopped = false;
-  let recasting = false;
-  let lastRecastAt = 0;
+  let patchedTarget: Node | null = null;
+  let patchedBarTarget: Node | null = null;
 
-  function sceneSelf(): { scene: Node; self: Node } | null {
+  function sceneSelf(): Node | null {
     const scene = asRecord(locator.gameScene())
       ?? asRecord(locateGameScene(runtime))
       ?? asRecord((runtime as Node).gamescene);
     const self = asRecord(scene?.SelfSeatUi) ?? asRecord(scene?.selfSeatUi);
-    if (!scene || !self || self.destroyed) return null;
-    return { scene, self };
+    if (!self || self.destroyed) return null;
+    return self;
   }
 
-  function readButtons(self: Node): Node[] {
-    const bar = asRecord(self.buttonBar) ?? asRecord(self.ButtonBar) ?? self;
-    const list = bar?.btnList ?? bar?.buttons ?? bar?.btns;
-    const buttons = Array.isArray(list) ? list.map(asRecord).filter(Boolean) as Node[] : [];
-    for (const extra of [self.btnOK, bar?.btnOK]) {
-      const button = asRecord(extra);
-      if (button && !buttons.includes(button)) buttons.push(button);
+  function buttonBar(self: Node): Node | null {
+    return asRecord(self.buttonBar) ?? asRecord(self.ButtonBar);
+  }
+
+  function findButton(self: Node, name: string): Node | null {
+    const bar = buttonBar(self);
+    return asRecord(bar?.[name])
+      ?? buttonList(bar).find((button) => String(button.name || '') === name)
+      ?? null;
+  }
+
+  function resolvePatchTarget(self: Node): Node | null {
+    const proto = asRecord(Object.getPrototypeOf(self));
+    if (proto && typeof proto.ButtonBar_UpdateCallback === 'function') return proto;
+    if (typeof self.ButtonBar_UpdateCallback === 'function') return self;
+    return null;
+  }
+
+  function ensureCallbackPatch(): boolean {
+    const self = sceneSelf();
+    if (!self) return false;
+    const target = resolvePatchTarget(self);
+    if (!target) return false;
+    if (patchedTarget === target && patcher.isWrapped(target, 'ButtonBar_UpdateCallback')) {
+      return true;
     }
-    return buttons;
-  }
-
-  function buttonLabel(button: Node): string {
-    return [
-      button.name,
-      button.label,
-      button.text,
-      asRecord(button.label)?.text,
-      asRecord(button.txt)?.text
-    ].map((value) => String(value ?? '')).join(' ');
-  }
-
-  function isConfirmButton(button: Node): boolean {
-    const name = String(button.name || '');
-    if (name === 'btnOK' || name === 'btnSure') return true;
-    return /确定|确认|出牌/.test(buttonLabel(button)) && !isRecastButton(button);
-  }
-
-  function isRecastButton(button: Node): boolean {
-    const name = String(button.name || '');
-    if (/recast|chongzhu/i.test(name) || name === 'btnRecast') return true;
-    return /重铸/.test(buttonLabel(button));
-  }
-
-  function cardName(ui: unknown): string {
-    const record = asRecord(ui);
-    const card = asRecord(record?.Card) ?? asRecord(record?.theCard) ?? record;
-    const spell = asRecord(card?.Spell) ?? asRecord(card?.spell);
-    return String(card?.CardName ?? card?.cardName ?? card?.name ?? spell?.Name ?? spell?.name ?? '');
-  }
-
-  function isSelected(ui: unknown): boolean {
-    const record = asRecord(ui);
-    const card = asRecord(record?.Card);
-    const seat = asRecord(record?.seat);
-    return !!(
-      record?.selected
-      || record?.Selected
-      || record?.isSelected
-      || card?.Selected
-      || card?.selected
-      || seat?.Selected
-      || seat?.selected
-    );
-  }
-
-  function handCards(self: Node): Node[] {
-    const container = asRecord(self.cardContainer);
-    return [
-      ...(Array.isArray(container?.activatedCardtems) ? container.activatedCardtems : []),
-      ...(Array.isArray(container?.cardUis) ? container.cardUis : []),
-      ...(Array.isArray(container?.handCardUis) ? container.handCardUis : [])
-    ].map(asRecord).filter(Boolean) as Node[];
-  }
-
-  function tiesuoSelected(self: Node): boolean {
-    const selected = handCards(self).filter(isSelected);
-    if (!selected.length) return false;
-    return selected.every((card) => isTiesuoCardName(cardName(card)));
-  }
-
-  function selectedTargetCount(scene: Node, self: Node): number {
-    const container = asRecord(self.cardContainer);
-    const context = asRecord(container?.SelectContext)
-      ?? asRecord(container?.selectCardContext)
-      ?? asRecord(self.SelectContext);
-    const fromContext = [
-      context?.SelectedSeatIds,
-      context?.selectedSeatIds,
-      context?.DestSeatIDs,
-      context?.destSeatIDs
-    ].flatMap((value) => (Array.isArray(value) ? value : []));
-    const contextCount = fromContext.filter((id) => Number(id) > 0).length;
-    const seatUis = (asRecord(scene.seatContainer)?.seatUIs as unknown[]) || [];
-    const uiCount = seatUis.filter(isSelected).length;
-    return Math.max(contextCount, uiCount);
-  }
-
-  function canRecast(): boolean {
-    const located = sceneSelf();
-    if (!located) return false;
-    return shouldRecastTiesuo({
-      tiesuoSelected: tiesuoSelected(located.self),
-      selectedTargetCount: selectedTargetCount(located.scene, located.self)
+    const wrapped = patcher.wrap(target, 'ButtonBar_UpdateCallback', (original) => {
+      return function (this: Node, buttonName?: unknown, ...rest: unknown[]) {
+        const result = original.call(this, buttonName, ...rest);
+        if (String(buttonName ?? '') !== 'btnOK') return result;
+        if (result) return result;
+        return original.call(this, 'btnReset', ...rest);
+      };
     });
+    if (wrapped) patchedTarget = target;
+    return wrapped;
   }
 
-  function allowZeroTargets(self: Node): void {
-    const container = asRecord(self.cardContainer);
-    const contexts = [
-      asRecord(container?.SelectContext),
-      asRecord(container?.selectCardContext),
-      asRecord(self.SelectContext)
-    ].filter(Boolean) as Node[];
-    for (const context of contexts) {
-      for (const key of ['SelectCountMin', 'selectCountMin', 'TargetCountMin', 'targetCountMin']) {
-        if (key in context) context[key] = 0;
-      }
-      if ('NeedTarget' in context) context.NeedTarget = false;
-      if ('needTarget' in context) context.needTarget = false;
-    }
-  }
-
-  function clickNode(node: Node): boolean {
+  /** 仅点亮：重铸亮着说明当前是可重铸态（铁索零目标），让确定也能点到。 */
+  function lightOkIfRecastReady(self: Node): void {
+    const recast = findButton(self, 'btnReset');
+    const ok = findButton(self, 'btnOK');
+    if (!ok || !looksOn(recast)) return;
+    if (looksOn(ok)) return;
     try {
-      if (typeof node.onClick === 'function') {
-        node.onClick();
-        return true;
-      }
-      const clickType = String((runtime.Laya as Node | undefined)?.Event?.CLICK ?? 'click');
-      if (typeof node.onMouse === 'function') {
-        node.onMouse({ type: clickType });
-        return true;
-      }
-      if (typeof node.event === 'function') {
-        node.event(clickType, node.name ?? node);
-        return true;
-      }
+      if (typeof ok.setEnabled === 'function') ok.setEnabled(true);
+      else if (typeof ok.setEnable === 'function') ok.setEnable(true);
     } catch {
-      return false;
+      // ignore
     }
-    return false;
-  }
-
-  function performRecast(confirm: Node, original?: (...args: unknown[]) => unknown, args: unknown[] = []): unknown {
-    const now = Date.now();
-    if (recasting || now - lastRecastAt < 400) return undefined;
-    recasting = true;
-    lastRecastAt = now;
     try {
-      const located = sceneSelf();
-      if (!located) return original?.apply(confirm, args);
-      const recast = readButtons(located.self).find((button) => button !== confirm && isRecastButton(button));
-      if (recast && clickNode(recast)) return undefined;
-      allowZeroTargets(located.self);
-      if (original) return original.apply(confirm, args);
-      return clickNode(confirm);
-    } finally {
-      recasting = false;
-    }
-  }
-
-  function enableConfirm(button: Node): void {
-    try {
-      if (typeof button.setEnabled === 'function') button.setEnabled(true);
-      else if (typeof button.setEnable === 'function') button.setEnable(true);
+      if (typeof ok.setGray === 'function') ok.setGray(false);
     } catch {
-      // 部分按钮在未入舞台时改状态会抛错。
+      // ignore
     }
-    button.enabled = true;
-    button._enabled = true;
-    button.disabled = false;
-    button.gray = false;
-    button.mouseEnabled = true;
-    if (typeof button.alpha === 'number' && button.alpha < 1) button.alpha = 1;
-    if ('filters' in button && button.gray !== true) button.filters = null;
+    ok.enabled = true;
+    ok._enabled = true;
+    ok.disabled = false;
+    ok.gray = false;
+    ok.mouseEnabled = true;
   }
 
-  function patchConfirm(button: Node): void {
-    if (button[PATCHED_CLICK_KEY]) return;
-    button[PATCHED_CLICK_KEY] = true;
-    const intercept = (original?: (...args: unknown[]) => unknown) => function (this: Node, ...args: unknown[]) {
-      if (canRecast()) return performRecast(this, original?.bind(this), args);
-      return original?.apply(this, args);
-    };
-    patcher.wrap(button, 'onClick', intercept);
-    patcher.wrap(button, 'onMouse', (original) => function (this: Node, event?: Node, ...rest: unknown[]) {
-      const type = String(event?.type ?? '');
-      if ((type === 'click' || type === 'CLICK') && canRecast()) {
-        return performRecast(this, original.bind(this), [event, ...rest]);
-      }
-      return original.call(this, event, ...rest);
+  /** 游戏 Update 刚把确定关掉后立刻再打开，避免和轮询抢时机。 */
+  function ensureBarUpdatePatch(self: Node): void {
+    const bar = buttonBar(self);
+    if (!bar || typeof bar.Update !== 'function') return;
+    const proto = asRecord(Object.getPrototypeOf(bar));
+    const target = proto && typeof proto.Update === 'function' ? proto : bar;
+    if (patchedBarTarget === target && patcher.isWrapped(target, 'Update')) return;
+    const wrapped = patcher.wrap(target, 'Update', (original) => {
+      return function (this: Node, ...args: unknown[]) {
+        const result = original.apply(this, args);
+        const owner = sceneSelf();
+        if (owner && buttonBar(owner) === this) lightOkIfRecastReady(owner);
+        return result;
+      };
     });
-    for (const name of ['setEnabled', 'setEnable']) {
-      patcher.wrap(button, name, (original) => function (this: Node, value?: unknown, ...rest: unknown[]) {
-        return original.call(this, canRecast() ? true : value, ...rest);
-      });
-    }
+    if (wrapped) patchedBarTarget = target;
   }
 
   function sync(): void {
     if (stopped) return;
-    const located = sceneSelf();
-    if (!located) return;
-    const recastable = canRecast();
-    for (const button of readButtons(located.self).filter(isConfirmButton)) {
-      patchConfirm(button);
-      if (recastable) enableConfirm(button);
-    }
+    ensureCallbackPatch();
+    const self = sceneSelf();
+    if (!self) return;
+    ensureBarUpdatePatch(self);
+    lightOkIfRecastReady(self);
   }
 
-  const timer = runtime.setInterval(sync, 120);
+  const timer = runtime.setInterval(sync, 100);
   sync();
   return () => {
     stopped = true;
     runtime.clearInterval(timer);
     patcher.restoreAll();
+    patchedTarget = null;
+    patchedBarTarget = null;
   };
 }

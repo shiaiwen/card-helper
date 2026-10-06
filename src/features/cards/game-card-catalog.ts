@@ -22,6 +22,11 @@ export interface GameCardCatalog {
   clear(): void;
 }
 
+/** 神典韦技能派生牌，不是可展示的实体牌（牌名是左膀/右膀，不是“臂膀”）。 */
+export function isDianweiArmCardName(name: string): boolean {
+  return name === '左膀' || name === '右膀' || name.includes('臂膀');
+}
+
 const SUITS = {
   // 官方配置 Color：1 红桃、2 方片、3 黑桃、4 梅花。
   1: { suit: 'heart', glyph: '♥', red: true },

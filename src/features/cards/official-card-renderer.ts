@@ -80,11 +80,39 @@ export function createOfficialCardView(
       return null;
     }
     (ui.Draw as Function).call(ui, drawHost);
+    suppressOfficialCardSkillTags(ui);
     return { ui, owner: container, cardId };
   } catch {
     if (ui) releaseOfficialCardView({ ui, owner: container, cardId });
     return null;
   }
+}
+
+/** 覆盖层不展示牌面自带的技能来源标签；不改写局内手牌对象上的 tagArr1。 */
+function suppressOfficialCardSkillTags(ui: UnknownRecord): void {
+  ui.__xcSuppressLabel = true;
+  const card = asRecord(ui.Card) ?? asRecord(ui.card);
+  const tagKey = card && Object.prototype.hasOwnProperty.call(card, 'tagArr1')
+    ? 'tagArr1'
+    : card && Object.prototype.hasOwnProperty.call(card, 'TagArr1')
+      ? 'TagArr1'
+      : null;
+  const original = tagKey && card ? card[tagKey] : undefined;
+  try {
+    if (card && tagKey) card[tagKey] = [];
+    call(ui, 'AddCardTag');
+    call(ui, 'UpdateTag');
+    call(ui, 'layoutTagUI');
+  } catch {
+    // 没有标签接口时保持牌面即可。
+  } finally {
+    if (card && tagKey) {
+      if (original === undefined) delete card[tagKey];
+      else card[tagKey] = original;
+    }
+  }
+  const label = asRecord(ui.__xcLabelBtn);
+  if (label) label.visible = false;
 }
 
 /**

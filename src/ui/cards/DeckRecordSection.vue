@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import type { DeckRecordStore } from '../../features/deck-record/deck-record-store.ts';
-import type { GameCardCatalog } from '../../features/cards/game-card-catalog.ts';
+import { isDianweiArmCardName, type GameCardCatalog } from '../../features/cards/game-card-catalog.ts';
 import ShoupaiCardFace from './ShoupaiCardFace.vue';
 
 const props = defineProps<{
@@ -59,10 +59,11 @@ function cycleSortMode(): void {
 }
 
 function sortCards(cardIds: readonly number[]) {
-  const cards = cardIds.map((cardId, index) => ({
-    ...props.gameCardCatalog.resolve(cardId),
-    originalIndex: index,
-  }));
+  const cards = cardIds.flatMap((cardId, index) => {
+    const card = props.gameCardCatalog.resolve(cardId);
+    if (isDianweiArmCardName(card.name)) return [];
+    return [{ ...card, originalIndex: index }];
+  });
   const mode = sortModeLabels[sortMode.value]
     ? sortMode.value
     : sortModes[0];

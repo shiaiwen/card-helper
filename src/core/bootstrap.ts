@@ -55,14 +55,14 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   const configStore = createConfigStore(createPlatformConfigStorage(platform));
   const seatStateStore = createSeatStateStore();
   const gameEvents = createGameEventBus();
-  const recentCardStore = createRecentCardStore(
-    gameEvents,
-    configStore.get('display.recentCardMode')
-  );
   const cardConfigSource = installCardConfigSource(window);
   const gameCardCatalog = createGameCardCatalog(
     () => locateGameScene(window),
     (cardId) => cardConfigSource.getCard(cardId)
+  );
+  const recentCardStore = createRecentCardStore(
+    gameEvents,
+    configStore.get('display.recentCardMode')
   );
   const mingpaiEngine = createMingpaiEngine();
   const deckRecordStore = createDeckRecordStore(gameEvents, undefined, {

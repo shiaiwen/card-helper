@@ -48,6 +48,8 @@ import type { RogueController } from '../features/rogue';
 import type { UpdateNoticeController } from '../features/update-notice';
 import type { XiaochaoPanelLayout } from './mount-xiaochao-app';
 import { showToast } from './toast/show-toast';
+import { createElectronPlatform } from '../adapters/electron-platform';
+import { createUserscriptPlatform } from '../adapters/userscript-platform';
 import { constrainPanelPosition, hasExceededDragThreshold, shouldDockToRight } from './panel/panel-drag';
 import {
   getOwnedPanelLayoutValue,
@@ -98,6 +100,13 @@ const stopUpdateNotice = props.updateNoticeController?.subscribe((snapshot) => {
   toolsHasUpdate.value = snapshot.hasUpdate;
 });
 const isResetDialogOpen = ref(false);
+
+function openXiaochaoSite(): void {
+  const adapter = props.platform === 'electron'
+    ? createElectronPlatform()
+    : createUserscriptPlatform();
+  void adapter.openExternal('https://xc.95chong.cn/');
+}
 let expandedHeight = '';
 let expandedWidth = '';
 let stopDragging: (() => void) | undefined;
@@ -458,6 +467,14 @@ function handleResizeStart(event: PointerEvent): void {
       <section class="xiaochao-settings-section" aria-label="工具栏">
         <div class="xiaochao-settings-section__body xiaochao-tools-entry__actions">
           <GuanxingEntry :platform="platform" />
+          <button
+            type="button"
+            class="xiaochao-block-entry xiaochao-block-entry--center"
+            data-tooltip="在浏览器新页面打开小抄官网"
+            @click="openXiaochaoSite"
+          >
+            <span>小抄官网</span>
+          </button>
           <button
             type="button"
             class="xiaochao-block-entry xiaochao-block-entry--center"
