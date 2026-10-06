@@ -1,0 +1,12 @@
+---
+description: Keep repository searches and writes inside the user's specified project workspace.
+alwaysApply: true
+---
+
+# Workspace boundary
+
+- When the user specifies a workspace path, search, read, and write project files only inside that exact directory.
+- Do not read, inspect, modify, or create files in Codex worktrees or any other checkout, even when files appear shared or identical.
+- Do not switch the working directory to another checkout to recover, compare, or validate project changes.
+- Leave the specified directory only when the user explicitly instructs you to create a new project elsewhere.
+- Before file operations, verify the resolved path is under the specified workspace directory.

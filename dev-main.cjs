@@ -13,6 +13,7 @@ const data = path.join(root, '.dev-data');
 fs.mkdirSync(path.join(data, 'xiaochao'), { recursive: true });
 app.setPath('userData', data);
 const configPath = path.join(data, 'xiaochao/config.json');
+const diagnosticsEnabled = process.env.SGSOL_DIAGNOSTICS === '1';
 const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
 Object.assign(config, { firstTime: false, firstTimeAnnouncementSeen: true });
 delete config.scriptUrl;
@@ -29,7 +30,9 @@ function log(event, detail) {
 process.on('uncaughtException', error => { log('uncaughtException', error.stack); console.error(error); });
 process.on('unhandledRejection', error => { log('unhandledRejection', String(error?.stack || error)); console.error(error); });
 app.on('web-contents-created', (_, contents) => {
-  if (contents.getType() === 'webview') {
+  // 这些主动探针会向游戏 WebContents 频繁排入 executeJavaScript/capturePage；
+  // 只在明确诊断时启用，避免普通开发游玩时监控本身拖慢或堵住游戏页。
+  if (contents.getType() === 'webview' && diagnosticsEnabled) {
     let lastStatus = '';
     const monitor = setInterval(async () => {
       if (contents.isDestroyed()) { clearInterval(monitor); return; }
@@ -81,7 +84,7 @@ app.on('web-contents-created', (_, contents) => {
   contents.on('did-fail-load', (_, code, description, url, mainFrame) => log('did-fail-load', {code,description,url,mainFrame}));
   contents.on('did-finish-load', () => {
     log('did-finish-load', {type:contents.getType(),url:contents.getURL()});
-    if(contents.getType()==='webview') setTimeout(async()=>{
+    if(diagnosticsEnabled && contents.getType()==='webview') setTimeout(async()=>{
       try {
         log('webview-status',await contents.executeJavaScript(`({title:document.title,bodyLength:document.body?.innerText.length,htmlLength:document.body?.innerHTML.length,bridge:typeof window.electron,require:typeof require,images:document.images.length,width:innerWidth,height:innerHeight,loginInputs:document.querySelectorAll('#sgsPassApp input').length})`));
         fs.writeFileSync(path.join(data,'webview.png'),(await contents.capturePage()).toPNG());
@@ -92,6 +95,7 @@ app.on('web-contents-created', (_, contents) => {
 app.on('browser-window-created', (_, win) => {
   win.webContents.once('did-finish-load', () => {
     win.setTitle('SGSOL 本地开发版');
+    if (!diagnosticsEnabled) return;
     setTimeout(async () => {
       if (win.isDestroyed()) return;
       try {

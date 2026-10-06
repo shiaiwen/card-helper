@@ -54,7 +54,8 @@ function cardIdOf(card: UnknownRecord | null): number {
 
 function cardSuitOf(card: UnknownRecord | null): number {
   return Number(
-    card?.flower ?? card?.CardSuit ?? card?.cardSuit ?? card?.suit ?? card?.Color ?? card?.color ?? 0
+    card?.FlowerOnSeat ?? card?.flower ?? card?.Flower ?? card?.CardSuit
+      ?? card?.cardSuit ?? card?.suit ?? card?.Color ?? card?.color ?? 0
   ) || 0;
 }
 
@@ -62,7 +63,7 @@ function cardNameOf(card: UnknownRecord | null, lookup?: PeixiuCardLookup): stri
   const id = cardIdOf(card);
   const catalog = id ? lookup?.getCard?.(id) : null;
   return String(
-    card?.CardName || card?.cardName || card?.name || catalog?.name || ''
+    card?.CardName || card?.cardName || card?.Name || card?.name || catalog?.name || ''
   );
 }
 
@@ -100,23 +101,23 @@ export function collectPeixiuResources(options: {
     const selfSeatUi = asRecord(scene?.SelfSeatUi) ?? asRecord(asRecord(scene)?.selfSeatUi);
     const seat = asRecord(selfSeatUi?.seat) ?? {};
     const container = asRecord(selfSeatUi?.cardContainer) ?? {};
-    const cardUis = Array.isArray(container.cardUis) && container.cardUis.length
-      ? container.cardUis
-      : (container.handCardUis as unknown[]) || [];
-    const equipUis = (container.equipUis as unknown[]) || [];
+    const cardUis = Array.isArray(container.handCardUis) && container.handCardUis.length
+      ? container.handCardUis
+      : (container.cardUis as unknown[]) || [];
+    const equipUis = (container.equipCardUis as unknown[]) || [];
     const selectedUis = new Set([
       ...((container.selectCardUis as unknown[]) || []),
       ...((container.selectedCardUis as unknown[]) || [])
     ]);
     const selectedIds = new Set(
       Array.from(
-        (asRecord(container.selectContext)?.SelectedCardIds
+        (asRecord(container.selectCardContext)?.SelectedCardIds
           ?? asRecord(container.SelectContext)?.SelectedCardIds
           ?? []) as unknown[],
         Number
       )
     );
-    const activatedList = container.activatedCardUis ?? container.ActivatedCardUis;
+    const activatedList = container.activatedCardtems ?? container.activatedCardItems;
     const activatedSet = new Set(Array.isArray(activatedList) ? activatedList : []);
     const suitCounts = [0, 0, 0, 0, 0];
     const handCards = cardUis.map((item, index) => {
@@ -125,6 +126,7 @@ export function collectPeixiuResources(options: {
       const id = cardIdOf(card);
       const suit = cardSuitOf(card);
       const name = cardNameOf(card, options.cardLookup);
+      const kind = classifyCardName(name);
       const activated = ui?.Activated ?? ui?.activated ?? card?.Activated ?? card?.activated
         ?? (Array.isArray(activatedList) ? activatedSet.has(item) : undefined);
       if (suit >= 1 && suit <= 4) suitCounts[suit] += 1;
@@ -134,7 +136,7 @@ export function collectPeixiuResources(options: {
         suit,
         name,
         displayName: cardDisplayName(card, name, options.cardLookup),
-        kind: classifyCardName(name),
+        kind,
         playable: activated === undefined ? true : !!activated,
         selected: !!(ui?.selected || card?.selected || selectedUis.has(item) || selectedIds.has(id))
       } satisfies PeixiuHandCard;
@@ -210,7 +212,7 @@ export function isLocalPlayerTurn(
 }
 
 export function collectOwnedSkills(
-  map: { rewards?: Array<{ rewardId?: number; type?: unknown }> } | null | undefined,
+  map: { rewards?: Array<{ cell?: number; rawCell?: number; rewardId?: number; type?: unknown }> } | null | undefined,
   collectedCells: number[],
   lookup: PeixiuRewardLookup,
   rewardAt: (cell: number) => number
@@ -218,7 +220,12 @@ export function collectOwnedSkills(
   const ids = new Set<number>();
   for (const reward of map?.rewards || []) {
     const type = Number(reward.type);
-    if (type === 26 && Number(reward.rewardId)) ids.add(Number(reward.rewardId));
+    // 正式服对象配置用 RewardType=26 表示角色自身携带的城市技能；
+    // 字符串配置则写成“26,奖励ID”，此时 26 会落在 cell/rawCell。
+    const isSelfCitySkill = type === 26
+      || Number(reward.rawCell) === 26
+      || Number(reward.cell) === 26;
+    if (isSelfCitySkill && Number(reward.rewardId)) ids.add(Number(reward.rewardId));
   }
   for (const cell of collectedCells) {
     const rewardId = rewardAt(cell);

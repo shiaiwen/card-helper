@@ -23,24 +23,25 @@ export function formatRanks(ranks: readonly number[]): string {
 
 /** 资援：手牌中点数之和恰为 13 的所有不重复组合，张数多的优先。 */
 export function solveZiyuan(ranks: readonly number[]): number[][] {
-  const sorted = validRanks(ranks).sort((left, right) => left - right);
+  const counts = countRanks(validRanks(ranks));
   const results: number[][] = [];
-  const walk = (picked: number[], start: number, sum: number) => {
-    if (sum === ZIYUAN_TARGET) {
+  const picked: number[] = [];
+  const walk = (rank: number, remaining: number) => {
+    if (remaining === 0) {
       results.push([...picked]);
       return;
     }
-    if (sum > ZIYUAN_TARGET) return;
-    for (let index = start; index < sorted.length; index += 1) {
-      if (index > start && sorted[index] === sorted[index - 1]) continue;
-      picked.push(sorted[index]);
-      walk(picked, index + 1, sum + sorted[index]);
-      picked.pop();
+    if (rank > MAX_RANK || remaining < 0) return;
+    const takeMax = Math.min(counts[rank], Math.floor(remaining / rank));
+    for (let take = takeMax; take >= 0; take -= 1) {
+      for (let index = 0; index < take; index += 1) picked.push(rank);
+      walk(rank + 1, remaining - rank * take);
+      picked.splice(picked.length - take, take);
     }
   };
-  walk([], 0, 0);
+  walk(1, ZIYUAN_TARGET);
   return results
-    .sort((left, right) => right.length - left.length)
+    .sort((left, right) => right.length - left.length || left.join(',').localeCompare(right.join(',')))
     .slice(0, ZIYUAN_MAX_RESULTS);
 }
 

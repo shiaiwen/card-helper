@@ -20,6 +20,10 @@ export interface XiaochaoConfig {
   'display.discardSortMode': 'suit-type-number' | 'type-suit-number' | 'number-suit-type';
   'display.cardLabelsEnabled': boolean;
   'display.countdownEnabled': boolean;
+  'rooms.hidePassword': boolean;
+  'cards.handSortEnabled': boolean;
+  'cards.handSortLockedMode': '' | 'CardType' | 'CardFlower' | 'CardNumber';
+  'cards.handSortPosition': { right: number; top: number } | null;
   'block.adWindow': boolean;
   'block.mvpWindow': boolean;
   'block.packageWindow': boolean;
@@ -61,16 +65,16 @@ export type XiaochaoConfigKey = keyof XiaochaoConfig;
 
 interface ConfigDefinition<Value> {
   defaultValue: Value;
-  legacyStorageKey?: string;
+  previousStorageKey?: string;
   parse(value: unknown): Value | undefined;
 }
 
 const booleanDefinition = (
   defaultValue: boolean,
-  legacyStorageKey?: string
+  previousStorageKey?: string
 ): ConfigDefinition<boolean> => ({
   defaultValue,
-  legacyStorageKey,
+  previousStorageKey,
   parse(value) {
     if (typeof value === 'boolean') return value;
     if (value === 'true' || value === '1' || value === 1) return true;
@@ -97,14 +101,14 @@ export const CONFIG_SCHEMA: {
 } = {
   'panel.activeTab': {
     defaultValue: 'cards',
-    legacyStorageKey: 'XC::mainPanelActiveTab',
+    previousStorageKey: 'XC::mainPanelActiveTab',
     parse: (value) => typeof value === 'string' ? PANEL_TAB_LABELS[value] : undefined
   },
   'panel.collapsed': booleanDefinition(false, 'XC::mainPanelCollapsed'),
   'panel.dockedRight': booleanDefinition(false, 'XC::mainPanelDockedRight'),
   'panel.position': {
     defaultValue: null,
-    legacyStorageKey: 'XC::mainPanelPosition',
+    previousStorageKey: 'XC::mainPanelPosition',
     parse(value) {
       if (value === null) return null;
       if (!value || typeof value !== 'object') return undefined;
@@ -123,7 +127,7 @@ export const CONFIG_SCHEMA: {
   'display.deckRecordEnabled': booleanDefinition(true, 'DECK_RECORD_SWITCH'),
   'display.discardSortMode': {
     defaultValue: 'suit-type-number',
-    legacyStorageKey: 'DISCARD_SORT_MODE',
+    previousStorageKey: 'DISCARD_SORT_MODE',
     parse: (value) => {
       const mode = String(value);
       return [
@@ -137,6 +141,32 @@ export const CONFIG_SCHEMA: {
   },
   'display.cardLabelsEnabled': booleanDefinition(true, 'CARD_LABEL_SWITCH'),
   'display.countdownEnabled': booleanDefinition(true, 'COUNT_DOWN_SWITCH'),
+  'rooms.hidePassword': booleanDefinition(false, 'onlyNoPasswordRoomSwitch'),
+  'cards.handSortEnabled': booleanDefinition(true, 'HAND_SORT_SWITCH'),
+  'cards.handSortLockedMode': {
+    defaultValue: '',
+    previousStorageKey: 'XC::handSortLockedMode',
+    parse(value) {
+      if (value === 'type-suit-number' || value === 'CardType') return 'CardType';
+      if (value === 'suit-type-number' || value === 'CardFlower') return 'CardFlower';
+      if (value === 'number-suit-type' || value === 'CardNumber') return 'CardNumber';
+      if (value === '' || value === null) return '';
+      return undefined;
+    }
+  },
+  'cards.handSortPosition': {
+    defaultValue: null,
+    previousStorageKey: 'XC::handSortPosition',
+    parse(value) {
+      if (value === null) return null;
+      if (!value || typeof value !== 'object') return undefined;
+      const position = value as { right?: unknown; top?: unknown };
+      const right = Number(position.right);
+      const top = Number(position.top);
+      if (!Number.isFinite(right) || !Number.isFinite(top) || right < 0 || top < 0) return undefined;
+      return { right: Math.min(10000, right), top: Math.min(10000, top) };
+    }
+  },
   'block.adWindow': booleanDefinition(false, 'SKIP_AD_WINDOW_SWITCH'),
   'block.mvpWindow': booleanDefinition(false, 'SKIP_MVP_WINDOW_SWITCH'),
   'block.packageWindow': booleanDefinition(false, 'SKIP_PACKAGE_WINDOW_SWITCH'),
@@ -172,7 +202,7 @@ export const CONFIG_SCHEMA: {
   'assist.baiShengEnabled': booleanDefinition(false),
   'assist.autoBotTavernTarget': {
     defaultValue: 'none',
-    legacyStorageKey: 'XC_AUTO_BOT_TAVERN_TARGET',
+    previousStorageKey: 'XC_AUTO_BOT_TAVERN_TARGET',
     parse(value) {
       return value === 'none' || value === 'dailyGame' || value === 'dailyWin' || value === 'weeklyWin'
         ? value

@@ -5,12 +5,14 @@ import {
   fingerprintMapConfig,
   isBoardCell,
   normalizeCell,
+  parsePeixiuMapConfig,
   type PeixiuRewardInfo
 } from './peixiu-map-model.ts';
 import {
   collectOwnedSkills,
   collectPeixiuResources,
   readCurrentSeatId,
+  readSelfSeatId,
   resolveRewardIdAt,
   type PeixiuCardLookup
 } from './peixiu-resources.ts';
@@ -155,14 +157,20 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
   const pollIntervalMs = options.pollIntervalMs ?? 800;
   const tracked = new Set<PeixiuOverlayHost>();
   // app.bak 会按 __xcPeiXiu* 属性清理自己的节点。绘制状态放到独立代理上，
-  // 避免已关闭的 legacy 在场景刷新时误删当前实现的路线层。
+  // 场景刷新时保留当前实现的路线层。
   const overlayHosts = new WeakMap<object, PeixiuOverlayHost>();
   let active: PeixiuOverlayHost | null = null;
   let patched = false;
   let classPatchChecked = false;
   let nodeAttachmentPatched = false;
   let disposed = false;
-  const ownedSkills = { key: '', ids: new Set<number>() };
+  let handRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  const handPatchedMethods = new WeakMap<object, Set<string>>();
+  const ownedSkills: { gameContext: object | null; selfSeatId: string; ids: Set<number> } = {
+    gameContext: null,
+    selfSeatId: '',
+    ids: new Set<number>()
+  };
 
   function report(stage: string, detail: UnknownRecord = {}): void {
     try {
@@ -196,6 +204,55 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
     facade.getBoardPixelSize = () => source.getBoardPixelSize?.call(source) ?? 0;
     overlayHosts.set(source, facade);
     return facade;
+  }
+
+  function scheduleHandRefresh(): void {
+    if (disposed || !options.isEnabled()) return;
+    if (handRefreshTimer != null) globalObject.clearTimeout?.(handRefreshTimer);
+    handRefreshTimer = globalObject.setTimeout?.(() => {
+      handRefreshTimer = null;
+      if (active && isVisibleMap(active)) redraw(active, true);
+    }, 32) ?? null;
+  }
+
+  function patchHandMethod(target: UnknownRecord | null, method: string): void {
+    if (!target || typeof target[method] !== 'function') return;
+    let methods = handPatchedMethods.get(target);
+    if (!methods) {
+      methods = new Set<string>();
+      handPatchedMethods.set(target, methods);
+    }
+    if (methods.has(method)) return;
+    const installed = patcher.wrap(target, method, (original) => function (this: unknown, ...args: unknown[]) {
+      const result = original.apply(this, args);
+      scheduleHandRefresh();
+      return result;
+    });
+    if (installed) methods.add(method);
+  }
+
+  function ensureHandChangePatches(): void {
+    const scene = asRecord(locateGameScene(globalObject));
+    const selfSeatUi = asRecord(scene?.SelfSeatUi) ?? asRecord(scene?.selfSeatUi);
+    const container = asRecord(selfSeatUi?.cardContainer);
+    if (!container) return;
+    const containerProto = asRecord(Object.getPrototypeOf(container));
+    for (const method of [
+      'layoutCardUIs',
+      'UpdateSelectCards',
+      'OnCardCountChanged',
+      'updateCardUIs',
+      'refreshCardUIs'
+    ]) {
+      patchHandMethod(containerProto, method);
+    }
+    const handCardUis = Array.isArray(container.handCardUis) && container.handCardUis.length
+      ? container.handCardUis as unknown[]
+      : Array.isArray(container.cardUis)
+        ? container.cardUis as unknown[]
+        : [];
+    const cardUi = asRecord(handCardUis[0]);
+    patchHandMethod(asRecord(cardUi && Object.getPrototypeOf(cardUi)), 'setSelected');
   }
   const pendingActivations = new WeakSet<object>();
 
@@ -302,6 +359,7 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
     }
     tracked.add(host);
     active = host;
+    ensureHandChangePatches();
     report('map-active', {
       name: host.name,
       resName: host.resName,
@@ -385,10 +443,49 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
       globalObject,
       cardLookup: options.cardLookup
     });
-    const collected = collectedCellsOf(host);
+    const parsedMap = parsePeixiuMapConfig(config);
+    const gameContext = asRecord(options.locator.gameContext())
+      ?? asRecord((globalObject as UnknownRecord).GameContext);
+    const selfSeatId = readSelfSeatId(globalObject, gameContext);
+    // 城市技能贯穿整局裴秀流程：换地图、地图对象重建、轮次变化都不能清空。
+    // 只在进入另一局（GameContext 被替换）或本机座位变化时重新开始累计。
+    if (ownedSkills.gameContext !== gameContext || ownedSkills.selfSeatId !== selfSeatId) {
+      ownedSkills.gameContext = gameContext;
+      ownedSkills.selfSeatId = selfSeatId;
+      ownedSkills.ids.clear();
+    }
+    const rawCollected = collectedCellsOf(host);
+    collectOwnedSkills(
+      { rewards: (parsedMap?.rewards || []).map((item) => ({
+        cell: item.cell,
+        rawCell: item.rawCell,
+        rewardId: item.rewardId,
+        type: item.type
+      })) },
+      rawCollected,
+      { getReward: options.getReward },
+      (cell) => resolveRewardIdAt(parsedMap, cell)
+    ).forEach((item) => ownedSkills.ids.add(item.rewardId));
+    // 路线状态只能使用游戏实际记录的已收集格。奖励 ID 可能跨地图复用，
+    // 不能由“已获得技能”反向推断格子，否则会删错格并改变最佳首步。
+    const collected = [...new Set(rawCollected)];
+    const startCell = resolveCurrentCell(host);
+    const mapFingerprint = fingerprintMapConfig(config);
+    const progressKey = [mapFingerprint, startCell, collected.join(',')].join('#');
+    const overlayHost = overlayHostFor(host);
+    // app.bak 会在地图、当前位置或已领取格变化时回到第一套（上策）路线。
+    // 若沿用上一局/上一阶段点过的中策、下策索引，界面虽然仍可显示“上策”，
+    // 实际绘制却可能继续取旧方案，导致司州首步看起来不是向下。
+    if (host.__xcPeiXiuRouteProgressKey !== progressKey) {
+      host.__xcPeiXiuRouteProgressKey = progressKey;
+      overlayHost.__xcPeiXiuRouteVariant = 0;
+      overlayHost.__xcPeiXiuRouteRenderSignature = '';
+      host.__xcPeiXiuRouteCache = undefined;
+    }
     const cacheKey = [
-      fingerprintMapConfig(config),
-      resolveCurrentCell(host),
+      'planner-v5',
+      mapFingerprint,
+      startCell,
       collected.join(','),
       resources.handCards.map((card) => [card.key, card.suit, card.kind, card.playable ? 1 : 0, card.selected ? 1 : 0].join(':')).join('|'),
       [
@@ -408,7 +505,7 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
       planned = cached?.key === cacheKey
         ? cached.result
         : planPeixiuRoute(config, {
-          startCell: resolveCurrentCell(host),
+          startCell,
           collectedCells: collected,
           handCards: resources.handCards,
           remainingSha: resources.remainingSha,
@@ -427,29 +524,13 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
       return;
     }
     host.__xcPeiXiuRouteCache = { key: cacheKey, result: planned };
-    const turnKey = [
-      asRecord((globalObject as UnknownRecord).GameContext)?.turn,
-      asRecord((globalObject as UnknownRecord).GameContext)?.round,
-      readCurrentSeatId(globalObject, options.locator.gameContext())
-    ].join(':');
-    if (ownedSkills.key !== turnKey) {
-      ownedSkills.key = turnKey;
-      ownedSkills.ids.clear();
-    }
-    const parsedRewards = planned?.map.rewards || [];
-    collectOwnedSkills(
-      { rewards: parsedRewards.map((item) => ({ rewardId: item.rewardId, type: item.type })) },
-      collected,
-      { getReward: options.getReward },
-      (cell) => resolveRewardIdAt(planned?.map, cell)
-    ).forEach((item) => ownedSkills.ids.add(item.rewardId));
     const skills = [...ownedSkills.ids]
       .map((id) => options.getReward?.(id) ?? { rewardId: id, name: `地图技#${id}`, description: '' })
       .filter((item) => item.name);
     if (planned) options.routeStore?.publish(planned, skills);
     else options.routeStore?.clear();
     const rendered = renderPeixiuRoute({
-      host: overlayHostFor(host),
+      host: overlayHost,
       planned,
       skills,
       globalObject,
@@ -463,9 +544,9 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
       rewardCells: planned?.map.rewardCells.length || 0,
       complete: planned?.complete === true,
       handCards: resources.handCards.length,
-      startCell: resolveCurrentCell(host),
+      startCell,
       collectedCells: collected.length,
-      hasLayer: Boolean(asRecord(overlayHostFor(host).__xcPeiXiuRouteLayer)?.parent)
+      hasLayer: Boolean(asRecord(overlayHost.__xcPeiXiuRouteLayer)?.parent)
     });
   }
 
@@ -486,6 +567,8 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
 
   return () => {
     disposed = true;
+    if (handRefreshTimer != null) globalObject.clearTimeout?.(handRefreshTimer);
+    handRefreshTimer = null;
     if (pollTimer != null) globalObject.clearInterval?.(pollTimer);
     for (const host of tracked) destroyPeixiuOverlay(overlayHostFor(host), globalObject);
     tracked.clear();

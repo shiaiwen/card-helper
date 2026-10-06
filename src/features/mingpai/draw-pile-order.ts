@@ -12,6 +12,7 @@ export interface DrawPileOrder {
   /** 鉴定（观看）而非移动：按位置写入已知牌。 */
   reveal(position: number, cardIds: readonly number[]): void;
   getSnapshot(): { top: readonly number[]; bottom: readonly number[] };
+  invalidate(): void;
   clear(): void;
 }
 
@@ -79,10 +80,35 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
     },
     remove(position, count, cardIds) {
       const size = Math.max(0, count);
-      if (position === DRAW_PILE_POSITION.TOP) top.splice(0, size);
+      const known = [...new Set(cardIds.filter((cardId) => cardId > 0))];
+      if (known.length) {
+        // CardIDs are authoritative when present. Remove those exact positions so an
+        // out-of-order known move cannot shift unrelated top/bottom predictions.
+        const removed = new Set<number>();
+        for (const cardId of known) {
+          let index = top.indexOf(cardId);
+          if (index >= 0) {
+            top.splice(index, 1);
+            removed.add(cardId);
+            continue;
+          }
+          index = bottom.indexOf(cardId);
+          if (index >= 0) {
+            bottom.splice(index, 1);
+            removed.add(cardId);
+          }
+        }
+        const unresolvedCount = Math.max(0, size - removed.size);
+        if (position === DRAW_PILE_POSITION.TOP && unresolvedCount) top.splice(0, unresolvedCount);
+        else if (position === DRAW_PILE_POSITION.BOTTOM && unresolvedCount) {
+          bottom.splice(Math.max(0, bottom.length - unresolvedCount), unresolvedCount);
+        }
+      } else if (position === DRAW_PILE_POSITION.TOP) top.splice(0, size);
       else if (position === DRAW_PILE_POSITION.BOTTOM) bottom.splice(Math.max(0, bottom.length - size), size);
-      else extract(cardIds);
-      forget(cardIds);
+      // Position-unspecified extraction still uses the explicit IDs to compact known slots.
+      else extract(known);
+      forget(known);
+      trim();
       persist();
     },
     add(position, count, cardIds) {
@@ -113,6 +139,12 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
       persist();
     },
     getSnapshot: () => ({ top: [...top], bottom: [...bottom] }),
+    invalidate() {
+      // Reconnect/shuffle gaps make prior identities unsafe; discard stale order entirely.
+      top = [];
+      bottom = [];
+      persist();
+    },
     clear() {
       top = [];
       bottom = [];

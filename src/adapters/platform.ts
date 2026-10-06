@@ -5,4 +5,5 @@ export interface PlatformAdapter {
   openExternal(url: string): Promise<void>;
   getSetting(key: string): string | null;
   setSetting(key: string, value: string): void;
+  removeSetting(key: string): void;
 }

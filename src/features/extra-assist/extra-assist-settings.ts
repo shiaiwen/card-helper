@@ -41,12 +41,6 @@ export const AUTO_HG_TOOLTIP = [
   '自动化操作存在账号风险，请自行斟酌'
 ].join('\n');
 
-export const LEGACY_GAME_ASSIST_SWITCH_IDS = [
-  'autoBotSwitch',
-  'autoHGSwitch',
-  'extraAssistSwitch'
-] as const;
-
 export interface GameAssistSwitchSetting {
   key: typeof EXTRA_ASSIST_ENABLED_KEY
     | typeof AUTO_BOT_ENABLED_KEY

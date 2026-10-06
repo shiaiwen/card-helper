@@ -116,7 +116,7 @@ export function parseSpecialCells(raw: unknown): Array<{
       const record = entry as Record<string, unknown>;
       return {
         cell: Number(pickField(record, 'cell', 'cellID', 'CellID') ?? 0),
-        effect: Number(pickField(record, 'effect', 'Effect') ?? 0),
+        effect: Number(pickField(record, 'effect', 'EffectID', 'Effect') ?? 0),
         param1: Number(pickField(record, 'param1', 'Param1') ?? 0),
         param2: Number(pickField(record, 'param2', 'Param2') ?? 0)
       };
@@ -138,7 +138,7 @@ export function parseRewardCells(raw: unknown): PeixiuRewardCell[] {
         cell: normalizeCell(rawCell),
         rawCell,
         rewardId: Number(pickField(record, 'rewardId', 'RewardID') ?? 0),
-        type: String(pickField(record, 'type', 'rewardType', 'kind', 'Type') ?? ''),
+        type: String(pickField(record, 'type', 'Type', 'rewardType', 'RewardType', 'kind') ?? ''),
         isCard: record.isCard === true || record.IsCard === true,
         isHealing: record.isHealing === true || record.IsHealing === true
       };
@@ -178,7 +178,7 @@ export function parsePeixiuMapConfig(raw: unknown): PeixiuMapConfig | null {
     rewards.filter((item) => isBoardCell(item.cell) && cells.has(item.cell)).map((item) => item.cell)
   )].sort((left, right) => left - right);
   return {
-    id: Number(pickField(record, 'cellID', 'CellID', 'id', 'ID') ?? 0) || 0,
+    id: Number(pickField(record, 'cellID', 'CellID', 'id', 'mapId', 'ID') ?? 0) || 0,
     name: String(record.name || ''),
     cells,
     start: normalizeCell(pickField(record, 'precell', 'PreCell', 'start') || 0),

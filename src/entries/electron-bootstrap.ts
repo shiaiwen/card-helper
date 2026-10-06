@@ -5,5 +5,5 @@ import { installPanelShellStyles } from '../ui/panel/panel-shell-styles';
 // 脚本一注入就装上面板壳样式，避免等 Vue mount；正式微端 Chromium 偏旧时也能尽早生效。
 installPanelShellStyles();
 
-// 必须在 legacy 模块执行前完成。legacy 顶层会立即读取生命周期桥接。
+// 尽早安装运行时桥接，供游戏加载完成后的功能初始化使用。
 bootstrapXiaochao(createElectronPlatform());

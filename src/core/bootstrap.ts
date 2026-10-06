@@ -25,8 +25,6 @@ import { installCardLabelController } from '../features/cards/card-label-control
 import { installCardConfigSource } from '../adapters/card-config-source';
 import { installNativeRecentCardController } from '../features/recent-cards/native-recent-card-controller';
 import { createMingpaiEngine, installMingpaiController } from '../features/mingpai';
-import { installLegacyOverlaySuppressor } from '../features/legacy/legacy-overlay-suppressor';
-import { disableLegacySkinSwitches } from '../features/legacy/legacy-skin-switch-disabler';
 import { installNativeMingpaiPreviewController } from '../features/mingpai/native-mingpai-preview-controller';
 import { createSkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import { installSkillAssistController } from '../features/skill-assist/skill-assist-controller';
@@ -44,12 +42,17 @@ import { createPeixiuRouteStore, installExtraAssistController } from '../feature
 import { installAutoHgController } from '../features/auto-hg';
 import { installAutoBotController } from '../features/auto-bot';
 import { installUpdateNoticeController } from '../features/update-notice';
+import { installGiftCodeController } from '../features/gift-code';
+import { installRuntimeSearchController } from '../features/runtime-search';
+import { installHandSortController } from '../features/cards/hand-sort-controller';
+import { installSelectionToolsController } from '../features/cards/selection-tools-controller';
+import { installTiesuoRecastController } from '../features/cards/tiesuo-recast-controller';
+import { installClassicRoomFilterController } from '../features/room-filter/classic-room-filter-controller';
 
 /** Electron 和油猴共用的启动边界；平台差异只能通过 adapter 注入。 */
 export function bootstrapXiaochao(platform: PlatformAdapter): void {
   const lifecycle = createLifecycle();
   const configStore = createConfigStore(createPlatformConfigStorage(platform));
-  disableLegacySkinSwitches(window);
   const seatStateStore = createSeatStateStore();
   const gameEvents = createGameEventBus();
   const recentCardStore = createRecentCardStore(
@@ -97,13 +100,17 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   const peixiuRouteStore = createPeixiuRouteStore();
   lifecycle.register(cardConfigSource.dispose);
   lifecycle.register(installSeatDisplayVisibility(configStore));
+  const classicRoomFilter = installClassicRoomFilterController(configStore);
+  lifecycle.register(classicRoomFilter.dispose);
   lifecycle.register(installSeatStateController(seatStateStore));
   lifecycle.register(installGameLifecycleEvents(seatStateStore, gameEvents));
   lifecycle.register(mingpaiRuntime.dispose);
-  lifecycle.register(installLegacyOverlaySuppressor(window));
-  lifecycle.register(installNativeMingpaiPreviewController(configStore, seatStateStore, gameCardCatalog));
+  lifecycle.register(installNativeMingpaiPreviewController(configStore, seatStateStore, gameCardCatalog, mingpaiEngine, gameEvents));
   lifecycle.register(installCountdownSecondsController(configStore));
   lifecycle.register(installCardLabelController(configStore));
+  lifecycle.register(installHandSortController(configStore));
+  lifecycle.register(installSelectionToolsController());
+  lifecycle.register(installTiesuoRecastController());
   const blockEffects = installBlockEffectsController(configStore);
   lifecycle.register(blockEffects.dispose);
   const skinChange = installSkinChangeController(configStore);
@@ -122,6 +129,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     cardConfigSource
   });
   lifecycle.register(autoTask.dispose);
+  lifecycle.register(installGiftCodeController());
+  lifecycle.register(installRuntimeSearchController());
   const extraAssist = installExtraAssistController(configStore, {
     getExtraAssistData: () => cardConfigSource.getExtraAssistData(),
     getSpellExtendRaw: () => cardConfigSource.getSpellExtendRaw(),
@@ -162,7 +171,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(installNativeDeckRecordController(
     configStore,
     deckRecordStore,
-    deckRecordInteraction
+    deckRecordInteraction,
+    gameCardCatalog
   ));
   lifecycle.register(installSkillAssistController(
     skillAssistStore,
@@ -182,7 +192,7 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(mingpaiEngine.clear);
   let mountedApp: ReturnType<typeof mountXiaochaoApp> | undefined;
   function mountPanelShell(layout: XiaochaoPanelLayout = DEFAULT_PANEL_LAYOUT) {
-    // legacy 强制初始化会删除已有的 #createIframe，缓存的面板脱离文档后必须重建。
+    // 面板节点被宿主页面移除后允许重新创建。
     if (mountedApp?.panelElement.isConnected) return mountedApp;
     mountedApp?.unmount();
     mountedApp = mountXiaochaoApp(

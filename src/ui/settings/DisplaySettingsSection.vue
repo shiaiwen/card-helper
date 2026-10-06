@@ -34,6 +34,11 @@ const settings = [
     label: '出牌读秒',
     tooltip: '在游戏原有倒计时进度条上显示具体剩余秒数，不会隐藏游戏进度条',
   },
+  {
+    key: 'cards.handSortEnabled',
+    label: '扩展理牌',
+    tooltip: '扩展原生整理手牌按钮\n可按类型花色点数整理\n长按可拖动，双击可锁定',
+  },
 ];
 
 const values = reactive(Object.fromEntries(
@@ -65,7 +70,11 @@ function updateSetting(key, event) {
           :data-tooltip="setting.tooltip"
         >
           <span class="xiaochao-block-switch__label">{{ setting.label }}</span>
-          <label class="xiaochao-block-switch__toggle">
+          <label
+            class="xiaochao-block-switch__toggle"
+            :data-tooltip="setting.tooltip"
+            :title="setting.tooltip"
+          >
             <input
               type="checkbox"
               :aria-label="setting.label"

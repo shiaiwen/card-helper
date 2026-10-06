@@ -230,7 +230,7 @@ export function createLayaObjectLocator(
     if (!prototype) return null;
     for (const key of Object.getOwnPropertyNames(prototype)) {
       if (key === 'constructor') continue;
-      // 实例上的同名方法可能已被其他补丁包装；legacy 包装后原方法挪到 `__name`，都需回查原型上的原函数。
+      // 实例上的同名方法可能已被其他补丁包装，也需回查原型上的原函数。
       const candidates: unknown[] = [Object.getOwnPropertyDescriptor(prototype, key)?.value];
       for (const lookupKey of [key, `__${key}`]) {
         try {

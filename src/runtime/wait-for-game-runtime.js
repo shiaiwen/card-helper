@@ -110,9 +110,7 @@ export function waitForGameRuntime({
 }
 
 /**
- * 将已经完成工程化的能力安装到全局桥接对象。
- * legacy 仍位于自己的闭包内，迁移期间通过该桥接调用新模块；待 legacy
- * 全部删除后，这个全局对象也可以一并移除。
+ * 将运行时能力安装到统一的全局桥接对象。
  *
  * @param {object} [globalObject=globalThis] 通常为游戏页面的 window。
  * @param {object} [additions] 生命周期等其他已迁移能力。

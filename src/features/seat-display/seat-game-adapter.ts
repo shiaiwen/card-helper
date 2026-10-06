@@ -22,6 +22,7 @@ const CARD_LIST_KEYS = ['knownCards', 'handCards', 'HandCards', 'cards', 'Cards'
 const SHOWN_HAND_CARD_KEYS = ['HandShowCards', 'handShowCards'] as const;
 const SHOWN_HAND_CARD_ID_KEYS = ['HandShowCardIDs', 'handShowCardIDs'] as const;
 const CARD_UI_LIST_KEYS = ['cardUis', 'cardUIs', 'handCardUis', 'handCardUIs'] as const;
+const EQUIP_CARD_UI_LIST_KEYS = ['equipCardUis', 'equipCardUIs'] as const;
 const CARD_ID_KEYS = ['cardId', 'cardID', 'CardId', 'CardID', 'id', 'ID', 'key'] as const;
 const CARD_NAME_KEYS = ['name', 'Name', 'cardName'] as const;
 const HAND_COUNT_KEYS = ['handCardCount', 'cardCount', 'HandCardCount'] as const;
@@ -41,7 +42,7 @@ export function readSeatStateFromGameScene(
     return { inGame: false };
   }
 
-  const controlledSeatIds = readControlledSeatIds(gameScene);
+  const controlledSeatIds = readControlledSeatIds(gameScene, rawSeatUIs);
   const seats = rawSeatUIs.flatMap((rawSeatUI, index) => {
     const seatUI = asRecord(rawSeatUI);
     const seat = asRecord(seatUI?.seat) ?? seatUI;
@@ -50,9 +51,11 @@ export function readSeatStateFromGameScene(
       ?? readSeatId(seatUI, SEAT_ID_KEYS);
     if (seatId === null) return [];
 
+    // 2v2 的 mySeats/controlledSeatIds 会同时包含自己和队友。队友的手牌可以作为
+    // 确定牌读取，但不能因此标成“自己”，否则明牌条会把队友座位过滤掉。
     const isSelf = rawSeatUI === gameScene?.SelfSeatUi
-      || controlledSeatIds.includes(seatId)
       || (readBoolean(seat, ['isSelf', 'IsSelf']) ?? false);
+    const isControlled = isSelf || controlledSeatIds.includes(seatId);
     const seatCards = readArray(seat, CARD_LIST_KEYS);
     const shownHandCards = readArray(seat, SHOWN_HAND_CARD_KEYS)
       .filter((rawCard) => readBoolean(asRecord(rawCard), ['IsHide', 'isHide']) !== true);
@@ -60,12 +63,25 @@ export function readSeatStateFromGameScene(
     const shownHandCardIds = readArray(seat, SHOWN_HAND_CARD_ID_KEYS);
     const cardContainer = asRecord(seatUI?.cardContainer);
     const visibleCardUIs = readArray(cardContainer, CARD_UI_LIST_KEYS);
-    // 其他玩家的 HandCards 可能包含客户端内部占位或不应展示的数据；只有画面上
-    // 已公开的卡牌 UI 和协议明确公开的移动记录才能进入“已知手牌”。
-    const knownCards = (isSelf
-      ? [...seatCards, ...shownHandCards, ...shownHandCardIds, ...visibleCardUIs]
-      : [...shownHandCards, ...shownHandCardIds, ...visibleCardUIs])
-      .flatMap((rawCard) => readKnownCard(rawCard, seatUI));
+    const equipCardUIs = [
+      ...readArray(cardContainer, EQUIP_CARD_UI_LIST_KEYS),
+      ...readArray(seatUI, EQUIP_CARD_UI_LIST_KEYS)
+    ];
+    const equipmentCards = [...new Set(equipCardUIs)]
+      .flatMap((rawCard) => readKnownCard(rawCard))
+      .map((card) => ({ ...card, hints: equipmentHints(card.name) }));
+    const equipmentIds = new Set(equipmentCards.map((card) => card.cardId));
+    // 其他玩家的 HandCards / 背面 CardUi 常残留上一局卡号，不能当明牌。
+    // 对手只读官方公开数组；确定牌还来自明牌引擎的移动记录。
+    // 装备区牌已经在座位装备栏可见，不得并入已知手牌。
+    const publicCardUIs = visibleCardUIs.filter((rawCard) => isPubliclyShownCard(rawCard));
+    const knownCards = (isControlled
+      ? [...seatCards, ...shownHandCards, ...shownHandCardIds, ...publicCardUIs]
+      : [...shownHandCards, ...shownHandCardIds])
+      // 2v2 队友的 HandCards 是确定牌，但调用 SetCardUIRemark 会连带触发技能
+      // 文字图层（例如神典韦错误出现“克己”）。私有手牌只读卡号与已有标签。
+      .flatMap((rawCard) => readKnownCard(rawCard))
+      .filter((card) => !equipmentIds.has(card.cardId));
     const handCardCount = readNonNegativeInteger(seat, HAND_COUNT_KEYS)
       ?? Math.max(seatCards.length, knownCards.length);
 
@@ -80,6 +96,7 @@ export function readSeatStateFromGameScene(
       isAlive: !(readBoolean(seat, ['isDead', 'IsDead']) ?? false),
       anchor: readSeatAnchor(seatUI, gameScene),
       knownCards,
+      equipmentCards,
       unknownCardCount: Math.max(0, handCardCount - knownCards.length)
     }];
   });
@@ -97,21 +114,55 @@ export function readSeatStateFromGameScene(
   };
 }
 
-function readControlledSeatIds(scene: GameSceneSeatSource): number[] {
+function equipmentHints(name: string): string[] {
+  return name.includes('阴风甲') ? ['阴风甲'] : [];
+}
+
+function readControlledSeatIds(scene: GameSceneSeatSource, rawSeatUIs: unknown[] = []): number[] {
   const sceneRecord = asRecord(scene);
   const values = Array.isArray(scene.mySeats)
     ? scene.mySeats
     : readArray(sceneRecord, ['MySeats', 'controlledSeats']);
-  return [...new Set(values.flatMap((value) => {
+  const ids = values.flatMap((value) => {
     const record = asRecord(value);
     const seatId = record ? readSeatId(record, SEAT_ID_KEYS) : Number(value);
     return Number.isInteger(seatId) && Number(seatId) >= 0 && Number(seatId) < 0xff
       ? [Number(seatId)] : [];
-  }))];
+  });
+  // 部分2v2排位版本不提供 gameScene.mySeats，只在座位对象上标记友方。
+  // 把明确的友方座位并入可读取座位，不能用四人座次盲猜，以免泄露身份局手牌。
+  for (const rawSeatUI of rawSeatUIs) {
+    const seatUI = asRecord(rawSeatUI);
+    const seat = asRecord(seatUI?.seat) ?? seatUI;
+    if (!seat) continue;
+    const friendly = readBoolean(seat, [
+      'isFriend', 'IsFriend', 'isTeammate', 'IsTeammate', 'isTeamMate', 'IsTeamMate'
+    ]) ?? readBoolean(seatUI, [
+      'isFriend', 'IsFriend', 'isTeammate', 'IsTeammate', 'isTeamMate', 'IsTeamMate'
+    ]);
+    if (friendly !== true) continue;
+    const seatId = readSeatId(seat, SEAT_ID_KEYS) ?? readSeatId(seatUI, SEAT_ID_KEYS);
+    if (seatId !== null) ids.push(seatId);
+  }
+  return [...new Set(ids)];
 }
 
-/** 游戏牌对象常被 UI 包装一至两层，这里只解包已知的只读容器字段。 */
-function readKnownCard(rawCard: unknown, seatUI: UnknownRecord) {
+function isPubliclyShownCard(rawCard: unknown): boolean {
+  const cardUI = asRecord(rawCard);
+  const card = asRecord(cardUI?.card)
+    ?? asRecord(cardUI?.Card)
+    ?? asRecord(cardUI?.cardInfo)
+    ?? cardUI;
+  if (!cardUI && !card) return false;
+  const hidden = readBoolean(cardUI, ['IsHide', 'isHide', 'isBack', 'IsBack', 'back'])
+    ?? readBoolean(card, ['IsHide', 'isHide', 'isBack', 'IsBack', 'back']);
+  if (hidden === true) return false;
+  const shown = readBoolean(cardUI, ['isShow', 'IsShow', 'isFront', 'IsFront'])
+    ?? readBoolean(card, ['isShow', 'IsShow', 'isFront', 'IsFront']);
+  if (shown === false) return false;
+  return readPositiveInteger(card, CARD_ID_KEYS) !== null;
+}
+function readKnownCard(rawCard: unknown) {
   if (Number.isInteger(Number(rawCard)) && Number(rawCard) > 0) {
     return [{ cardId: Number(rawCard), name: '', tags: [] }];
   }
@@ -121,45 +172,14 @@ function readKnownCard(rawCard: unknown, seatUI: UnknownRecord) {
     ?? asRecord(cardUI?.cardInfo)
     ?? cardUI;
   const cardId = readPositiveInteger(card, CARD_ID_KEYS);
-  const officialTags = readOfficialCardTags(seatUI, cardUI);
   return cardId === null ? [] : [{
     cardId,
     name: readString(card, CARD_NAME_KEYS),
     tags: [...new Set([
       ...readStringArray(cardUI, CARD_TAG_KEYS),
-      ...readStringArray(card, CARD_TAG_KEYS),
-      ...officialTags
+      ...readStringArray(card, CARD_TAG_KEYS)
     ])]
   }];
-}
-
-/**
- * 原版通过座位的 SetCardUIRemark 计算技能动态标签。该方法会短暂写 cardUI.tagArr1，
- * 因此完整保存属性描述符并在 finally 中恢复，避免轮询适配器改变游戏 UI 状态。
- */
-function readOfficialCardTags(seatUI: UnknownRecord, cardUI: UnknownRecord | null): string[] {
-  if (!cardUI) return [];
-  const remarkOwner = [seatUI, asRecord(seatUI.seat)].find((candidate) => (
-    typeof candidate?.SetCardUIRemark === 'function'
-  ));
-  const setRemark = remarkOwner?.SetCardUIRemark;
-  if (!remarkOwner || typeof setRemark !== 'function') return [];
-  const descriptors = CARD_TAG_KEYS.map((key) => [key, Object.getOwnPropertyDescriptor(cardUI, key)] as const);
-  try {
-    setRemark.call(remarkOwner, cardUI);
-    return readStringArray(cardUI, CARD_TAG_KEYS);
-  } catch {
-    return [];
-  } finally {
-    for (const [key, descriptor] of descriptors) {
-      try {
-        if (descriptor) Object.defineProperty(cardUI, key, descriptor);
-        else delete cardUI[key];
-      } catch {
-        // 游戏对象不可配置时忽略恢复失败；不会让标签同步阻塞座位刷新。
-      }
-    }
-  }
 }
 
 function readSeatAnchor(seatUI: UnknownRecord, scene: GameSceneSeatSource): object | null {

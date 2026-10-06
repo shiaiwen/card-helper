@@ -92,6 +92,8 @@ export function createSeatStateStore(storage: Storage | null = getSessionStorage
     persistentTagsByCardId.clear();
     possibleLocations.clear();
     hasRestoredState = false;
+    // 即使当前快照已是空场景，也要删除缓存，不能依赖 publish 的快照变化判断。
+    persistKnownHands(storage, trackedHands, trackedOccupants, persistentTagsByCardId, possibleLocations);
   }
 
   return {
@@ -352,6 +354,7 @@ function mergeTrackedHands(
   // 任何座位上确定可见的牌都不再作为可能牌展示。
   const certainCardIds = new Set<number>([
     ...state.seats.flatMap((seat) => seat.knownCards.map((card) => card.cardId)),
+    ...state.seats.flatMap((seat) => (seat.equipmentCards ?? []).map((card) => card.cardId)),
     ...[...hands.values()].flatMap((hand) => hand.cardIds)
   ]);
   const possibleBySeat = new Map<number, number[]>();
@@ -365,16 +368,22 @@ function mergeTrackedHands(
   return normalizeSeatState({
     ...state,
     seats: state.seats.map((seat) => {
+      const equipmentIds = new Set(
+        (seat.equipmentCards ?? []).map((card) => card.cardId).filter((cardId) => cardId > 0)
+      );
       const tracked = hands.get(seat.seatId);
-      const possibleCards = (possibleBySeat.get(seat.seatId) ?? []).map((cardId) => ({
-        cardId,
-        name: '',
-        tags: [...(persistentTagsByCardId.get(cardId) ?? [])]
-      }));
+      const possibleCards = (possibleBySeat.get(seat.seatId) ?? [])
+        .filter((cardId) => !equipmentIds.has(cardId))
+        .map((cardId) => ({
+          cardId,
+          name: '',
+          tags: [...(persistentTagsByCardId.get(cardId) ?? [])]
+        }));
       const suppressedCardIds = suppressedCardsBySeat.get(seat.seatId);
-      const visibleSceneCards = suppressedCardIds
+      const visibleSceneCards = (suppressedCardIds
         ? seat.knownCards.filter((card) => !suppressedCardIds.has(card.cardId))
-        : seat.knownCards;
+        : seat.knownCards)
+        .filter((card) => !equipmentIds.has(card.cardId));
       const hasPersistentTags = visibleSceneCards.some((card) => persistentTagsByCardId.has(card.cardId));
       if (!tracked && visibleSceneCards.length === seat.knownCards.length && !hasPersistentTags) {
         return possibleCards.length ? { ...seat, possibleCards } : seat;
@@ -386,7 +395,7 @@ function mergeTrackedHands(
           tags: [...new Set([...card.tags, ...(persistentTagsByCardId.get(card.cardId) ?? [])])]
         })),
         ...(tracked?.cardIds ?? [])
-          .filter((cardId) => !knownCardIds.has(cardId))
+          .filter((cardId) => !knownCardIds.has(cardId) && !equipmentIds.has(cardId))
           .map((cardId) => ({
             cardId,
             name: '',

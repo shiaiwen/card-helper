@@ -1,7 +1,7 @@
 export const PANEL_SHELL_STYLE_ID = 'xiaochao-vue-panel-shell-style';
 
 /**
- * Vue 面板外壳的独立样式，不依赖 legacy HTML 模板中的 style 标签。
+ * Vue 面板外壳的独立样式。
  *
  * 目标微端 Chromium 偏旧（约 Chrome 85 / Electron 10 一代）：
  * 不要用 :is() / :has() / inset 等新语法，否则整条规则会被丢弃，
@@ -81,6 +81,46 @@ const PANEL_SHELL_CSS_SOURCE = `
   align-items: center;
   margin: 0 2px 0 0;
 }
+#createIframe .xiaochao-reset-toolbar {
+  flex: 0 0 auto;
+  margin: 0 3px 0 0;
+  padding: 3px 6px;
+  border: 1px solid rgba(242, 222, 156, .24);
+  border-radius: 4px;
+  background: rgba(54, 43, 31, .82);
+  color: #c9b98f;
+  font: 10px/1.2 system-ui, sans-serif;
+  cursor: pointer;
+  pointer-events: auto;
+}
+#createIframe .xiaochao-reset-toolbar:hover {
+  border-color: rgba(242, 222, 156, .55);
+  background: rgba(74, 58, 39, .94);
+  color: #fff1bd;
+}
+#createIframe.xiaochao-panel--collapsed .xiaochao-reset-toolbar { display: none; }
+#createIframe .xiaochao-reset-dialog p {
+  margin: 0;
+  color: #d2c7b3;
+  font-size: 13px;
+  line-height: 1.6;
+}
+#createIframe .xiaochao-reset-dialog__cancel,
+#createIframe .xiaochao-reset-dialog__confirm {
+  padding: 5px 12px;
+  border: 1px solid rgba(242, 222, 156, .3);
+  border-radius: 4px;
+  background: rgba(54, 43, 31, .9);
+  color: #e3d6b9;
+  cursor: pointer;
+}
+#createIframe .xiaochao-reset-dialog__confirm {
+  border-color: rgba(214, 111, 87, .58);
+  background: rgba(105, 48, 39, .78);
+  color: #ffe3d4;
+}
+#createIframe .xiaochao-reset-dialog__cancel:hover,
+#createIframe .xiaochao-reset-dialog__confirm:hover { filter: brightness(1.18); }
 #createIframe .xc-frame-toggle {
   position: relative;
   width: 26px;
@@ -185,6 +225,19 @@ const PANEL_SHELL_CSS_SOURCE = `
 #createIframe .xiaochao-tools-entry { flex: 0 0 auto; overflow: hidden; padding-top: 0; }
 #createIframe .xiaochao-tools-entry .xiaochao-settings-section {
   margin: 4px 0 0;
+}
+#createIframe .xiaochao-tools-entry__actions {
+  padding: 1px 0;
+}
+#createIframe .xiaochao-tools-entry__actions .xiaochao-settings-section {
+  margin: 0;
+}
+#createIframe .xiaochao-tools-entry__actions .xiaochao-block-entry {
+  width: calc(100% - 8px);
+  min-height: 28px;
+  margin: 3px 4px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 #createIframe .xiaochao-rogue-entry { flex: 0 0 auto; overflow: hidden; padding-top: 0; }
 #createIframe .xiaochao-rogue-entry .xiaochao-settings-section {
@@ -307,33 +360,6 @@ const PANEL_SHELL_CSS_SOURCE = `
   flex: 0 0 calc(50% - 2px);
   min-width: 0;
   max-width: calc(50% - 2px);
-}
-#createIframe #xiaochao-tools-identity {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  margin: 6px 0 8px;
-  padding: 0 8px 8px;
-  text-align: center;
-}
-#createIframe #xiaochao-tools-identity:empty { display: none; }
-#createIframe #xiaochao-tools-identity .uuid {
-  margin: 0;
-  max-height: none;
-  width: 100%;
-  text-align: center;
-  color: #f2de9c;
-  font-size: 13px;
-  line-height: 1.5;
-}
-#createIframe #xiaochao-tools-identity__divider,
-#createIframe .xiaochao-tools-identity__divider {
-  width: 72%;
-  height: 0;
-  margin: 6px 0;
-  border: 0;
-  border-top: 1px solid rgba(242, 222, 156, .28);
 }
 #createIframe #frame-resize-handle { pointer-events: auto; }
 .xiaochao-dock-preview {

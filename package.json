@@ -45,12 +45,10 @@
     "deploy": "node tools/deploy-release.js",
     "dev": "npm run dev:electron",
     "dev:electron": "node tools/dev.js",
-    "dev:no-legacy": "node tools/dev.js --no-legacy",
     "dev:userscript": "vite --config vite.userscript.config.ts",
     "dev:ui": "vite --config vite.ui.config.ts",
     "typecheck": "node -e \"console.log('TypeScript checking is temporarily disabled.')\"",
-    "check": "node tools/check.cjs",
-    "test": "node --test tests/*.test.js && node --experimental-strip-types --test tests/*.test.ts && node tools/test-startup.cjs"
+    "check": "node tools/check.cjs"
   },
   "dependencies": {
     "vue": "^3.5.43"

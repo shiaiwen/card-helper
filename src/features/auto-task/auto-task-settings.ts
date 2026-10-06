@@ -29,6 +29,3 @@ export const ALL_AUTO_TASK_KEYS: readonly XiaochaoConfigKey[] = [
   AUTO_TASK_ENABLED_KEY,
   ...AUTO_TASK_SKIP_SETTINGS.map(({ key }) => key)
 ];
-
-/** legacy 面板中自动领取分组的开关 id。 */
-export const LEGACY_AUTO_TASK_SWITCH_ID = 'autoTaskSwitch';

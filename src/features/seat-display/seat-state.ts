@@ -9,6 +9,11 @@ export interface KnownHandCardSnapshot {
   tags: string[];
 }
 
+export interface KnownEquipmentCardSnapshot extends KnownHandCardSnapshot {
+  /** 旧版装备提示，例如阴风甲；不代表一张额外手牌。 */
+  hints: string[];
+}
+
 /** 游戏座位在 Laya 设计坐标中的实际边界，用于把明牌贴在武将牌下方。 */
 export interface GameSeatAnchorSnapshot {
   x: number;
@@ -27,6 +32,8 @@ export interface GameSeatSnapshot {
   isAlive: boolean;
   anchor: GameSeatAnchorSnapshot | null;
   knownCards: KnownHandCardSnapshot[];
+  /** 游戏公开装备区，用于装备状态标签和装备来源预览。 */
+  equipmentCards?: KnownEquipmentCardSnapshot[];
   /** 暗牌移动后「可能在该座位」的牌（对照 app.bak 可能牌），不计入已知手牌数。 */
   possibleCards?: KnownHandCardSnapshot[];
   unknownCardCount: number;
@@ -97,15 +104,33 @@ export function normalizeSeatState(
         tags: normalizeCardTags(card?.tags)
       });
     }
+    const equipmentCards = new Map<number, KnownEquipmentCardSnapshot>();
+    for (const card of Array.isArray(seat.equipmentCards) ? seat.equipmentCards : []) {
+      const cardId = Number(card?.cardId);
+      if (!Number.isInteger(cardId) || cardId <= 0) continue;
+      const previous = equipmentCards.get(cardId);
+      equipmentCards.set(cardId, {
+        cardId,
+        name: typeof card.name === 'string' ? card.name : previous?.name ?? '',
+        tags: [...new Set([...(previous?.tags ?? []), ...normalizeCardTags(card.tags)])],
+        hints: [...new Set([...(previous?.hints ?? []), ...normalizeCardTags(card.hints)])]
+      });
+    }
+    for (const cardId of equipmentCards.keys()) {
+      knownCardsById.delete(cardId);
+    }
+    const possibleCardsWithoutEquip = possibleCards.filter((card) => !equipmentCards.has(card.cardId));
     seatsById.set(seatId, {
       seatId,
       displayOrder: normalizeDisplayOrder(seat.displayOrder, seatsById.size + 1),
       playerName: typeof seat.playerName === 'string' ? seat.playerName : '',
-      isSelf: controlledSeatIds.includes(seatId) || seatId === selfSeatId,
+      // controlledSeatIds 在 2v2 中还包含队友；isSelf 只表示本机玩家本人。
+      isSelf: seat.isSelf === true || seatId === selfSeatId,
       isAlive: seat.isAlive !== false,
       anchor: normalizeSeatAnchor(seat.anchor),
       knownCards: [...knownCardsById.values()],
-      ...(possibleCards.length ? { possibleCards } : {}),
+      ...(equipmentCards.size ? { equipmentCards: [...equipmentCards.values()] } : {}),
+      ...(possibleCardsWithoutEquip.length ? { possibleCards: possibleCardsWithoutEquip } : {}),
       unknownCardCount: Math.max(0, Math.floor(Number(seat.unknownCardCount) || 0))
     });
   }

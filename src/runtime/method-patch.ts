@@ -3,7 +3,7 @@ export type PatchableFunction = (this: any, ...args: any[]) => any;
 export interface MethodPatcher {
   /**
    * 包装 target[name] 当前的方法。同一对象同名方法只包装一次；
-   * 包装链中已有其他实现（如 legacy 的补丁）时在其外层继续包装。
+   * 包装链中已有其他实现时在其外层继续包装。
    */
   wrap(
     target: unknown,
@@ -22,7 +22,7 @@ export interface MethodPatcher {
 
 /**
  * 对应原版 kD：原方法不写回游戏对象（原版存为 `__name`），而是保存在闭包里，
- * 以免与仍在运行的 legacy 补丁互相覆盖。恢复时若外层已被别人再次包装，
+ * 以免与其他补丁互相覆盖。恢复时若外层已被别人再次包装，
  * 则保留包装但让它直接透传原方法。
  */
 export function createMethodPatcher(): MethodPatcher {

@@ -2,6 +2,7 @@ import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
 import {
   createOfficialCardView,
+  detachOfficialDrawLayer,
   OFFICIAL_CARD_BASE_HEIGHT,
   OFFICIAL_CARD_BASE_WIDTH,
   releaseOfficialCardView,
@@ -9,6 +10,8 @@ import {
 } from '../cards/official-card-renderer.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 import type { SeatStateStore } from '../seat-display/seat-state-store.ts';
+import type { MingpaiEngine } from './mingpai-engine.ts';
+import type { GameEventBus } from '../../runtime/game-event-bus.ts';
 
 type UnknownRecord = Record<string, unknown>;
 interface Rect { x: number; y: number; width: number; height: number }
@@ -42,6 +45,7 @@ interface SeatStrip {
   signature: string;
   cardIds: number[];
   possibleIds: number[];
+  tagsByCardId: Map<number, string[]>;
   anchor: Rect | null;
   nativeSprite: UnknownRecord | null;
 }
@@ -50,13 +54,21 @@ interface SeatStrip {
 export function installNativeMingpaiPreviewController(
   configStore: XiaochaoConfigStore,
   seatStateStore: SeatStateStore,
-  gameCardCatalog: GameCardCatalog
+  gameCardCatalog: GameCardCatalog,
+  mingpaiEngine?: MingpaiEngine,
+  gameEvents?: GameEventBus
 ): () => void {
   let stopped = false;
   let scene: UnknownRecord | null = null;
   let parent: UnknownRecord | null = null;
   let root: UnknownRecord | null = null;
   const strips = new Map<number, SeatStrip>();
+  const recommendedBySeat = new Map<number, Set<number>>();
+  const selectedBySeat = new Map<number, Set<number>>();
+  const markTimers = new Map<number, number>();
+  const equipmentTagSignatures = new WeakMap<object, string>();
+  let syncing = false;
+  let lastEquipmentTagRefreshAt = 0;
   let popup: UnknownRecord | null = null;
   let popupCards: OfficialCardView[] = [];
   let popupSeatId: number | null = null;
@@ -82,7 +94,15 @@ export function installNativeMingpaiPreviewController(
     popupCards = [];
     popupSeatId = null;
     popupSignature = '';
-    if (popup) destroyNode(popup);
+    if (popup) {
+      detachOfficialDrawLayer(popup);
+      try {
+        call(popup, 'removeSelf');
+        if (typeof popup.addDrawChild !== 'function') call(popup, 'destroy', false);
+      } catch {
+        // 场景切换时节点可能已销毁。
+      }
+    }
     popup = null;
   }
 
@@ -144,7 +164,8 @@ export function installNativeMingpaiPreviewController(
     call(strip, 'addChild', hit);
     call(host, 'addChild', strip);
     const entry: SeatStrip = {
-      seatId, strip, hit, signature: '', cardIds: [], possibleIds: [], anchor: null, nativeSprite: null
+      seatId, strip, hit, signature: '', cardIds: [], possibleIds: [], tagsByCardId: new Map(),
+      anchor: null, nativeSprite: null
     };
     const Event = readLayaEvent();
     call(hit, 'on', Event?.ROLL_OVER ?? 'mouseover', entry, () => {
@@ -164,12 +185,18 @@ export function installNativeMingpaiPreviewController(
     return entry;
   }
 
-  function renderStrip(entry: SeatStrip, cardIds: number[], possibleIds: number[], anchor: Rect): void {
+  function renderStrip(
+    entry: SeatStrip,
+    cardIds: number[],
+    possibleIds: number[],
+    tagsByCardId: Map<number, string[]>,
+    anchor: Rect
+  ): void {
     const rows = [
       { cardIds, possible: false },
       { cardIds: possibleIds, possible: true }
     ].filter((row) => row.cardIds.length);
-    const signature = `${cardIds.join(',')}|${possibleIds.join(',')}`;
+    const signature = `${cardIds.join(',')}|${possibleIds.join(',')}|${JSON.stringify([...tagsByCardId])}`;
     if (entry.signature !== signature) {
       readChildren(entry.strip)
         .filter((child) => child !== entry.hit)
@@ -179,7 +206,7 @@ export function installNativeMingpaiPreviewController(
         const truncated = row.cardIds.length > MAX_VISIBLE_TILES;
         const visible = truncated ? row.cardIds.slice(0, MAX_VISIBLE_TILES - 1) : row.cardIds;
         visible.forEach((cardId, index) => {
-          const tile = createTile(cardId, row.possible);
+          const tile = createTile(cardId, row.possible, tagsByCardId.get(cardId) ?? []);
           if (!tile) return;
           call(tile, 'pos', (TILE_WIDTH + TILE_GAP) * index, y);
           tile.zOrder = index + 2;
@@ -199,6 +226,7 @@ export function installNativeMingpaiPreviewController(
     }
     entry.cardIds = cardIds;
     entry.possibleIds = possibleIds;
+    entry.tagsByCardId = tagsByCardId;
     entry.anchor = anchor;
     const tileCount = Math.max(0, ...rows.map((row) => Math.min(row.cardIds.length, MAX_VISIBLE_TILES)));
     const width = tileCount * TILE_WIDTH + Math.max(0, tileCount - 1) * TILE_GAP;
@@ -218,7 +246,7 @@ export function installNativeMingpaiPreviewController(
     entry.strip.visible = rows.length > 0;
   }
 
-  function createTile(cardId: number, possible = false): UnknownRecord | null {
+  function createTile(cardId: number, possible = false, tags: readonly string[] = []): UnknownRecord | null {
     const card = gameCardCatalog.resolve(cardId);
     const tile = createSprite(`xcVueMingpaiPreviewTag-${cardId}`);
     if (!tile) return null;
@@ -270,6 +298,17 @@ export function installNativeMingpaiPreviewController(
       }
       tile.alpha = POSSIBLE_ALPHA;
     }
+    if (tags.length) {
+      const label = createText(tags.join('·'), 10, '#FFF1A8', 'center', true);
+      if (label) {
+        label.name = `xcVueMingpaiPersistentTag-${cardId}`;
+        label.stroke = 2;
+        label.strokeColor = '#332411';
+        call(label, 'size', TILE_WIDTH, 14);
+        call(label, 'pos', 0, 0);
+        call(tile, 'addChild', label);
+      }
+    }
     return tile;
   }
 
@@ -302,21 +341,28 @@ export function installNativeMingpaiPreviewController(
     const cardWidth = Math.round(OFFICIAL_CARD_BASE_WIDTH * POPUP_CARD_SCALE);
     const cardHeight = Math.round(OFFICIAL_CARD_BASE_HEIGHT * POPUP_CARD_SCALE);
     const available = Math.max(cardWidth + POPUP_PADDING * 2, maxWidth || 1600);
+    const cardGap = 8;
     const sections = [
       { label: `确定牌（${entry.cardIds.length}）`, color: '#FFF3D0', cardIds: entry.cardIds, possible: false },
       { label: `可能牌（${entry.possibleIds.length}）`, color: '#C9C1B1', cardIds: entry.possibleIds, possible: true }
     ].filter((section) => section.cardIds.length).map((section) => {
       const count = section.cardIds.length;
-      const gap = count > 1
-        ? Math.max(5, Math.min(cardWidth + 8, (available - POPUP_PADDING * 2 - cardWidth) / (count - 1)))
-        : 0;
-      return { ...section, gap, width: POPUP_PADDING * 2 + cardWidth + gap * (count - 1) };
+      const columns = Math.max(1, Math.min(count, Math.floor(
+        (available - POPUP_PADDING * 2 + cardGap) / (cardWidth + cardGap)
+      ) || 1));
+      const rows = Math.ceil(count / columns);
+      const width = POPUP_PADDING * 2 + columns * cardWidth + Math.max(0, columns - 1) * cardGap;
+      const height = POPUP_TITLE_HEIGHT + rows * cardHeight + Math.max(0, rows - 1) * cardGap;
+      return { ...section, columns, rows, width, height };
     });
     const width = Math.min(available, Math.max(...sections.map((section) => section.width)));
-    const sectionHeight = POPUP_TITLE_HEIGHT + cardHeight;
-    const height = POPUP_PADDING * 2 + sections.length * sectionHeight
+    const height = POPUP_PADDING * 2 + sections.reduce((sum, section) => sum + section.height, 0)
       + Math.max(0, sections.length - 1) * POPUP_SECTION_GAP;
-    const signature = `${entry.seatId}:${entry.cardIds.join(',')}|${entry.possibleIds.join(',')}:${Math.round(width)}:${direction}`;
+    const teamMarkable = seatStateStore.getSnapshot().controlledSeatIds.includes(entry.seatId)
+      && entry.seatId !== seatStateStore.getSnapshot().selfSeatId;
+    const receivedMarks = recommendedBySeat.get(entry.seatId) ?? new Set<number>();
+    const selectedMarks = selectedBySeat.get(entry.seatId) ?? new Set<number>();
+    const signature = `${entry.seatId}:${entry.cardIds.join(',')}|${entry.possibleIds.join(',')}:${[...receivedMarks].join(',')}:${[...selectedMarks].join(',')}:${teamMarkable}:${Math.round(width)}:${direction}`;
 
     if (!popup || popupSignature !== signature) {
       destroyPopup();
@@ -331,8 +377,9 @@ export function installNativeMingpaiPreviewController(
       call(created, 'on', Event?.ROLL_OVER ?? 'mouseover', created, clearHideTimer);
       call(created, 'on', Event?.ROLL_OUT ?? 'mouseout', created, scheduleHide);
       call(root, 'addChild', created);
+      let sectionTop = POPUP_PADDING;
       sections.forEach((section, sectionIndex) => {
-        const top = POPUP_PADDING + sectionIndex * (sectionHeight + POPUP_SECTION_GAP);
+        const top = sectionTop;
         const title = createText(section.label, 14, section.color, 'left');
         if (title) {
           call(title, 'size', Math.max(1, width - POPUP_PADDING * 2), POPUP_TITLE_HEIGHT);
@@ -340,22 +387,71 @@ export function installNativeMingpaiPreviewController(
           call(created, 'addChild', title);
         }
         section.cardIds.forEach((cardId, index) => {
-          const view = createOfficialCardView(created, cardId, cardWidth, cardHeight);
-          if (!view) return;
-          const x = POPUP_PADDING + section.gap * index;
-          const y = top + POPUP_TITLE_HEIGHT;
-          call(view.ui, 'pos', x, y);
-          popupCards.push(view);
-          if (!section.possible) return;
-          view.ui.alpha = POSSIBLE_ALPHA;
-          const mark = createText('?', 22, POSSIBLE_MARK_COLOR, 'center', true);
-          if (!mark) return;
-          mark.name = `xcVueMingpaiPopupPossibleMark-${cardId}`;
-          mark.zOrder = 900 + index;
-          call(mark, 'size', 18, 24);
-          call(mark, 'pos', x + cardWidth - 22, y + cardHeight - 30);
-          call(created, 'addChild', mark);
+          const column = index % section.columns;
+          const row = Math.floor(index / section.columns);
+          const x = POPUP_PADDING + column * (cardWidth + cardGap);
+          const y = top + POPUP_TITLE_HEIGHT + row * (cardHeight + cardGap);
+          const view = popupCards.length < 6
+            ? createOfficialCardView(created, cardId, cardWidth, cardHeight)
+            : null;
+          if (view) {
+            call(view.ui, 'pos', x, y);
+            popupCards.push(view);
+          } else {
+            const tile = createTile(cardId, section.possible, entry.tagsByCardId.get(cardId) ?? []);
+            if (tile) {
+              const scaleX = cardWidth / TILE_WIDTH;
+              const scaleY = cardHeight / TILE_HEIGHT;
+              call(tile, 'scale', scaleX, scaleY);
+              tile.scaleX = scaleX;
+              tile.scaleY = scaleY;
+              call(tile, 'pos', x, y);
+              call(created, 'addChild', tile);
+            }
+          }
+          if (section.label.startsWith('确定牌') && teamMarkable) {
+            const marked = receivedMarks.has(cardId) || selectedMarks.has(cardId);
+            if (marked) {
+              const marker = createText(receivedMarks.has(cardId) ? '队友标记' : '已选择', 13, '#8FE6FF', 'center', true);
+              if (marker) {
+                marker.name = `xcVueMingpaiTeamMarker-${cardId}`;
+                marker.stroke = 2;
+                marker.strokeColor = '#142B39';
+                marker.zOrder = 1500 + index;
+                call(marker, 'size', cardWidth, 18);
+                call(marker, 'pos', x, y + cardHeight - 20);
+                call(created, 'addChild', marker);
+              }
+            }
+            const hit = createSprite(`xcVueMingpaiTeamMarkHit-${entry.seatId}-${cardId}`);
+            if (hit) {
+              hit.mouseEnabled = true;
+              hit.mouseThrough = false;
+              hit.hitTestPrior = true;
+              hit.zOrder = 1800 + index;
+              call(hit, 'size', cardWidth, cardHeight);
+              call(hit, 'pos', x, y);
+              call(hit.graphics, 'drawRect', 0, 0, cardWidth, cardHeight, 'rgba(0,0,0,0.01)', null, 0);
+              call(hit, 'on', Event?.CLICK ?? 'click', hit, (pointer: UnknownRecord) => {
+                call(pointer, 'stopPropagation');
+                toggleTeammateMark(entry, cardId);
+              });
+              call(created, 'addChild', hit);
+            }
+          }
+          if (section.possible) {
+            if (view) view.ui.alpha = POSSIBLE_ALPHA;
+            const mark = createText('?', 22, POSSIBLE_MARK_COLOR, 'center', true);
+            if (mark) {
+              mark.name = `xcVueMingpaiPopupPossibleMark-${cardId}`;
+              mark.zOrder = 900 + index;
+              call(mark, 'size', 18, 24);
+              call(mark, 'pos', x + cardWidth - 22, y + cardHeight - 30);
+              call(created, 'addChild', mark);
+            }
+          }
         });
+        sectionTop += section.height + (sectionIndex < sections.length - 1 ? POPUP_SECTION_GAP : 0);
       });
       popup = created;
       popupSignature = signature;
@@ -373,7 +469,7 @@ export function installNativeMingpaiPreviewController(
     call(popup, 'pos', x, y);
   }
 
-  function sync(): void {
+  function syncNow(): void {
     if (stopped) return;
     if (!configStore.get('display.seatUiEnabled')) {
       destroyAll();
@@ -387,13 +483,38 @@ export function installNativeMingpaiPreviewController(
     const host = ensureRoot();
     if (!host || !scene) return;
     const seatUis = readSeatUis(scene);
+    const engineSnapshot = mingpaiEngine?.getSnapshot();
+    const now = Date.now();
+    const refreshEquipmentTags = now - lastEquipmentTagRefreshAt >= 1000;
+    if (refreshEquipmentTags) lastEquipmentTagRefreshAt = now;
     const activeSeatIds = new Set<number>();
     for (const seat of snapshot.seats) {
-      if (seat.isSelf || seat.seatId === snapshot.selfSeatId) continue;
       const seatUi = seatUis.get(seat.seatId);
+      if (seatUi && refreshEquipmentTags) refreshNativeEquipmentTags(seatUi);
+      if (seat.seatId === snapshot.selfSeatId) continue;
       const anchor = seatUi ? readAnchorRect(seatUi, host) : null;
-      const cardIds = seat.knownCards.map((card) => card.cardId).filter((cardId) => cardId > 0);
-      const possibleIds = (seat.possibleCards ?? []).map((card) => card.cardId).filter((cardId) => cardId > 0);
+      // 引擎位置表是 app.bak 明牌区的权威来源；座位快照负责补上场景直接公开的牌。
+      // 两路合并可避免状态事件与场景轮询短暂不同步时整条已知手牌消失。
+      const engineHandIds = mingpaiEngine?.getHandCardIds(seat.seatId) ?? [];
+      const equipmentIds = new Set(
+        (seat.equipmentCards ?? []).map((card) => card.cardId).filter((cardId) => cardId > 0)
+      );
+      const cardIds = [...new Set([
+        ...seat.knownCards.map((card) => card.cardId),
+        ...engineHandIds
+      ])].filter((cardId) => cardId > 0 && !equipmentIds.has(cardId));
+      const engineTagsByCardId = new Map((engineSnapshot?.records ?? [])
+        .filter((record) => record.persistentTags.length)
+        .map((record) => [record.cardId, record.persistentTags] as const));
+      const tagsByCardId = new Map(cardIds.flatMap((cardId) => {
+        const sceneTags = seat.knownCards.find((card) => card.cardId === cardId)?.tags ?? [];
+        const engineTags = engineTagsByCardId.get(cardId) ?? [];
+        const tags = visibleMingpaiTags([...sceneTags, ...engineTags]);
+        return tags.length ? [[cardId, tags] as const] : [];
+      }));
+      const possibleIds = (seat.possibleCards ?? [])
+        .map((card) => card.cardId)
+        .filter((cardId) => cardId > 0 && !equipmentIds.has(cardId));
       const existing = strips.get(seat.seatId);
       if (!seatUi || !anchor || (!cardIds.length && !possibleIds.length)) {
         if (existing) destroyStrip(existing);
@@ -402,7 +523,7 @@ export function installNativeMingpaiPreviewController(
       const entry = existing ?? createStrip(seat.seatId, host);
       if (!entry) continue;
       hideNativeSprite(entry, seatUi);
-      renderStrip(entry, cardIds, possibleIds, anchor);
+      renderStrip(entry, cardIds, possibleIds, tagsByCardId, anchor);
       activeSeatIds.add(seat.seatId);
       if (popupSeatId === seat.seatId) showPopup(entry);
     }
@@ -411,7 +532,102 @@ export function installNativeMingpaiPreviewController(
       .forEach(destroyStrip);
   }
 
+  function sync(): void {
+    if (stopped || syncing) return;
+    syncing = true;
+    try {
+      syncNow();
+    } finally {
+      syncing = false;
+    }
+  }
+
+  function toggleTeammateMark(entry: SeatStrip, cardId: number): void {
+    const snapshot = seatStateStore.getSnapshot();
+    if (!snapshot.controlledSeatIds.includes(entry.seatId) || entry.seatId === snapshot.selfSeatId) return;
+    const selected = selectedBySeat.get(entry.seatId) ?? new Set<number>();
+    if (selected.has(cardId)) selected.delete(cardId);
+    else {
+      // app.bak 默认 RecCardLimit=1；游戏原生有配置时读取配置上限。
+      const limit = readTeammateMarkLimit(scene);
+      while (selected.size >= limit) selected.delete(selected.values().next().value as number);
+      selected.add(cardId);
+    }
+    if (selected.size) selectedBySeat.set(entry.seatId, selected);
+    else selectedBySeat.delete(entry.seatId);
+    showPopup(entry);
+    const previous = markTimers.get(entry.seatId);
+    if (previous) window.clearTimeout(previous);
+    const timer = window.setTimeout(() => {
+      markTimers.delete(entry.seatId);
+      const latest = selectedBySeat.get(entry.seatId) ?? new Set<number>();
+      const stillKnown = new Set(seatStateStore.getSnapshot().seats
+        .find((seat) => seat.seatId === entry.seatId)?.knownCards.map((card) => card.cardId) ?? []);
+      const ids = [...latest].filter((id) => stillKnown.has(id));
+      if (!ids.length) return;
+      const currentScene = asRecord(locateGameScene(window));
+      const manager = asRecord(currentScene?.Manager ?? currentScene?.manager);
+      const send = manager?.SendMsgQuickChatCardTagReq;
+      if (typeof send !== 'function' || !canShowTeammateMarks()) return;
+      try {
+        recommendedBySeat.set(entry.seatId, new Set(ids));
+        send.call(manager, entry.seatId, ids);
+        selectedBySeat.delete(entry.seatId);
+        showPopup(entry);
+      } catch (error) {
+        console.warn('[明牌] 队友手牌标记发送失败', error);
+      }
+    }, 100);
+    markTimers.set(entry.seatId, timer);
+  }
+
+  /** 对照 app.bak：将明牌引擎记录的持续标签刷回原生装备卡 UI。 */
+  function refreshNativeEquipmentTags(seatUi: UnknownRecord): void {
+    const container = asRecord(seatUi.cardContainer);
+    const cardUis = [
+      ...readArray(container, ['equipCardUis', 'equipCardUIs']),
+      ...readArray(seatUi, ['equipCardUis', 'equipCardUIs'])
+    ];
+    const enabled = configStore.get('display.cardLabelsEnabled');
+    for (const rawUi of cardUis) {
+      const cardUi = asRecord(rawUi);
+      const card = asRecord(cardUi?.Card) ?? asRecord(cardUi?.card) ?? cardUi;
+      if (!cardUi || !card) continue;
+      const cardId = Number(card.cardId ?? card.cardID ?? card.CardId ?? card.CardID ?? card.id ?? card.ID ?? card.key);
+      if (!Number.isInteger(cardId) || cardId <= 0) continue;
+      const qiKnown = enabled && (mingpaiEngine?.getPersistentTags(cardId).includes('炁') ?? false);
+      const tagKey = Object.prototype.hasOwnProperty.call(card, 'tagArr1') ? 'tagArr1' : 'TagArr1';
+      const originalTags = card[tagKey];
+      const tags = Array.isArray(originalTags) ? originalTags.map(String) : [];
+      const nextTags = [...new Set([...tags.filter((tag) => tag !== '炁'), ...(qiKnown ? ['炁'] : [])])];
+      // 原生牌标签重绘会创建/回收 Laya 子节点；轮询只在实际标签变化时重绘。
+      if (!qiKnown && !tags.includes('炁')) continue;
+      const signature = JSON.stringify(nextTags);
+      if (equipmentTagSignatures.get(cardUi) === signature) continue;
+      try {
+        call(cardUi, 'AddCardTag');
+        card[tagKey] = nextTags;
+        call(cardUi, 'UpdateTag');
+        equipmentTagSignatures.set(cardUi, signature);
+      } catch {
+        // 部分游戏版本的卡牌对象不可写，明牌预览仍会展示持续标签。
+      } finally {
+        if (originalTags === undefined) delete card[tagKey];
+        else card[tagKey] = originalTags;
+      }
+    }
+  }
+
+  function onGameEvent(event: import('../../runtime/game-event-bus.ts').GameEvent): void {
+    if (event.type !== 'friend-hand-tags-updated') return;
+    recommendedBySeat.set(event.seatId, new Set(event.cardIds));
+    const entry = strips.get(event.seatId);
+    if (entry && popupSeatId === event.seatId) showPopup(entry);
+  }
+
   const stopSeatState = seatStateStore.subscribe(sync);
+  const stopMingpai = mingpaiEngine?.subscribe(sync);
+  const stopGameEvents = gameEvents?.subscribe(onGameEvent);
   const stopConfig = configStore.subscribe('display.seatUiEnabled', sync);
   const timer = window.setInterval(sync, POLL_INTERVAL_MS);
   sync();
@@ -420,6 +636,10 @@ export function installNativeMingpaiPreviewController(
     stopped = true;
     window.clearInterval(timer);
     stopSeatState();
+    stopMingpai?.();
+    stopGameEvents?.();
+    markTimers.forEach((timerId) => window.clearTimeout(timerId));
+    markTimers.clear();
     stopConfig();
     destroyAll();
   };
@@ -431,6 +651,12 @@ function hideNativeSprite(entry: SeatStrip, seatUi: UnknownRecord): void {
   const sprite = asRecord(manager?.handCardSpr);
   if (entry.nativeSprite && entry.nativeSprite !== sprite) restoreNativeSprite(entry);
   if (!sprite || sprite.destroyed) return;
+  if (sprite === seatUi) return;
+  const width = Number(sprite.width || sprite._width || 0);
+  const height = Number(sprite.height || sprite._height || 0);
+  if (width > 480 || height > 240) return;
+  const name = String(sprite.name || '');
+  if (/Scene|Layer|Stage|Table|Desk|gamescene/i.test(name)) return;
   entry.nativeSprite = sprite;
   if (sprite[NATIVE_GUARD_KEY]) return;
   const ownDescriptor = Object.getOwnPropertyDescriptor(sprite, 'visible');
@@ -638,7 +864,8 @@ function drawRoundedRect(
 function destroyNode(node: UnknownRecord): void {
   try {
     call(node, 'removeSelf');
-    call(node, 'destroy', true);
+    if (typeof node.addDrawChild === 'function') return;
+    call(node, 'destroy', false);
   } catch {
     // 场景切换时节点可能已销毁。
   }
@@ -665,6 +892,40 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(Math.max(min, max), value));
 }
 
+function readTeammateMarkLimit(scene: UnknownRecord | null): number {
+  const seatUis = asRecord(scene?.seatContainer)?.seatUIs;
+  for (const rawSeat of Array.isArray(seatUis) ? seatUis : []) {
+    const seat = asRecord(rawSeat);
+    const host = asRecord(seat?.nativeHost) ?? asRecord(seat?.propTip) ?? asRecord(seat?.proptip);
+    const params = asRecord(asRecord(host?.proptip)?.paramVo)
+      ?? asRecord(asRecord(host?.proptip)?.paramVO)
+      ?? asRecord(host?.paramVo);
+    const limit = Number(params?.RecCardLimit);
+    if (Number.isFinite(limit) && limit > 0) return Math.max(1, Math.min(20, Math.floor(limit)));
+  }
+  return 1;
+}
+
+function canShowTeammateMarks(): boolean {
+  const globals = globalThis as UnknownRecord;
+  const runtime = asRecord(globals.zy) ?? asRecord(globals.laya);
+  const getClass = runtime?.class;
+  if (typeof getClass !== 'function') return true;
+  try {
+    const setting = asRecord((getClass as Function).call(runtime, 'SettingManager'));
+    const skillSets = asRecord(setting?.SkillSets);
+    return skillSets?.IsShowCardTag !== false;
+  } catch {
+    return true;
+  }
+}
+
+function visibleMingpaiTags(tags: readonly string[]): string[] {
+  return [...new Set(tags.map((tag) => String(tag).trim()).filter((tag) => (
+    tag && !tag.startsWith('来源:') && !tag.startsWith('来源于')
+  )))];
+}
+
 function call(target: UnknownRecord | null | undefined, methodName: string, ...args: unknown[]): unknown {
   const method = target?.[methodName];
   return typeof method === 'function' ? method.apply(target, args) : undefined;
@@ -674,4 +935,13 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value !== null && (typeof value === 'object' || typeof value === 'function')
     ? value as UnknownRecord
     : null;
+}
+
+function readArray(record: UnknownRecord | null, keys: readonly string[]): unknown[] {
+  if (!record) return [];
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) return value;
+  }
+  return [];
 }

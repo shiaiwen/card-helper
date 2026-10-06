@@ -58,8 +58,7 @@ export function installMingpaiController(
     isRedCard
   });
   const temporaryCardZones = new Map<string, TemporaryCardZone>();
-  let preserveRestoredStateOnFirstStart = seatStateStore.hasRestoredKnownHands()
-    || engine.hasRestoredRecords();
+  let temporaryZoneSequence = 0;
   const activeQiSeats = new Set<number>();
   const pendingSpellCardClues: SpellCardClue[] = [];
   const eligibleQiKillersByVictim = new Map<number, Set<number>>();
@@ -78,7 +77,11 @@ export function installMingpaiController(
     synchronizingPersistentTags = true;
     try {
       snapshot.seats.forEach((seat) => {
+        const equipmentIds = new Set(
+          (seat.equipmentCards ?? []).map((card) => card.cardId).filter((cardId) => cardId > 0)
+        );
         seat.knownCards.forEach((card) => {
+          if (equipmentIds.has(card.cardId)) return;
           engine.observeKnownHandCard(card.cardId, seat.seatId, card.tags);
           const persistentTags = engine.getPersistentTags(card.cardId);
           if (persistentTags.length) {
@@ -98,22 +101,31 @@ export function installMingpaiController(
     }
     const event = rawEvent;
     specialRecovery.observe(event);
-    if (event.type === 'game-ended') {
+    if (event.type === 'game-reconnected' || event.type === 'deck-shuffled') {
       temporaryCardZones.clear();
+      temporaryZoneSequence = 0;
+      pendingSpellCardClues.length = 0;
+      specialRecovery.clear();
+      engine.clearKnownDrawPileOrder();
+      return;
+    }
+    if (event.type === 'game-ended') {
+      // 同房间结算/再开不切场景，只能靠协议清空；不要 store.clear() 把 inGame 打成 false，
+      // 否则下一帧场景轮询又会当成新的 game-started，并把残留 CardUi 写回引擎。
+      temporaryCardZones.clear();
+      temporaryZoneSequence = 0;
       engine.clear();
       resetQiTransferState();
-      seatStateStore.clear();
+      seatStateStore.resetKnownHands();
       return;
     }
     if (event.type === 'game-started') {
+      // 开局一律丢掉上一局缓存。热重载恢复只留给 game-reconnected。
       temporaryCardZones.clear();
+      temporaryZoneSequence = 0;
       resetQiTransferState();
-      if (preserveRestoredStateOnFirstStart) {
-        preserveRestoredStateOnFirstStart = false;
-      } else {
-        engine.clear();
-        seatStateStore.resetKnownHands();
-      }
+      engine.clear();
+      seatStateStore.resetKnownHands();
       return;
     }
     if (event.type === 'card-list-ready') {
@@ -261,6 +273,9 @@ export function installMingpaiController(
       ? recoverWholeHandMovement(movementWithTemporaryCards, seatStateStore)
       : controlledSeatCardIds;
     if (preferredQiOwner !== null && recoveredCardIds.some((cardId) => cardId > 0)) {
+      recoveredCardIds.filter((cardId) => cardId > 0).forEach((cardId) => {
+        engine.rememberPersistentCardTag(cardId, '炁', preferredQiOwner);
+      });
       pendingQiTransfer = null;
       pendingQiDeath = null;
     }
@@ -274,7 +289,7 @@ export function installMingpaiController(
       resolvedIds: [...recoveredCardIds],
       remappedFromPosition: event.fromPosition !== rawEvent.fromPosition ? event.fromPosition : undefined
     });
-    trackTemporaryZoneMovement(event, recoveredCardIds, temporaryCardZones);
+    trackTemporaryZoneMovement(event, recoveredCardIds, temporaryCardZones, () => ++temporaryZoneSequence);
     engine.applyMovement(event, recoveredCardIds);
     specialRecovery.record(event, recoveredCardIds);
 
@@ -435,6 +450,7 @@ export function installMingpaiController(
       unsubscribe();
       unsubscribeSeatState();
       temporaryCardZones.clear();
+      temporaryZoneSequence = 0;
       resetQiTransferState();
       specialRecovery.clear();
     }
@@ -472,6 +488,7 @@ interface TemporaryCardZone {
   gridByCardId: Map<number, number>;
   topGridCount: number;
   traceClosed: boolean;
+  sequence: number;
 }
 
 interface SpellCardClue {
@@ -551,9 +568,12 @@ function recoverCardsFromTemporaryZone(
   }
   const keyPrefix = `${movement.fromId}:${movement.fromZone}:`;
   const candidates = [...temporaryCardZones.entries()]
-    .filter(([key, zone]) => key.startsWith(keyPrefix)
-      && key.endsWith(`:${movement.spellId}`)
-      && zone.cardIds.length >= movement.cardCount);
+    .filter(([key, zone]) => {
+      if (!key.startsWith(keyPrefix) || !key.endsWith(`:${movement.spellId}`)
+        || zone.cardIds.length < movement.cardCount) return false;
+      const [, , , zoneParam] = key.split(':').map(Number);
+      return !movement.fromZoneParam || zoneParam === movement.fromZoneParam;
+    });
   return candidates.length === 1
     ? selectDepartingTemporaryCards(candidates[0][1], movement)
     : [...movement.cardIds];
@@ -574,11 +594,12 @@ function selectDepartingTemporaryCards(
 function trackTemporaryZoneMovement(
   movement: TemporaryZoneMovement,
   effectiveCardIds: readonly number[],
-  temporaryCardZones: Map<string, TemporaryCardZone>
+  temporaryCardZones: Map<string, TemporaryCardZone>,
+  nextSequence: () => number
 ): void {
   const knownCardIds = effectiveCardIds.filter((cardId) => cardId > 0);
   if (TEMPORARY_CARD_ZONES.has(movement.fromZone)) {
-    removeTemporaryCards(temporaryCardZones, movement, knownCardIds);
+    removeTemporaryCards(temporaryCardZones, movement, knownCardIds, nextSequence);
   }
   if (!TEMPORARY_CARD_ZONES.has(movement.toZone) || !knownCardIds.length) return;
   const key = temporaryZoneKey(
@@ -590,41 +611,52 @@ function trackTemporaryZoneMovement(
   );
   const existing = temporaryCardZones.get(key);
   const cardIds = [...new Set([...(existing?.cardIds ?? []), ...knownCardIds])];
-  temporaryCardZones.set(key, createTemporaryCardZone(cardIds));
+  temporaryCardZones.delete(key);
+  temporaryCardZones.set(key, createTemporaryCardZone(cardIds, nextSequence()));
 }
 
 function removeTemporaryCards(
   temporaryCardZones: Map<string, TemporaryCardZone>,
   movement: TemporaryZoneMovement,
-  departingCardIds: readonly number[]
+  departingCardIds: readonly number[],
+  nextSequence: () => number
 ): void {
   const prefix = `${movement.fromId}:${movement.fromZone}:`;
-  for (const [key, zone] of temporaryCardZones) {
+  // 先快照再遍历：循环内 delete+set 会把键移到 Map 末尾被迭代器再次访问，
+  // 部分离场（remaining 非空）时同一键会被无限重写，主线程直接卡死。
+  for (const [key, zone] of [...temporaryCardZones]) {
     if (!key.startsWith(prefix)) continue;
     const remaining = zone.cardIds.filter((cardId) => !departingCardIds.includes(cardId));
-    if (remaining.length) temporaryCardZones.set(key, createTemporaryCardZone(remaining));
+    if (remaining.length) {
+      temporaryCardZones.delete(key);
+      temporaryCardZones.set(key, createTemporaryCardZone(remaining, nextSequence()));
+    }
     else temporaryCardZones.delete(key);
   }
 }
 
-function createTemporaryCardZone(cardIds: number[]): TemporaryCardZone {
+function createTemporaryCardZone(cardIds: number[], sequence = 0): TemporaryCardZone {
   return {
     cardIds: [...cardIds],
     logicalCardIds: [...cardIds],
     gridByCardId: new Map(cardIds.map((cardId, index) => [cardId, index])),
     topGridCount: cardIds.length,
-    traceClosed: false
+    traceClosed: false,
+    sequence
   };
 }
 
 function applyTemporaryCardReorder(
-  event: { seatId: number; spellId: number; trace: readonly number[] },
+  event: { seatId: number; spellId: number; zoneParam?: number | null; trace: readonly number[] },
   temporaryCardZones: Map<string, TemporaryCardZone>
 ): void {
   const candidates = [...temporaryCardZones.entries()]
-    .filter(([key]) => key.startsWith(`${event.seatId}:`) && key.endsWith(`:${event.spellId}`));
-  if (candidates.length !== 1) return;
-  const zone = candidates[0][1];
+    .filter(([key]) => key.startsWith(`${event.seatId}:`) && key.endsWith(`:${event.spellId}`))
+    .filter(([key]) => event.zoneParam === null || event.zoneParam === undefined
+      || Number(key.split(':')[3]) === event.zoneParam)
+    .sort((left, right) => right[1].sequence - left[1].sequence);
+  if (!candidates.length) return;
+  const [key, zone] = candidates[0];
   if (event.trace.length === 1) {
     zone.traceClosed = true;
     return;
@@ -641,6 +673,9 @@ function applyTemporaryCardReorder(
   zone.logicalCardIds.splice(sourceIndex, 1);
   const insertionIndex = (finalIndex % zone.topGridCount + zone.topGridCount) % zone.topGridCount;
   zone.logicalCardIds.splice(Math.min(insertionIndex, zone.logicalCardIds.length), 0, movedCardId);
+  zone.sequence = Math.max(zone.sequence, ...candidates.map(([, candidate]) => candidate.sequence)) + 1;
+  temporaryCardZones.delete(key);
+  temporaryCardZones.set(key, zone);
 }
 
 function temporaryZoneKey(

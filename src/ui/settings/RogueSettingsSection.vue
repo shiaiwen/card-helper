@@ -1,12 +1,12 @@
 <script setup>
-import { onBeforeUnmount, reactive, ref } from 'vue';
+import { onBeforeUnmount, reactive, ref } from "vue";
 import {
   ROGUE_OPEN_SHOP_LABEL,
   ROGUE_OPEN_SHOP_TOOLTIP,
   ROGUE_SHOP_PREVIEW_LABEL,
   ROGUE_SHOP_PREVIEW_TOOLTIP,
   ROGUE_SWITCH_SETTINGS,
-} from '../../features/rogue/rogue-settings';
+} from "../../features/rogue/rogue-settings";
 
 const props = defineProps({
   configStore: {
@@ -27,25 +27,30 @@ const props = defineProps({
   },
 });
 
-const values = reactive(Object.fromEntries(
-  ROGUE_SWITCH_SETTINGS.map(({ key }) => [key, props.configStore.get(key)])
-));
-const unsubscribe = ROGUE_SWITCH_SETTINGS.map(({ key }) => props.configStore.subscribe(key, ({ value }) => {
-  values[key] = value;
-}));
+const values = reactive(
+  Object.fromEntries(
+    ROGUE_SWITCH_SETTINGS.map(({ key }) => [key, props.configStore.get(key)]),
+  ),
+);
+const unsubscribe = ROGUE_SWITCH_SETTINGS.map(({ key }) =>
+  props.configStore.subscribe(key, ({ value }) => {
+    values[key] = value;
+  }),
+);
 
 const previewItems = ref(
-  typeof props.getShopPreview === 'function' ? [...props.getShopPreview()] : []
+  typeof props.getShopPreview === "function" ? [...props.getShopPreview()] : [],
 );
-const stopPreview = typeof props.subscribeShopPreview === 'function'
-  ? props.subscribeShopPreview((items) => {
-    previewItems.value = Array.isArray(items) ? [...items] : [];
-  })
-  : null;
+const stopPreview =
+  typeof props.subscribeShopPreview === "function"
+    ? props.subscribeShopPreview((items) => {
+        previewItems.value = Array.isArray(items) ? [...items] : [];
+      })
+    : null;
 
 onBeforeUnmount(() => {
   unsubscribe.forEach((stop) => stop());
-  if (typeof stopPreview === 'function') stopPreview();
+  if (typeof stopPreview === "function") stopPreview();
 });
 
 function updateSetting(key, event) {
@@ -58,10 +63,15 @@ function handleOpenShop() {
 </script>
 
 <template>
-  <section class="xiaochao-settings-section xiaochao-rogue-section" aria-label="山河图">
+  <section
+    class="xiaochao-settings-section xiaochao-rogue-section"
+    aria-label="山河图"
+  >
     <header class="xiaochao-settings-section__header">
       <h4 class="xiaochao-settings-section__title">山河图辅助</h4>
-      <span class="xiaochao-settings-section__summary">地图透视 · 对白 · 集市</span>
+      <span class="xiaochao-settings-section__summary"
+        >地图透视 · 对白 · 集市</span
+      >
     </header>
     <div class="xiaochao-settings-section__body">
       <div class="xiaochao-settings-grid xiaochao-rogue-switch-grid">
@@ -72,13 +82,17 @@ function handleOpenShop() {
           :data-tooltip="setting.tooltip"
         >
           <span class="xiaochao-block-switch__label">{{ setting.label }}</span>
-          <label class="xiaochao-block-switch__toggle">
+          <label
+            class="xiaochao-block-switch__toggle"
+            :data-tooltip="setting.tooltip"
+            :title="setting.tooltip"
+          >
             <input
               type="checkbox"
               :aria-label="setting.label"
               :checked="values[setting.key]"
               @change="updateSetting(setting.key, $event)"
-            >
+            />
             <span class="xiaochao-block-switch__slider" />
             <span class="xiaochao-block-switch__state" aria-hidden="true" />
           </label>
@@ -90,7 +104,9 @@ function handleOpenShop() {
         :data-tooltip="ROGUE_SHOP_PREVIEW_TOOLTIP"
         aria-label="集市透视"
       >
-        <div class="xiaochao-rogue-shop-preview__title">{{ ROGUE_SHOP_PREVIEW_LABEL }}</div>
+        <div class="xiaochao-rogue-shop-preview__title">
+          {{ ROGUE_SHOP_PREVIEW_LABEL }}
+        </div>
         <div class="xiaochao-rogue-shop-preview__list" role="list">
           <button
             v-for="item in previewItems"

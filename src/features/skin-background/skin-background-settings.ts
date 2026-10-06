@@ -46,12 +46,3 @@ export const ALL_SKIN_BACKGROUND_SETTINGS: readonly SkinBackgroundSetting[] = [
   ...SKIN_SETTINGS,
   ...BACKGROUND_SETTINGS
 ];
-
-/** legacy 面板中已由 Vue 接管的开关 input id。 */
-export const LEGACY_SKIN_BACKGROUND_INPUT_IDS = [
-  'localSkinSwitch',
-  'otherLocalSkinSwitch',
-  'officialBackgroundSwitch',
-  'skinPaperDialogSwitch',
-  'allPaperSwitch'
-] as const;

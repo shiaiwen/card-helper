@@ -82,9 +82,7 @@ function forwardChildOutput(chunk, stream) {
 ensureWindowsUtf8Console();
 purgeDebugLogFiles(root);
 
-// --no-legacy：构建时不打包 legacy，验证新工程能否独立运行。
 const env = { ...process.env };
-if (process.argv.includes('--no-legacy')) env.XC_NO_LEGACY = '1';
 delete env.ELECTRON_RUN_AS_NODE;
 // 禁止 Electron 打开文件日志通道（否则会在仓库/安装目录生成 debug.log）
 delete env.ELECTRON_ENABLE_LOGGING;
@@ -178,7 +176,7 @@ run(process.execPath, [
 const electronLogSink = process.platform === 'win32' ? 'NUL' : '/dev/null';
 const electron = run(
   resolved.path,
-  ['--disable-logging', `--log-file=${electronLogSink}`, root],
+  ['--trace-warnings', '--disable-logging', `--log-file=${electronLogSink}`, root],
   { pipeConsole: true }
 );
 

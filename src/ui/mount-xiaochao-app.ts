@@ -2,7 +2,6 @@ import { createApp, type App as VueApp } from 'vue';
 import XiaochaoApp from './App.vue';
 import type { XiaochaoPlatform } from '../adapters/platform';
 import { installPanelShellStyles } from './panel/panel-shell-styles';
-import { prepareLegacyTabPanes } from './legacy/prepare-legacy-tab-panes';
 import type { XiaochaoConfigStore } from '../config/config-store';
 import type { SeatStateStore } from '../features/seat-display/seat-state-store';
 import type { RecentCardStore } from '../features/recent-cards/recent-card-store';
@@ -29,11 +28,10 @@ export interface MountedXiaochaoApp {
   rootElement: HTMLElement;
   panelElement: HTMLElement;
   contentElement: HTMLElement;
-  prepareLegacyTabPanes(): void;
   unmount(): void;
 }
 
-/** 创建由 Vue 独立拥有的面板外壳，不再接管 legacy 创建的外层 DOM。 */
+/** 创建由 Vue 独立拥有的面板外壳。 */
 export function mountXiaochaoApp(
   platform: XiaochaoPlatform,
   layout: XiaochaoPanelLayout,
@@ -86,9 +84,6 @@ export function mountXiaochaoApp(
     rootElement,
     panelElement,
     contentElement,
-    prepareLegacyTabPanes() {
-      prepareLegacyTabPanes(contentElement);
-    },
     unmount() {
       if (unmounted) return;
       unmounted = true;

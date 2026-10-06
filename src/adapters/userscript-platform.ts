@@ -8,6 +8,7 @@ export function createUserscriptPlatform(): PlatformAdapter {
       window.open(url, '_blank', 'noopener');
     },
     getSetting: (key) => window.localStorage.getItem(key),
-    setSetting: (key, value) => window.localStorage.setItem(key, value)
+    setSetting: (key, value) => window.localStorage.setItem(key, value),
+    removeSetting: (key) => window.localStorage.removeItem(key)
   };
 }

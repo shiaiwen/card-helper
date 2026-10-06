@@ -1,5 +1,6 @@
 import {
   CONFIG_SCHEMA,
+  getDefaultConfig,
   type XiaochaoConfig,
   type XiaochaoConfigKey
 } from './config-schema.ts';
@@ -26,6 +27,7 @@ export interface XiaochaoConfigStore {
     subscriber: ConfigSubscriber<Key>
   ): () => void;
   snapshot(): XiaochaoConfig;
+  resetAll(): void;
 }
 
 /** 配置仓库是业务层唯一读写入口，同时通知模块订阅者和 DOM 事件消费者。 */
@@ -58,6 +60,25 @@ export function createConfigStore(
     set(key, CONFIG_SCHEMA[key].defaultValue as XiaochaoConfig[Key]);
   }
 
+  function resetAll(): void {
+    const previousValues = values;
+    values = getDefaultConfig();
+    storage.clear();
+    storage.write(values);
+    for (const key of Object.keys(CONFIG_SCHEMA) as XiaochaoConfigKey[]) {
+      if (isSameValue(previousValues[key], values[key])) continue;
+      const detail = {
+        key,
+        value: values[key],
+        previousValue: previousValues[key]
+      } as ConfigChangeDetail;
+      subscribers.get(key)?.forEach((subscriber) => subscriber(detail));
+      if (eventTarget && typeof CustomEvent !== 'undefined') {
+        eventTarget.dispatchEvent(new CustomEvent(CONFIG_CHANGE_EVENT, { detail }));
+      }
+    }
+  }
+
   function subscribe<Key extends XiaochaoConfigKey>(
     key: Key,
     subscriber: ConfigSubscriber<Key>
@@ -76,7 +97,8 @@ export function createConfigStore(
     set,
     reset,
     subscribe,
-    snapshot: () => structuredClone(values)
+    snapshot: () => structuredClone(values),
+    resetAll
   };
 }
 

@@ -63,6 +63,14 @@ export const SKILL_ASSIST_DEFINITIONS: readonly SkillAssistDefinition[] = Object
     showResult: true
   },
   {
+    id: 'zhouxuan',
+    title: '周旋',
+    skillIds: [3065],
+    spellNames: ['周旋'],
+    selfOnly: true,
+    showResult: true
+  },
+  {
     id: YANJIAO_PANEL_ID,
     title: '严教',
     skillIds: [YANJIAO_SKILL_ID],

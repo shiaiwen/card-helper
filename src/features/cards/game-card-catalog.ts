@@ -1,8 +1,5 @@
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
-import {
-  clearOfficialCardArtworkCache,
-  resolveOfficialCardArtworkUrl
-} from './official-card-renderer.ts';
+import { clearOfficialCardArtworkCache } from './official-card-renderer.ts';
 
 type UnknownRecord = Record<string, unknown>;
 type CardProvider = { GetInstance(cardId: number): unknown };
@@ -46,7 +43,9 @@ export function createGameCardCatalog(
     resolve(rawCardId) {
       const cardId = positiveInteger(rawCardId) ?? 0;
       const cached = cache.get(cardId);
-      if (cached && cached.name && cached.artworkUrl) return cached;
+      // 元数据一旦读过就复用。原先要求 artworkUrl 才命中缓存，会在 Electron
+      // 截图失败时每次 resolve 都再次走原生牌面池，把弃牌弹层正在用的 UI 清掉。
+      if (cached) return cached;
 
       const scene = getGameScene();
       if (scene !== cachedScene) {
@@ -161,7 +160,9 @@ function readCardMetadata(
         ?? cardData?.Type
         ?? cardData?.type
     ) ?? 0,
-    artworkUrl: resolveOfficialCardArtworkUrl(cardId, 0.72)
+    // 不在热路径截官方牌面：drawToCanvas 会再借一张原生 CardUi，弃牌弹层打开时
+    // 会把已经画上的牌还回对象池，表现为「标题有张数、中间是空的」。
+    artworkUrl: ''
   };
 }
 

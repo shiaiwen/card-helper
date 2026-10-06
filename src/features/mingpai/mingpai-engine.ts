@@ -49,7 +49,9 @@ export interface MingpaiEngine {
   getHandCardIds(seatId: number): readonly number[];
   /** 牌堆区（zone=1）已知牌 ID。 */
   getDrawPileCardIds(): readonly number[];
+  clearKnownDrawPileOrder(): void;
   observeKnownHandCard(cardId: number, seatId: number, tags?: readonly string[]): void;
+  rememberPersistentCardTag(cardId: number, tag: string, originalOwnerSeatId?: number | null): void;
   /** 对照 nb.show(1-255)：鉴定牌堆内已知牌（顶 / 底 / 未指定）。 */
   observeKnownDrawPileCards(cardIds: readonly number[], position: number): void;
   getPersistentTags(cardId: number): string[];
@@ -69,7 +71,8 @@ export interface MingpaiEngine {
 const HAND_ZONE = 5;
 const DRAW_PILE_ZONE = 1;
 const DISCARD_ZONE = 2;
-const TEMPORARY_CARD_ZONES = new Set([8, 10]);
+// 3=处理区、8=判定展示区、10=技能临时区；需要保留各层顺序以便暗移反推。
+const TEMPORARY_CARD_ZONES = new Set([3, 8, 10]);
 const GLOBAL_OWNER = 0xff;
 
 /**
@@ -246,9 +249,32 @@ export function createMingpaiEngine(
     getDrawPileCardIds() {
       return snapshot.zones[formatZoneId(GLOBAL_OWNER, DRAW_PILE_ZONE)] ?? EMPTY;
     },
+    clearKnownDrawPileOrder() {
+      drawPileOrder.invalidate();
+      const zoneId = formatZoneId(GLOBAL_OWNER, DRAW_PILE_ZONE);
+      registry.clearLocations(GLOBAL_OWNER, DRAW_PILE_ZONE);
+      for (const [cardId, record] of cardIndex) {
+        if (record.location?.zone === DRAW_PILE_ZONE && record.location.seatId === GLOBAL_OWNER) {
+          cardIndex.delete(cardId);
+        }
+      }
+      publish();
+    },
     observeKnownHandCard(cardId, seatId, tags = []) {
       syncIndexFromObserve(cardId, seatId, tags);
       publish();
+    },
+    rememberPersistentCardTag(cardId, tag, originalOwnerSeatId = null) {
+      registry.rememberPersistentTag(cardId, tag, originalOwnerSeatId);
+      const existing = cardIndex.get(cardId);
+      if (existing) {
+        existing.tags.add(tag);
+        existing.persistentTags.add(tag);
+        if (existing.originalOwnerSeatId === null && originalOwnerSeatId !== null) {
+          existing.originalOwnerSeatId = originalOwnerSeatId;
+        }
+        publish();
+      }
     },
     observeKnownDrawPileCards(cardIds, position) {
       const ids = uniquePositive(cardIds);

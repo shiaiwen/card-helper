@@ -10,10 +10,12 @@ declare module '*.vue' {
 
 interface Window {
   electron?: { openExternal?: (url: string) => Promise<unknown> };
+  xiaochaoStorage?: {
+    saveCredentials?: (scope: 'official' | '4399', credentials: unknown[]) => unknown;
+  };
   __XIAOCHAO_ENGINEERING__?: Record<string, unknown>;
   __XIAOCHAO_GAME_SCENE__?: unknown;
   Laya?: {
     ClassUtils?: { getInstance?: (className: string) => unknown };
   };
-  VIiR0YfvE4s?: Array<(...rawArguments: unknown[]) => void>;
 }

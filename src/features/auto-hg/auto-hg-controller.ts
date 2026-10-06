@@ -35,7 +35,7 @@ function asRecord(value: unknown): UnknownRecord | null {
 
 /**
  * 盖主速刷：小号主公点黄盖，隔拍点苦肉与确认，结算后补人机再开。
- * 不依赖 xiaochao-legacy；大号出牌仍走「自动挂机」（尚未迁移）。
+ * 大号出牌仍走「自动挂机」。
  */
 export function installAutoHgController(
   configStore: XiaochaoConfigStore,
@@ -53,11 +53,8 @@ export function installAutoHgController(
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const cleanups: Array<() => void> = [];
 
-  silenceLegacyAutoHg(globalObject);
-
   cleanups.push(configStore.subscribe(AUTO_HG_ENABLED_KEY, ({ value }) => {
     enabled = value === true;
-    silenceLegacyAutoHg(globalObject);
     bumpRun();
     missingHuangGai = 0;
     if (enabled) scheduleRestart(0);
@@ -156,28 +153,4 @@ export function installAutoHgController(
       }
     }
   };
-}
-
-function silenceLegacyAutoHg(globalObject: LayaRuntimeWindow): void {
-  try {
-    const config = asRecord(asRecord((globalObject as UnknownRecord).XC)?.globalConfig);
-    if (config && 'autoHGSwitch' in config) config.autoHGSwitch = false;
-    if (config && Number(config.autoBotSwitch) === 9) config.autoBotSwitch = false;
-  } catch {
-    // ignore
-  }
-  try {
-    const input = globalObject.document?.getElementById?.('autoHGSwitch') as HTMLInputElement | null;
-    if (input?.checked) {
-      input.checked = false;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  } catch {
-    // ignore
-  }
-  try {
-    globalObject.localStorage?.setItem?.('AUTO_HG_SWITCH', 'false');
-  } catch {
-    // ignore
-  }
 }

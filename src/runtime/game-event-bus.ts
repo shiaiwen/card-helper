@@ -1,10 +1,15 @@
 export type GameEvent =
   | {
     type: 'game-started';
+    /** 明确的开局协议必须清空旧局；场景重建仍允许恢复本局缓存。 */
+    freshGame?: boolean;
   }
   | {
     type: 'game-ended';
   }
+  | { type: 'game-reconnected' }
+  | { type: 'deck-shuffled' }
+  | { type: 'spell-damage-resolved'; seatId: number; spellId: number; damage: number }
   | {
     type: 'turn-started';
     seatId: number;
@@ -54,9 +59,16 @@ export type GameEvent =
     cardIds: number[];
   }
   | {
+    /** 2v2 快捷聊天回传的队友手牌标记。 */
+    type: 'friend-hand-tags-updated';
+    seatId: number;
+    cardIds: number[];
+  }
+  | {
     type: 'temporary-cards-reordered';
     seatId: number;
     spellId: number;
+    zoneParam?: number | null;
     trace: number[];
   }
   | {
@@ -161,8 +173,16 @@ export function createGameEventBus(): GameEventBus {
 
 function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
   if (!event || typeof event.type !== 'string') return null;
-  if (event.type === 'game-started' || event.type === 'game-ended') {
-    return Object.freeze({ type: event.type });
+  if (event.type === 'game-started' || event.type === 'game-ended'
+    || event.type === 'game-reconnected' || event.type === 'deck-shuffled') {
+    return Object.freeze({ type: event.type, ...(event.type === 'game-started' && event.freshGame ? { freshGame: true } : {}) });
+  }
+  if (event.type === 'spell-damage-resolved') {
+    const seatId = normalizeSeatId(event.seatId);
+    const spellId = normalizeNonNegativeInteger(event.spellId);
+    const damage = Number(event.damage);
+    if (seatId === null || spellId === null || !Number.isFinite(damage)) return null;
+    return Object.freeze({ type: event.type, seatId, spellId, damage });
   }
   if (event.type === 'card-list-ready') {
     const cardIds = [...new Set(event.cardIds.map(normalizePositiveInteger).filter(isNumber))];
@@ -199,6 +219,9 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
       type: event.type,
       seatId,
       spellId,
+      zoneParam: event.zoneParam === null || event.zoneParam === undefined
+        ? null
+        : normalizeNonNegativeInteger(event.zoneParam),
       trace: Object.freeze(trace)
     }) as Readonly<GameEvent>;
   }
@@ -302,6 +325,11 @@ function normalizeGameEvent(event: GameEvent): Readonly<GameEvent> | null {
     const cardIds = [...new Set(event.cardIds.map(normalizePositiveInteger).filter(isNumber))];
     if (!cardIds.length) return null;
     return Object.freeze({ type: event.type, seatId, cardIds: Object.freeze(cardIds) }) as Readonly<GameEvent>;
+  }
+  if (event.type === 'friend-hand-tags-updated') {
+    const cardIds = [...new Set(event.cardIds.map(normalizePositiveInteger).filter(isNumber))];
+    if (normalizeSeatId(event.seatId) === null) return null;
+    return Object.freeze({ type: event.type, seatId: event.seatId, cardIds: Object.freeze(cardIds) });
   }
   if (event.type === 'cards-used') {
     const cardIds = [...new Set(event.cardIds.map(normalizePositiveInteger).filter(isNumber))];

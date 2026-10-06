@@ -16,7 +16,12 @@ const ROLE_DATA_MESSAGE_NAME = 'GsCUpdateRoleDataExNtf';
 const TRIGGER_SPELL_MESSAGE_NAME = 'GsCTriggerSpellNew';
 const CARD_LIST_MESSAGE_NAME = 'MsgGamePlayCardNtf';
 /** 结算界面和同房间再开一局都不切换场景，本局数据必须按协议结束清空。 */
-const GAME_OVER_MESSAGE_NAME = 'MsgGameOver';
+const GAME_OVER_MESSAGE_NAMES = new Set([
+  'MsgGameOver',
+  'decodeMsgGameOver',
+  'ClientLeavetableRep',
+  'ClientLeaveTableRep'
+]);
 const SHA_COUNT_DATA_ID = 1;
 const SEAT_ID_KEYS = [
   'SeatID', 'SeatId', 'seatID', 'seatId',
@@ -41,7 +46,18 @@ export function translateGameMessages(rawArguments: unknown[]): GameEvent[] {
   if (!payload) return [];
   const className = readString(payload, ['ClassName', 'className']);
   if (!className) return [];
-  if (className === GAME_OVER_MESSAGE_NAME) return [{ type: 'game-ended' }];
+  if (className === 'decodeMsgGameStart' || className === 'MsgGameStart') {
+    return [{ type: 'game-started', freshGame: true }];
+  }
+  if (className === 'MsgReconnectGame') return [{ type: 'game-reconnected' }];
+  if (/shuffle|reshuffle|洗牌/i.test(className)) return [{ type: 'deck-shuffled' }];
+  if (GAME_OVER_MESSAGE_NAMES.has(className)) return [{ type: 'game-ended' }];
+  if (className === 'GsCUpdateHpNtf') {
+    const event = translateSpellDamage(payload);
+    return event ? [event] : [];
+  }
+  const friendTags = translateFriendHandTags(payload);
+  if (friendTags) return [friendTags];
   if (className === OPT_TARGET_MESSAGE_NAME) {
     const event = translateOptTarget(payload);
     return event ? [event] : [];
@@ -69,6 +85,27 @@ export function translateGameMessages(rawArguments: unknown[]): GameEvent[] {
     return [event, phaseEvent].filter((item): item is GameEvent => item !== null);
   }
   return event ? [event] : [];
+}
+
+function translateSpellDamage(payload: UnknownRecord): GameEvent | null {
+  const spellId = readNonNegativeInteger(payload, ['SpellID', 'SpellId', 'spellID', 'spellId']);
+  const seatId = readSeatId(payload, ['SeatID', 'SeatId', 'seatID', 'seatId', 'DestSeatID', 'DestSeatId']);
+  const damage = readFiniteNumber(payload, ['Damage', 'damage']);
+  if (spellId === null || seatId === null || damage === null || damage <= 0) return null;
+  return { type: 'spell-damage-resolved', seatId, spellId, damage };
+}
+
+function translateFriendHandTags(payload: UnknownRecord): GameEvent | null {
+  const protocol = asRecord(payload.Protocol);
+  const data = asRecord(protocol?.Data ?? payload.Data);
+  const proto = asRecord(data?.ProtoObj ?? payload.ProtoObj);
+  const errorId = readNonNegativeInteger(proto ?? {}, ['error_id', 'ErrorID', 'errorId']);
+  if (!proto || (errorId !== 0 && errorId !== 1)) return null;
+  const seatId = readSeatId(proto, ['seat_id', 'SeatID', 'seatId']);
+  const rawIds = proto.card_list ?? proto.CardList ?? proto.cardList;
+  if (seatId === null || !isArrayLike(rawIds)) return null;
+  const cardIds = Array.from(rawIds, Number).filter((id) => Number.isInteger(id) && id > 0);
+  return { type: 'friend-hand-tags-updated', seatId, cardIds };
 }
 
 function translatePhase(payload: UnknownRecord): GameEvent | null {
@@ -267,7 +304,13 @@ function translateSpellOptRep(payload: UnknownRecord): GameEvent[] {
     'Values', 'values', 'Result', 'result'
   ]);
   if (trace.length === 1 || trace.length === 3) {
-    events.push({ type: 'temporary-cards-reordered', seatId, spellId, trace });
+    events.push({
+      type: 'temporary-cards-reordered',
+      seatId,
+      spellId,
+      zoneParam: readNonNegativeInteger(payload, ['ZoneParam', 'TempZoneParam', 'ToZoneParam', 'toZoneParam']),
+      trace
+    });
   }
   return events;
 }

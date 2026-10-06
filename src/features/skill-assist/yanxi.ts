@@ -13,6 +13,8 @@ export interface YanxiCardLine {
   name: string;
   locations: readonly YanxiLocation[];
   highlight: boolean;
+  /** 已知牌堆顶/底序位；null 表示牌堆内位置仍未知。 */
+  pilePosition: { edge: 'top' | 'bottom'; index: number } | null;
 }
 
 export interface YanxiInference {
@@ -34,6 +36,7 @@ export function formatYanxiResult(input: {
   handCardIds: readonly number[];
   deckCardIds: readonly number[];
   gameCardCatalog: GameCardCatalog;
+  drawPile?: { top: readonly number[]; bottom: readonly number[] };
 }): YanxiInference {
   const candidates = uniquePositive(input.candidateIds);
   const { handCardIds, deckCardIds } = partitionCandidatesByKnownFaces(input);
@@ -51,7 +54,8 @@ export function formatYanxiResult(input: {
       cardId,
       name: resolveCardName(cardId, input.gameCardCatalog),
       locations: Object.freeze(locations),
-      highlight: confirmedHand && handCardIds.includes(cardId) && handCardIds.length < 3
+      highlight: confirmedHand && handCardIds.includes(cardId) && handCardIds.length < 3,
+      pilePosition: findPilePosition(cardId, input.drawPile)
     };
   });
 
@@ -64,7 +68,10 @@ export function formatYanxiResult(input: {
     : `【宴戏】${summaryNames.join('/')}`;
   const body = lines.map((line) => {
     const locs = line.locations.map((location) => locationLabel[location]).join('/');
-    return `${line.name}：${locs || '未知'}`;
+    const order = line.pilePosition
+      ? `（牌堆${line.pilePosition.edge === 'top' ? '顶' : '底'}第${line.pilePosition.index}张）`
+      : line.locations.includes('deck') ? '（牌堆相对位置未知）' : '';
+    return `${line.name}：${locs || '未知'}${order}`;
   });
 
   return {
@@ -76,6 +83,18 @@ export function formatYanxiResult(input: {
     lines: Object.freeze(lines),
     resultText: [header, ...body].join('\n')
   };
+}
+
+function findPilePosition(
+  cardId: number,
+  drawPile: { top: readonly number[]; bottom: readonly number[] } | undefined
+): YanxiCardLine['pilePosition'] {
+  if (!drawPile) return null;
+  const topIndex = drawPile.top.indexOf(cardId);
+  if (topIndex >= 0) return { edge: 'top', index: topIndex + 1 };
+  const bottomIndex = drawPile.bottom.indexOf(cardId);
+  if (bottomIndex >= 0) return { edge: 'bottom', index: drawPile.bottom.length - bottomIndex };
+  return null;
 }
 
 /** @deprecated 使用 formatYanxiResult */

@@ -12,7 +12,7 @@ import TooltipLayer from './tooltip/TooltipLayer.vue';
 import DisplaySettingsSection from './settings/DisplaySettingsSection.vue';
 import BlockSettingsSection from './settings/BlockSettingsSection.vue';
 import ClearRedDotSection from './settings/ClearRedDotSection.vue';
-import GuanXingSection from './settings/GuanXingSection.vue';
+import GuanxingEntry from './settings/GuanxingEntry.vue';
 import SkinBackgroundSettingsSection from './settings/SkinBackgroundSettingsSection.vue';
 import AutoTaskSettingsSection from './settings/AutoTaskSettingsSection.vue';
 import RogueSettingsSection from './settings/RogueSettingsSection.vue';
@@ -27,6 +27,8 @@ import DeckRecordOverlay from './deck-record/DeckRecordOverlay.vue';
 import SkillAssistSection from './cards/SkillAssistSection.vue';
 // @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
 import TurnStatusBar from './cards/TurnStatusBar.vue';
+// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+import BaseDialog from './dialog/BaseDialog.vue';
 import {
   createXiaochaoPanelModel,
   XIAOCHAO_PANEL_TABS,
@@ -45,10 +47,7 @@ import type { AutoTaskController } from '../features/auto-task';
 import type { RogueController } from '../features/rogue';
 import type { UpdateNoticeController } from '../features/update-notice';
 import type { XiaochaoPanelLayout } from './mount-xiaochao-app';
-import {
-  LEGACY_TAB_CONTENT_READY_EVENT,
-  placeToolsIdentity
-} from './legacy/prepare-legacy-tab-panes';
+import { showToast } from './toast/show-toast';
 import { constrainPanelPosition, hasExceededDragThreshold, shouldDockToRight } from './panel/panel-drag';
 import {
   getOwnedPanelLayoutValue,
@@ -86,7 +85,7 @@ const initialTabId: XiaochaoPanelTabId = XIAOCHAO_PANEL_TABS.some((tab) => tab.i
 const initialCollapsed = props.configStore.get('panel.collapsed');
 const panel = createXiaochaoPanelModel(
   initialTabId,
-  showLegacyTabContent,
+  showTabContent,
   initialCollapsed,
   persistCollapsedState
 );
@@ -94,11 +93,11 @@ const panelElement = ref<HTMLElement>();
 const isDockedRight = ref(props.configStore.get('panel.dockedRight'));
 const isDockPreviewVisible = ref(false);
 const isDockPreviewActive = ref(false);
-const settingsHostElement = ref<HTMLElement>();
 const toolsHasUpdate = ref(props.updateNoticeController?.getSnapshot().hasUpdate ?? false);
 const stopUpdateNotice = props.updateNoticeController?.subscribe((snapshot) => {
   toolsHasUpdate.value = snapshot.hasUpdate;
 });
+const isResetDialogOpen = ref(false);
 let expandedHeight = '';
 let expandedWidth = '';
 let stopDragging: (() => void) | undefined;
@@ -119,7 +118,6 @@ onMounted(() => {
   if (isDockedRight.value) applyRightDock(shell);
   else restoreSavedPosition(shell);
   if (panel.isCollapsed.value) applyCollapsedDimensions(shell);
-  window.addEventListener(LEGACY_TAB_CONTENT_READY_EVENT, handleLegacyContentReady);
   window.addEventListener('resize', keepPanelInsideViewport);
 });
 
@@ -127,7 +125,6 @@ onBeforeUnmount(() => {
   stopDragging?.();
   stopResizing?.();
   stopUpdateNotice?.();
-  window.removeEventListener(LEGACY_TAB_CONTENT_READY_EVENT, handleLegacyContentReady);
   window.removeEventListener('resize', keepPanelInsideViewport);
   restoreFullGameArea();
 });
@@ -155,6 +152,27 @@ function toggleCollapsed(): void {
   else syncDockedGameLayout(shell);
 }
 
+function resetXiaochaoConfig(): void {
+  try {
+    props.configStore.resetAll();
+    const credentialKeys = ['sgsol.rememberedCredentials.v2', 'sgsol.rememberedCredentials.v2.4399'];
+    for (const key of credentialKeys) {
+      window.localStorage.removeItem(key);
+      window.xiaochaoStorage?.saveCredentials?.(key.endsWith('.4399') ? '4399' : 'official', []);
+    }
+    for (const key of Object.keys(window.sessionStorage)) {
+      if (key.startsWith('XC') || key.toLowerCase().includes('xiaochao')) window.sessionStorage.removeItem(key);
+    }
+    showToast('小抄配置已重置，正在刷新页面', 'success', 1800);
+    window.setTimeout(() => window.location.reload(), 600);
+  } catch (error) {
+    console.warn('[reset-xiaochao] 清除配置失败:', error);
+    showToast('清除配置失败，请查看控制台', 'error', 4000);
+  } finally {
+    isResetDialogOpen.value = false;
+  }
+}
+
 /** 折叠态只保留标题栏，固定宽高做成状态胶囊。 */
 function applyCollapsedDimensions(shell: HTMLElement): void {
   setOwnedPanelLayout(shell, {
@@ -172,33 +190,12 @@ function persistCollapsedState(collapsed: boolean): void {
   props.configStore.set('panel.collapsed', collapsed);
 }
 
-/** 迁移期间只控制旧页面内容的显示；主标签按钮和状态已经由 Vue 管理。 */
-function showLegacyTabContent(tabId: XiaochaoPanelTabId): void {
+/** 保存当前标签，并把内容区滚动位置复位。 */
+function showTabContent(tabId: XiaochaoPanelTabId): void {
   props.configStore.set('panel.activeTab', tabId);
   const contentElement = document.getElementById('iframe-source');
   if (!contentElement) return;
-  contentElement.querySelectorAll<HTMLElement>('.xc-main-tab-pane[data-xc-tab]').forEach((pane) => {
-    pane.classList.toggle('active', pane.dataset.xcTab === tabId);
-  });
   contentElement.scrollTop = 0;
-}
-
-/** 配置已全部在 Vue；不再把 legacy 配置残页挂进常规。 */
-function moveSettingsPaneIntoGeneralTab(): void {
-  const host = settingsHostElement.value;
-  if (host) host.replaceChildren();
-}
-
-/** 旧页面内容整理完成后，由 Vue 应用当前选中的标签状态。 */
-function showSelectedTabContent(): void {
-  showLegacyTabContent(panel.activeTabId.value);
-}
-
-/** legacy 内容整理完毕后把未迁移的旧配置追加到“常规”页。 */
-function handleLegacyContentReady(): void {
-  moveSettingsPaneIntoGeneralTab();
-  placeToolsIdentity();
-  showSelectedTabContent();
 }
 
 function handleDragStart(event: PointerEvent): void {
@@ -307,8 +304,7 @@ function detachFromRightDock(shell: HTMLElement, pointerX: number, pointerY: num
   isDockedRight.value = false;
   const width = shell.offsetWidth;
   const height = Math.min(props.layout.height, window.innerHeight);
-  // 必须先归还游戏宽度，再把面板切回悬浮坐标；否则 legacy 的延迟布局会
-  // 把正在拖动的面板重新推回右侧。
+  // 必须先归还游戏宽度，再把面板切回悬浮坐标。
   restoreFullGameArea();
   setOwnedPanelLayout(shell, {
     right: 'auto',
@@ -440,12 +436,8 @@ function handleResizeStart(event: PointerEvent): void {
         <BlockSettingsSection :config-store="configStore" />
         <ClearRedDotSection :clear-red-dots="clearRedDots" />
         <SkinBackgroundSettingsSection :config-store="configStore" />
-        <AutoTaskSettingsSection
-          :config-store="configStore"
-          :auto-task-controller="autoTaskController"
-        />
+        <AutoTaskSettingsSection :config-store="configStore" />
       </div>
-      <div ref="settingsHostElement" class="xiaochao-general-settings" hidden />
     </main>
     <main
       v-show="!panel.isCollapsed.value && panel.activeTabId.value === 'rogue'"
@@ -463,7 +455,19 @@ function handleResizeStart(event: PointerEvent): void {
       class="xiaochao-panel__content xiaochao-tools-entry"
     >
       <VersionNoticeSection :update-notice-controller="updateNoticeController" />
-      <GuanXingSection />
+      <section class="xiaochao-settings-section" aria-label="工具栏">
+        <div class="xiaochao-settings-section__body xiaochao-tools-entry__actions">
+          <GuanxingEntry :platform="platform" />
+          <button
+            type="button"
+            class="xiaochao-block-entry xiaochao-block-entry--center"
+            data-tooltip="清除小抄配置和授权缓存"
+            @click="isResetDialogOpen = true"
+          >
+            <span>重置小抄</span>
+          </button>
+        </div>
+      </section>
     </main>
     <main
       id="iframe-source"
@@ -484,6 +488,18 @@ function handleResizeStart(event: PointerEvent): void {
     aria-hidden="true"
   />
   <TooltipLayer />
+  <BaseDialog
+    :open="isResetDialogOpen"
+    title="重置小抄"
+    dialog-class="xiaochao-reset-dialog"
+    @close="isResetDialogOpen = false"
+  >
+    <p>确定清除小抄配置数据吗？此操作无法撤销。</p>
+    <template #footer>
+      <button type="button" class="xiaochao-reset-dialog__cancel" @click="isResetDialogOpen = false">取消</button>
+      <button type="button" class="xiaochao-reset-dialog__confirm" @click="resetXiaochaoConfig">清除并重载</button>
+    </template>
+  </BaseDialog>
   <DeckRecordOverlay
     :config-store="configStore"
     :deck-record-store="deckRecordStore"

@@ -74,6 +74,19 @@ export function createKnownCardRegistry(storage: Storage | null = getSessionStor
   }
 
   return {
+    rememberPersistentTag(cardId: number, tag: string, originalOwnerSeatId: number | null = null) {
+      const record = getOrCreate(cardId);
+      const normalizedTag = String(tag).trim();
+      if (!record || !normalizedTag) return;
+      record.tags.add(normalizedTag);
+      record.persistentTags.add(normalizedTag);
+      if (originalOwnerSeatId !== null && Number.isInteger(originalOwnerSeatId)
+        && originalOwnerSeatId >= 0 && record.originalOwnerSeatId === null) {
+        record.originalOwnerSeatId = originalOwnerSeatId;
+      }
+      persist();
+    },
+
     observeKnownHandCard(cardId: number, seatId: number, tags: readonly string[]) {
       const record = getOrCreate(cardId);
       if (!record) return;
@@ -95,6 +108,13 @@ export function createKnownCardRegistry(storage: Storage | null = getSessionStor
 
     getOriginalOwnerSeatId(cardId: number): number | null {
       return records.get(cardId)?.originalOwnerSeatId ?? null;
+    },
+
+    clearLocations(seatId: number, zone: number) {
+      for (const record of records.values()) {
+        if (record.location?.seatId === seatId && record.location.zone === zone) record.location = null;
+      }
+      persist();
     },
 
     /**

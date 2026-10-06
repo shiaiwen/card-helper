@@ -11,8 +11,6 @@ const placement = ref('top');
 let activeTarget;
 
 onMounted(() => {
-  document.addEventListener('mouseover', suppressLegacyTooltipEvent, true);
-  document.addEventListener('mouseout', suppressLegacyTooltipEvent, true);
   // 旧版微端 Chromium 的 PointerEvent 支持不完整，鼠标事件作为兼容入口。
   document.addEventListener('mouseover', handlePointerOver, true);
   document.addEventListener('mouseout', handlePointerOut, true);
@@ -25,8 +23,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mouseover', suppressLegacyTooltipEvent, true);
-  document.removeEventListener('mouseout', suppressLegacyTooltipEvent, true);
   document.removeEventListener('mouseover', handlePointerOver, true);
   document.removeEventListener('mouseout', handlePointerOut, true);
   document.removeEventListener('pointerover', handlePointerOver, true);
@@ -46,15 +42,6 @@ function findTooltipTarget(eventTarget) {
       : null;
   if (!element) return null;
   return element.closest('[data-tooltip]');
-}
-
-/**
- * legacy 在 document 上监听 mouseover/mouseout 并创建第二个提示层。Vue 接管的
- * 面板内只阻断这两个旧提示事件，不影响 click、pointer 和游戏区域的事件。
- */
-function suppressLegacyTooltipEvent(event) {
-  const target = findTooltipTarget(event.target);
-  if (target?.closest('#xiaochao-app')) event.stopPropagation();
 }
 
 function handlePointerOver(event) {

@@ -58,7 +58,11 @@ function updateSetting(key, event) {
           <span class="xiaochao-block-switch__label">
             {{ setting.label }}
           </span>
-          <label class="xiaochao-block-switch__toggle" :data-tooltip="setting.tooltip">
+          <label
+            class="xiaochao-block-switch__toggle"
+            :data-tooltip="setting.tooltip"
+            :title="setting.tooltip"
+          >
             <input
               type="checkbox"
               :aria-label="setting.label"

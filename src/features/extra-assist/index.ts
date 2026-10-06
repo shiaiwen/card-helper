@@ -11,7 +11,6 @@ export {
   AUTO_BOT_TOOLTIP,
   AUTO_HG_TOOLTIP,
   GAME_ASSIST_SWITCH_SETTINGS,
-  LEGACY_GAME_ASSIST_SWITCH_IDS,
   type GameAssistSwitchSetting
 } from './extra-assist-settings.ts';
 export {

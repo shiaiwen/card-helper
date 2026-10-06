@@ -64,6 +64,7 @@ export interface PeixiuRouteSolution {
   triggeredMask: number;
   path: PeixiuRouteStep[];
   availableStepCount?: number;
+  diamondCount?: number;
 }
 
 export interface PeixiuPlannedRoute {
@@ -88,6 +89,7 @@ interface SearchNode {
   mask: number;
   count: number;
   depth: number;
+  diamonds: number;
   parent: SearchNode | null;
   step: PeixiuRouteStep | null;
   triggeredMask: number;
@@ -185,19 +187,15 @@ function applyMove(
   if (!line.length) return null;
   let pos = line[line.length - 1];
   let mask = Number(collectedMask) || 0;
-  let triggered = Number(triggeredMask) || 0;
+  const triggered = Number(triggeredMask) || 0;
   const specialMoves: PeixiuSpecialMove[] = [];
-  const pending: number[] = [];
+  let deferredMove: { cell: number; special: PeixiuSpecialCell } | null = null;
 
   const collect = (cells: number[]) => {
     for (const cell of cells) {
       const special = map.specials.get(cell);
-      if (Number(special?.effect) === 3) {
-        const bit = 1 << (cell - 1);
-        if (!(triggered & bit)) {
-          triggered |= bit;
-          pending.push(cell);
-        }
+      if (!deferredMove && Number(special?.effect) === 3) {
+        deferredMove = { cell, special: special! };
       }
       const index = rewardIndex.get(cell);
       if (index === undefined) continue;
@@ -208,23 +206,22 @@ function applyMove(
   };
 
   collect(line);
-  while (pending.length) {
-    const triggerCell = pending.shift()!;
-    const special = map.specials.get(triggerCell);
-    if (!special) continue;
-    const warp = forcedWarp(pos, special, map);
-    if (!warp || warp.end === pos) continue;
+  const move = deferredMove as { cell: number; special: PeixiuSpecialCell } | null;
+  if (move) {
+    const warp = forcedWarp(pos, move.special, map);
+    if (warp && warp.end !== pos) {
     const fromCell = pos;
     pos = warp.end;
     collect(warp.path);
     specialMoves.push({
-      triggerCell,
+        triggerCell: move.cell,
       from: fromCell,
       to: warp.end,
       dir: warp.dir,
       steps: warp.steps,
       path: warp.path
     });
+    }
   }
 
   return {
@@ -264,6 +261,7 @@ function rebuildPath(node: SearchNode): PeixiuRouteSolution {
     count: node.count,
     valueCount: node.count,
     triggeredMask: node.triggeredMask || 0,
+    diamondCount: node.diamonds || 0,
     path
   };
 }
@@ -310,13 +308,6 @@ function isHealingReward(reward: PeixiuRewardCell | null, special: PeixiuSpecial
   if (!reward) return false;
   if (reward.isHealing) return true;
   return /heal|recover|health|hp|回复|体力/i.test(String(reward.type ?? ''));
-}
-
-function isCardReward(reward: PeixiuRewardCell | null, special: PeixiuSpecialCell | undefined): boolean {
-  if (Number(special?.effect) === 1) return true;
-  if (!reward) return false;
-  if (reward.isCard) return true;
-  return /card|牌|hand|draw/i.test(String(reward.type ?? ''));
 }
 
 function rewardAt(map: PeixiuMapConfig, cell: number): PeixiuRewardCell | null {
@@ -405,18 +396,24 @@ function searchMap(raw: unknown, input: PeixiuPlannerInput = {}): SearchResult {
     mask: context.startMask,
     count: bitCount(context.startMask),
     depth: 0,
+    diamonds: 0,
     parent: null,
     step: null,
     triggeredMask: context.triggeredMask,
-    stateKey: `${context.map.start}:${context.startMask}:${context.triggeredMask}`
+    stateKey: `${context.map.start}:${context.startMask}`
   };
   const queue: SearchNode[] = [root];
-  const seen = new Map<string, number>([[root.stateKey, 1]]);
+  const bestCost = new Map<string, { steps: number; diamonds: number }>([[root.stateKey, { steps: 0, diamonds: 0 }]]);
   const found: SearchNode[] = [];
+  const explored: SearchNode[] = [];
   const maxSolutions = Math.max(2, Number(input.maxSolutions) || 2);
 
-  for (let index = 0; index < queue.length && index < 100000; index += 1) {
-    const node = queue[index];
+  for (let visited = 0; queue.length && visited < 100000; visited += 1) {
+    queue.sort((left, right) => left.depth - right.depth || left.diamonds - right.diamonds);
+    const node = queue.shift()!;
+    const saved = bestCost.get(node.stateKey);
+    if (!saved || saved.steps !== node.depth || saved.diamonds !== node.diamonds) continue;
+    explored.push(node);
     if ((node.mask & targetMask) === targetMask) {
       found.push(node);
       if (found.length >= maxSolutions) break;
@@ -426,14 +423,20 @@ function searchMap(raw: unknown, input: PeixiuPlannerInput = {}): SearchResult {
       if (node.depth === 0 && forced && !forcedUnavailable && next.step.dir !== forced) continue;
       const mask = node.mask | next.mask;
       const triggered = next.step.triggeredMask || node.triggeredMask;
-      const stateKey = `${next.pos}:${mask}:${triggered}`;
-      if (hasState(node, stateKey) || (seen.get(stateKey) || 0) >= maxSolutions) continue;
-      seen.set(stateKey, (seen.get(stateKey) || 0) + 1);
+      const stateKey = `${next.pos}:${mask}`;
+      const depth = node.depth + 1;
+      const diamonds = node.diamonds + Number(next.step.dir === 2);
+      const previous = bestCost.get(stateKey);
+      if (hasState(node, stateKey) || (previous && (
+        previous.steps < depth || (previous.steps === depth && previous.diamonds <= diamonds)
+      ))) continue;
+      bestCost.set(stateKey, { steps: depth, diamonds });
       queue.push({
         pos: next.pos,
         mask,
         count: bitCount(mask),
-        depth: node.depth + 1,
+        depth,
+        diamonds,
         parent: node,
         step: { ...next.step, gainedMask: mask & ~node.mask },
         triggeredMask: triggered,
@@ -444,9 +447,10 @@ function searchMap(raw: unknown, input: PeixiuPlannerInput = {}): SearchResult {
 
   const candidates = found.length
     ? found
-    : [...queue].sort((left, right) => (
+    : explored.sort((left, right) => (
       bitCount(right.mask & targetMask) - bitCount(left.mask & targetMask)
       || left.depth - right.depth
+      || left.diamonds - right.diamonds
     ));
   const solutions: PeixiuRouteSolution[] = [];
   const signatures = new Set<string>();
@@ -650,34 +654,16 @@ function assignCards(solution: PeixiuRouteSolution, input: PeixiuPlannerInput = 
   return { ...solution, ...search(0, remaining, budget) };
 }
 
-function firstCardStep(solution: PeixiuRouteSolution, map: PeixiuMapConfig): number {
-  const path = Array.isArray(solution?.path) ? solution.path : [];
-  for (let index = 0; index < path.length; index += 1) {
-    const step = path[index];
-    if (!step?.gainedMask) continue;
-    const gained = (map.rewardCells || []).filter((_, order) => step.gainedMask! & (1 << order));
-    if (gained.some((cell) => isCardReward(rewardAt(map, cell), map.specials.get(cell)))) {
-      return index + 1;
-    }
-  }
-  return Infinity;
-}
-
 function compareAssigned(
   left: { solution: PeixiuRouteSolution; valueCount: number },
-  right: { solution: PeixiuRouteSolution; valueCount: number },
-  map: PeixiuMapConfig
+  right: { solution: PeixiuRouteSolution; valueCount: number }
 ): number {
   const leftLen = left.solution?.path?.length ?? Infinity;
   const rightLen = right.solution?.path?.length ?? Infinity;
   if (leftLen !== rightLen) return leftLen - rightLen;
-  const leftAvail = Number(left.solution?.availableStepCount) || 0;
-  const rightAvail = Number(right.solution?.availableStepCount) || 0;
-  if (leftAvail !== rightAvail) return rightAvail - leftAvail;
-  const leftCard = firstCardStep(left.solution, map);
-  const rightCard = firstCardStep(right.solution, map);
-  if (leftCard !== rightCard) return leftCard - rightCard;
-  if (left.valueCount !== right.valueCount) return right.valueCount - left.valueCount;
+  const leftDiamonds = Number(left.solution?.diamondCount) || 0;
+  const rightDiamonds = Number(right.solution?.diamondCount) || 0;
+  if (leftDiamonds !== rightDiamonds) return leftDiamonds - rightDiamonds;
   return 0;
 }
 
@@ -691,13 +677,8 @@ export function forcedFirstDirection(input: PeixiuPlannerInput = {}): number {
 export function planPeixiuRoute(raw: unknown, input: PeixiuPlannerInput = {}): PeixiuPlannedRoute | null {
   const map = parsePeixiuMapConfig(raw);
   if (!map) return null;
-  const forced = forcedFirstDirection(input);
   const searchInput = { ...input, maxSolutions: 32 };
-  let shortest = searchMap(raw, { ...searchInput, forcedFirstDirection: forced });
-  if (forced && !shortest.complete) {
-    const fallback = searchMap(raw, searchInput);
-    if (fallback.complete) shortest = fallback;
-  }
+  const shortest = searchMap(raw, searchInput);
   const ranked = (shortest.solutions || [])
     .map((solution) => ({
       solution: assignCards(solution, input),
@@ -705,7 +686,7 @@ export function planPeixiuRoute(raw: unknown, input: PeixiuPlannerInput = {}): P
     }))
     .filter((item) => item.solution);
   const withDir = ranked.filter((item) => (item.solution.path || []).some((step) => step?.dir));
-  const sorted = (withDir.length ? withDir : ranked).sort((left, right) => compareAssigned(left, right, shortest.map));
+  const sorted = (withDir.length ? withDir : ranked).sort(compareAssigned);
   const unique: PeixiuRouteSolution[] = [];
   const seen = new Set<string>();
   for (const item of sorted) {
@@ -765,9 +746,23 @@ export function remainingSuitCounts(solutions: readonly PeixiuRouteSolution[], v
   return counts;
 }
 
+function recommendedCardLabel(card: PeixiuHandCard): { text: string; suitText: string; red: boolean } {
+  const raw = String(card?.displayName || card?.name || '牌').replace(/\uFE0F/g, '');
+  const matched = raw.match(/([♥♦♠♣])([0-9AJQK]*)/i);
+  const fallbackSuit = PEIXIU_SUIT_META[Number(card?.suit)]?.mark || '';
+  const suitText = matched ? `${matched[1]}${matched[2] || ''}` : fallbackSuit;
+  const matchIndex = matched?.index ?? 0;
+  const name = matched ? `${raw.slice(0, matchIndex)}${raw.slice(matchIndex + matched[0].length)}` : raw;
+  return {
+    text: `${suitText}${name || '牌'}`,
+    suitText,
+    red: /[♥♦]/.test(suitText)
+  };
+}
+
 export function sequencePlainText(solution: PeixiuRouteSolution | null | undefined): string {
   const names = (solution?.path || []).filter((step) => step?.card).map((step) => (
-    step.card?.displayName || step.card?.name || '牌'
+    recommendedCardLabel(step.card!).text
   ));
   return names.length ? `建议牌序：${names.join('→')}` : '';
 }
@@ -785,17 +780,15 @@ export function sequenceRichParts(solution: PeixiuRouteSolution | null | undefin
   ];
   steps.forEach((step, index) => {
     if (index > 0) parts.push({ text: '→', color: '#0A0A0A' });
-    const raw = String(step.card?.displayName || step.card?.name || '牌').replace(/\uFE0F/g, '');
-    const matched = raw.match(/^(.+?)([♥♦♠♣][0-9AJQK]+)$/);
-    const name = matched ? matched[1] : raw;
-    const point = matched ? matched[2] : '';
-    const red = /[♥♦]/.test(point);
+    const label = recommendedCardLabel(step.card!);
     const item: { text: string; color: string; accent?: string; accentColor?: string } = {
-      text: name + point,
+      text: label.text,
       color: '#0A0A0A'
     };
-    if (point && red) {
-      item.accent = point;
+    if (label.suitText) {
+      item.accent = label.suitText;
+    }
+    if (label.red) {
       item.accentColor = '#E8402F';
     }
     parts.push(item);

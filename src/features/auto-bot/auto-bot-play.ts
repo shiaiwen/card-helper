@@ -331,10 +331,8 @@ export function runAutoBotDeal(
   globalObject: LayaRuntimeWindow,
   previous: AutoBotPlayContext
 ): AutoBotPlayContext {
-  const legacy = asRecord((globalObject as UnknownRecord).XC);
   const scene = asRecord(locator.gameScene())
     ?? locateGameScene(globalObject)
-    ?? asRecord(legacy?.gamescene)
     ?? asRecord((globalObject as UnknownRecord).gamescene);
   const self = asRecord(scene?.SelfSeatUi) ?? asRecord(scene?.selfSeatUi);
   if (!scene || !self) return { decision: previous.decision, mode: 'off' };

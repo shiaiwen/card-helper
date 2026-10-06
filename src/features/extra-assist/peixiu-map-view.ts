@@ -50,6 +50,58 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
+function layaPoint(globalObject: PeixiuLayaWindow, x: number, y: number): { x: number; y: number } {
+  const Point = globalObject.Laya?.Point;
+  return Point ? new Point(x, y) : { x, y };
+}
+
+function boardRectIn(
+  board: UnknownRecord,
+  target: UnknownRecord,
+  size: { width: number; height: number },
+  globalObject: PeixiuLayaWindow
+): { x: number; y: number; width: number; height: number; scaleX: number; scaleY: number } {
+  const localToGlobal = typeof board.localToGlobal === 'function'
+    ? board.localToGlobal as (point: { x: number; y: number }) => { x: number; y: number }
+    : typeof board.localToScene === 'function'
+      ? board.localToScene as (point: { x: number; y: number }) => { x: number; y: number }
+      : null;
+  const globalToLocal = typeof target.globalToLocal === 'function'
+    ? target.globalToLocal as (point: { x: number; y: number }) => { x: number; y: number }
+    : null;
+  if (localToGlobal && globalToLocal && size.width > 0 && size.height > 0) {
+    try {
+      const topLeft = globalToLocal.call(target, localToGlobal.call(board, layaPoint(globalObject, 0, 0)));
+      const bottomRight = globalToLocal.call(
+        target,
+        localToGlobal.call(board, layaPoint(globalObject, size.width, size.height))
+      );
+      const width = Math.abs(Number(bottomRight.x) - Number(topLeft.x));
+      const height = Math.abs(Number(bottomRight.y) - Number(topLeft.y));
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        return {
+          x: Math.min(Number(topLeft.x), Number(bottomRight.x)),
+          y: Math.min(Number(topLeft.y), Number(bottomRight.y)),
+          width,
+          height,
+          scaleX: width / size.width,
+          scaleY: height / size.height
+        };
+      }
+    } catch {
+      // Fall back to the board's display coordinates when a host does not expose transforms.
+    }
+  }
+  return {
+    x: Number(board.x) || 0,
+    y: Number(board.y) || 0,
+    width: size.width,
+    height: size.height,
+    scaleX: 1,
+    scaleY: 1
+  };
+}
+
 function boardSize(host: PeixiuOverlayHost): { width: number; height: number } {
   const width = Number(
     (typeof host.getDisplayedBoardPixelWidth === 'function' ? host.getDisplayedBoardPixelWidth() : 0)
@@ -341,13 +393,14 @@ function renderSlider(
   });
 
   const hostLayer = globalObject.Laya?.stage || asRecord(host.parent) || root;
+  const board = asRecord(host.boardEffectRoot);
   let hitRoot = asRecord(host.__xcPeiXiuRouteSliderHitRoot);
   if (!hitRoot || hitRoot.destroyed) {
     hitRoot = new Sprite();
     hitRoot.name = 'xcPeiXiuRouteSliderHitRoot';
     hitRoot.mouseEnabled = true;
     hitRoot.mouseThrough = true;
-    hitRoot.zOrder = 140;
+    hitRoot.zOrder = 10001;
     hitRoot.__hits = [];
     for (let index = 0; index < 3; index += 1) {
       const hit = new Sprite();
@@ -366,15 +419,29 @@ function renderSlider(
   if (hitRoot.parent !== hostLayer) {
     try { hostLayer.addChild?.(hitRoot); } catch { /* ignore */ }
   }
-  hitRoot.pos?.(4, -36 + SLIDER_HEIGHT / 2);
-  hitRoot.size?.(width, SLIDER_HEIGHT);
+  const rect = board ? boardRectIn(board, hostLayer, size, globalObject) : {
+    x: 0,
+    y: 0,
+    width: size.width,
+    height: size.height,
+    scaleX: 1,
+    scaleY: 1
+  };
+  const hitWidth = width * rect.scaleX;
+  const hitHeight = SLIDER_HEIGHT * rect.scaleY;
+  hitRoot.pos?.(
+    rect.x + 4 * rect.scaleX,
+    rect.y + (-36 + SLIDER_HEIGHT / 2) * rect.scaleY
+  );
+  hitRoot.size?.(hitWidth, hitHeight);
   ((hitRoot.__hits as UnknownRecord[]) || []).forEach((hit, index) => {
-    hit.pos?.(index * SLIDER_SLOT, 0);
-    hit.size?.(SLIDER_SLOT, SLIDER_HEIGHT);
+    hit.pos?.(index * SLIDER_SLOT * rect.scaleX, 0);
+    hit.size?.(SLIDER_SLOT * rect.scaleX, hitHeight);
     hit.visible = visible && index < count;
     hit.mouseEnabled = hit.visible;
   });
   hitRoot.visible = visible;
+  hostLayer.sortChildren?.();
 }
 
 function renderSequence(
@@ -385,9 +452,10 @@ function renderSequence(
 ): string {
   const text = sequencePlainText(solution);
   const hostNode = globalObject.Laya?.stage;
+  const board = asRecord(host.boardEffectRoot);
   const Sprite = globalObject.Laya?.Sprite;
   const Html = globalObject.Laya?.HTMLDivElement;
-  if (!text || !hostNode?.addChild || !Sprite || !Html) {
+  if (!text || !hostNode?.addChild || !board || !Sprite || !Html) {
     const existing = asRecord(host.__xcPeiXiuCardSequenceLabel);
     if (existing) existing.visible = false;
     return '';
@@ -399,13 +467,14 @@ function renderSequence(
     box.name = 'xcPeiXiuCardSequenceLabel';
     box.mouseEnabled = false;
     box.mouseThrough = true;
+    box.zOrder = 10000;
     const rich = new Html();
     rich.name = 'xcPeiXiuCardSequenceRichText';
     rich.mouseEnabled = false;
     rich.mouseThrough = true;
     Object.assign(asRecord(rich.style) ?? {}, {
-      color: '#3B2512',
-      fontSize: 16,
+      color: '#0A0A0A',
+      fontSize: 34,
       fontFamily: FONT,
       bold: true,
       stroke: 2,
@@ -420,19 +489,40 @@ function renderSequence(
   if (box.parent !== hostNode) {
     try { hostNode.addChild?.(box); } catch { return ''; }
   }
-  const width = Math.max(240, Math.min(900, size.width + 152));
-  box.pos?.(4, (size.height || 0) + 60);
-  box.size?.(width, 30);
+  const rect = boardRectIn(board, hostNode, size, globalObject);
+  const width = Math.max(240, Math.min(900, rect.width + 152));
+  box.pos?.(rect.x + 4 * rect.scaleX, rect.y + rect.height + 60 * rect.scaleY + 12);
+  box.size?.(width, 56);
   const rich = asRecord(box.__xcPeiXiuRichTextNode);
-  rich?.size?.(width, 24);
-  if (rich?.style) asRecord(rich.style)!.width = width;
+  rich?.size?.(width, 50);
+  if (rich?.style) {
+    Object.assign(asRecord(rich.style)!, {
+      width,
+      color: '#0A0A0A',
+      fontSize: 34,
+      fontFamily: FONT,
+      bold: true,
+      stroke: 2,
+      strokeColor: '#D9BE8A',
+      wordWrap: false
+    });
+  }
   const html = sequenceRichParts(solution).map((part) => {
     const raw = String(part.text || '');
     const accent = String(part.accent || '');
-    if (!accent || !raw.endsWith(accent)) return escapeHtml(raw);
-    return `${escapeHtml(raw.slice(0, raw.length - accent.length))}<span style='color:${part.accentColor || '#E8402F'}'>${escapeHtml(accent)}</span>`;
+    const accentIndex = accent ? raw.indexOf(accent) : -1;
+    if (accentIndex < 0) return escapeHtml(raw);
+    return `${escapeHtml(raw.slice(0, accentIndex))}<font color='${part.accentColor || '#0A0A0A'}'>${escapeHtml(accent)}</font>${escapeHtml(raw.slice(accentIndex + accent.length))}`;
   }).join('');
-  if (rich) rich.innerHTML = html;
+  if (rich) {
+    rich.innerHTML = '';
+    rich.innerHTML = html;
+    rich.visible = true;
+    rich.layout?.();
+    rich.repaint?.();
+  }
+  box.repaint?.();
+  hostNode.sortChildren?.();
   box.visible = true;
   return text;
 }
@@ -464,7 +554,7 @@ function showSkillBubble(host: PeixiuOverlayHost, text: string, anchor: UnknownR
     const label = new Text();
     label.name = 'xcPeiXiuSkillBubbleText';
     label.font = FONT;
-    label.fontSize = 14;
+    label.fontSize = 26;
     label.color = '#FFF6D4';
     label.wordWrap = true;
     bubble.addChild?.(label);
@@ -472,16 +562,17 @@ function showSkillBubble(host: PeixiuOverlayHost, text: string, anchor: UnknownR
     host.__xcPeiXiuSkillBubble = bubble;
   }
   if (bubble.parent !== layer) layer.addChild?.(bubble);
-  const width = Math.min(320, Math.max(160, text.length * 14));
-  const height = 48;
+  const width = Math.min(560, Math.max(260, estimateTextWidth(text, 26) + 32));
+  const height = 78;
   bubble.size?.(width, height);
   bubble.graphics?.clear?.();
   bubble.graphics?.drawRect?.(0, 0, width, height, '#2A241B');
   const label = asRecord(bubble.__xcPeiXiuText);
   if (label) {
     label.text = text;
-    label.size?.(width - 20, height - 12);
-    label.pos?.(10, 7);
+    label.fontSize = 26;
+    label.size?.(width - 28, height - 18);
+    label.pos?.(14, 9);
   }
   const x = Number(anchor.x) || 0;
   const y = Number(anchor.y) || 0;
@@ -497,8 +588,10 @@ function renderSkills(
   globalObject: PeixiuLayaWindow
 ): void {
   const layer = globalObject.Laya?.stage;
+  const board = asRecord(host.boardEffectRoot);
   const Label = globalObject.Laya?.Label;
-  if (!layer?.addChild || !Label) return;
+  if (!layer?.addChild || !board || !Label) return;
+  const rect = boardRectIn(board, layer, size, globalObject);
   const labels = (host.__xcPeiXiuSkillLabels ||= []) as UnknownRecord[];
   const items = skills.length
     ? [{ name: '已获得：', description: '' }, ...skills.map((skill, index) => ({
@@ -506,12 +599,12 @@ function renderSkills(
       name: `${index ? '、' : ''}${skill.name}`
     }))]
     : [];
-  const maxWidth = Math.max(120, size.width - 8);
+  const maxWidth = Math.max(120, rect.width - 8);
   const fitted: Array<PeixiuRewardInfo & { width: number }> = [];
   let used = 0;
   let overflow = false;
   for (const item of items) {
-    const width = Math.max(24, String(item.name || '').length * 16 + 10);
+    const width = Math.max(40, estimateTextWidth(String(item.name || ''), 32) + 12);
     if (used + width > maxWidth) {
       overflow = true;
       break;
@@ -523,7 +616,9 @@ function renderSkills(
     if (used + 26 <= maxWidth) fitted.push({ rewardId: 0, name: '…', description: '', width: 26 });
     else if (fitted.length > 1) fitted[fitted.length - 1].name = `${String(fitted[fitted.length - 1].name || '').replace(/…?$/, '…')}`;
   }
-  const y = (size.height || 0) + 60 + (hasSequence ? 24 + 2 : 0);
+  const baseX = rect.x + 4 * rect.scaleX;
+  const baseY = rect.y + rect.height + 60 * rect.scaleY + 12;
+  const y = baseY + (hasSequence ? 56 : 0);
   fitted.forEach((item, index) => {
     let label = labels[index];
     if (!label || label.destroyed) {
@@ -532,7 +627,7 @@ function renderSkills(
       label.mouseEnabled = true;
       label.mouseThrough = false;
       label.font = FONT;
-      label.fontSize = 16;
+      label.fontSize = 32;
       label.bold = true;
       label.color = '#0A0A0A';
       label.stroke = 2;
@@ -540,6 +635,7 @@ function renderSkills(
       label.align = 'left';
       label.valign = 'top';
       label.wordWrap = false;
+      label.zOrder = 10001;
       label.on?.(globalObject.Laya?.Event?.ROLL_OVER || 'rollover', label, function (this: UnknownRecord) {
         const desc = String(this.__xcPeiXiuSkillDescription || '');
         if (desc) showSkillBubble(host, desc, this, globalObject);
@@ -550,15 +646,18 @@ function renderSkills(
       layer.addChild?.(label);
       labels[index] = label;
     }
+    if (label.parent !== layer) layer.addChild?.(label);
     label.text = item.name;
     label.__xcPeiXiuSkillDescription = item.description || '';
-    label.size?.(item.width, 24);
-    label.pos?.(4 + fitted.slice(0, index).reduce((sum, current) => sum + current.width, 0), y);
+    label.fontSize = 32;
+    label.size?.(item.width, 44);
+    label.pos?.(baseX + fitted.slice(0, index).reduce((sum, current) => sum + current.width, 0), y);
     label.visible = true;
   });
   labels.forEach((label, index) => {
     if (index >= fitted.length) label.visible = false;
   });
+  layer.sortChildren?.();
 }
 
 export function hidePeixiuOverlay(host: PeixiuOverlayHost | null | undefined): void {

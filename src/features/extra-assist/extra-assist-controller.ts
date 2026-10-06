@@ -38,7 +38,7 @@ export interface ExtraAssistControllerOptions {
   peixiuRouteStore?: PeixiuRouteStore;
 }
 
-/** 独立进阶辅助实现，不依赖 legacy/app.bak 运行时。 */
+/** 独立进阶辅助实现。 */
 export function installExtraAssistController(
   configStore: XiaochaoConfigStore,
   options: ExtraAssistControllerOptions = {}
@@ -53,10 +53,8 @@ export function installExtraAssistController(
   let seatHooksInstalled = false;
   const cleanups: Array<() => void> = [];
 
-  disableLegacyExtraAssist(globalObject);
   cleanups.push(configStore.subscribe(EXTRA_ASSIST_ENABLED_KEY, ({ value }) => {
     enabled = value === true;
-    disableLegacyExtraAssist(globalObject);
     if (!enabled) options.peixiuRouteStore?.clear();
     refreshQuanyu();
   }));
@@ -157,24 +155,6 @@ export function installExtraAssistController(
       refreshQuanyu();
     }
   };
-}
-
-/** legacy 只做隔离，所有功能由当前模块独立实现。 */
-function disableLegacyExtraAssist(globalObject: LayaRuntimeWindow): void {
-  try {
-    const config = asRecord(asRecord((globalObject as UnknownRecord).XC)?.globalConfig);
-    if (config && 'extraAssistSwitch' in config) config.extraAssistSwitch = false;
-  } catch { /* ignore */ }
-  try {
-    const input = globalObject.document?.getElementById?.('extraAssistSwitch') as HTMLInputElement | null;
-    if (input?.checked) {
-      input.checked = false;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  } catch { /* ignore */ }
-  try {
-    globalObject.localStorage?.setItem?.('EXTRA_ASSIST_SWITCH', 'false');
-  } catch { /* ignore */ }
 }
 
 function asRecord(value: unknown): UnknownRecord | null {

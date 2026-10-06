@@ -1,7 +1,4 @@
-import {
-  CONFIG_CHANGE_EVENT,
-  type XiaochaoConfigStore
-} from '../../config/config-store';
+import type { XiaochaoConfigStore } from '../../config/config-store';
 
 interface CountdownTextNode {
   visible?: boolean;
@@ -14,13 +11,13 @@ interface CountdownTextNode {
   zOrder?: number;
   name?: string;
   __xiaochaoCountdownSeconds?: boolean;
+  __xiaochaoCountdownValue?: string;
   removeSelf?: () => void;
   destroy?: (destroyChildren?: boolean) => void;
 }
 
 interface LayaDisplayNode {
   RemainValue?: unknown;
-  text?: CountdownTextNode | null;
   x?: number;
   y?: number;
   width?: number;
@@ -49,18 +46,24 @@ interface CountdownRuntimeWindow extends Window {
 }
 
 /**
- * 独立实现进度条旁的剩余秒数，不再使用 legacy 的 countDownSwitch 和 onUpdate 补丁。
+ * 独立实现进度条旁的剩余秒数。
  * 游戏自己的进度条保持原样；本控制器只创建和管理小抄附加的文字节点。
  */
 export function installCountdownSecondsController(
   configStore: XiaochaoConfigStore,
   globalObject: CountdownRuntimeWindow = window
 ): () => void {
-  disableLegacyCountdownRenderer(globalObject);
   let enabled = configStore.get('display.countdownEnabled');
   const secondsByCountdown = new Map<LayaDisplayNode, CountdownTextNode>();
+  let primaryCountdown: LayaDisplayNode | null = null;
 
   const synchronize = () => {
+    if (!enabled) {
+      for (const secondsText of secondsByCountdown.values()) destroyTextNode(secondsText);
+      secondsByCountdown.clear();
+      primaryCountdown = null;
+      return;
+    }
     const stage = globalObject.Laya?.stage;
     if (!stage) return;
     const activeCountdowns = new Set<LayaDisplayNode>();
@@ -68,15 +71,19 @@ export function installCountdownSecondsController(
 
     visitDisplayTree(stage, (node) => {
       if (!isCountdownDisplay(node)) return;
-      removeLegacySecondsText(node);
       removeDuplicateSecondsTexts(node, secondsByCountdown.get(node));
       if (isVisiblyAttached(node, stage)) candidates.push(node);
     });
 
     // 游戏会把未使用的倒计时组件留在显示树中复用。只选择最接近舞台水平中心的
     // 活动进度条，避免给左下角的缓存组件也添加数字。
-    const countdown = selectPrimaryCountdown(candidates, stage);
-    if (enabled && countdown) {
+    // 同一阶段可能同时残留多个可见倒计时实例。优先沿用当前实例，避免轮询
+    // 在两个候选间反复销毁/创建文字，造成数字明显闪烁。
+    const countdown = primaryCountdown && candidates.includes(primaryCountdown)
+      ? primaryCountdown
+      : selectPrimaryCountdown(candidates, stage);
+    primaryCountdown = countdown;
+    if (countdown) {
       activeCountdowns.add(countdown);
 
       let secondsText = secondsByCountdown.get(countdown);
@@ -92,19 +99,20 @@ export function installCountdownSecondsController(
     }
 
     for (const [countdown, secondsText] of secondsByCountdown) {
-      if (!enabled || !activeCountdowns.has(countdown)) {
+      if (!activeCountdowns.has(countdown)) {
         destroyTextNode(secondsText);
         secondsByCountdown.delete(countdown);
       }
     }
+    if (!countdown) primaryCountdown = null;
   };
 
   const unsubscribe = configStore.subscribe('display.countdownEnabled', ({ value }) => {
     enabled = Boolean(value);
     synchronize();
   });
-  // 游戏倒计时弹窗按需创建，短周期同步可兼顾创建、刷新与销毁。
-  const timer = window.setInterval(synchronize, 80);
+  // 避免高频遍历整个 Laya 显示树；250ms 仍足以跟上秒数变化和弹窗创建。
+  const timer = globalObject.setInterval(synchronize, 250);
   synchronize();
 
   return () => {
@@ -113,24 +121,6 @@ export function installCountdownSecondsController(
     secondsByCountdown.forEach(destroyTextNode);
     secondsByCountdown.clear();
   };
-}
-
-/**
- * legacy 曾给倒计时原型安装 onUpdate 补丁；新控制器不能仅删除旧复选框，
- * 还必须通知旧配置代理关闭其渲染，否则新旧实现会各显示一个数字。
- */
-function disableLegacyCountdownRenderer(globalObject: CountdownRuntimeWindow): void {
-  try {
-    globalObject.dispatchEvent(new CustomEvent(CONFIG_CHANGE_EVENT, {
-      detail: { property: 'countDownSwitch', value: false }
-    }));
-  } catch {
-    // legacy 尚未就绪时，后续同步仍会持续清理 countdown.text。
-  }
-  const legacyInput = globalObject.document?.getElementById('countDownSwitch') as HTMLInputElement | null;
-  if (!legacyInput) return;
-  legacyInput.checked = false;
-  legacyInput.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function isVisiblyAttached(node: LayaDisplayNode, stage: LayaDisplayNode): boolean {
@@ -254,16 +244,10 @@ function removeDuplicateSecondsTexts(
 function updateSecondsText(textNode: CountdownTextNode, remainValue: number): void {
   const value = Math.max(0, remainValue).toFixed(0);
   textNode.visible = true;
+  if (textNode.__xiaochaoCountdownValue === value) return;
+  textNode.__xiaochaoCountdownValue = value;
   if ('label' in textNode) textNode.label = value;
   else textNode.text = value;
-}
-
-/** 清理由旧补丁创建并挂在 countdown.text 上的数字，避免新旧内容重叠。 */
-function removeLegacySecondsText(countdown: LayaDisplayNode): void {
-  const legacyText = countdown.text;
-  if (!legacyText) return;
-  destroyTextNode(legacyText);
-  countdown.text = null;
 }
 
 function destroyTextNode(textNode: CountdownTextNode): void {

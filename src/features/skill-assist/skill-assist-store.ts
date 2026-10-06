@@ -310,6 +310,17 @@ export function createSkillAssistStore(
         if (event.spellIds.some((spellId) => isChengxiangSpell(spellId, scene))) chengxiangTriggered = true;
         return;
       }
+      if (event.type === 'spell-damage-resolved' && event.spellId === 3065) {
+        const runtime = panels.get('zhouxuan');
+        if (runtime?.pinned && runtime.resultText) {
+          runtime.resultText = runtime.resultText
+            .replace('命中状态：协议未提供结果', `命中状态：是（造成${event.damage}点伤害）`)
+            .replace('命中状态：待游戏结算', `命中状态：是（造成${event.damage}点伤害）`)
+            .replace('等待后续结算', '已造成伤害，后续结算完成');
+          publish(buildSnapshot());
+        }
+        return;
+      }
       if (event.type === 'cards-used') {
         handleJianyingCardsUsed(event, scene);
         handleQuanbianCardsUsed(event, scene);
@@ -318,13 +329,15 @@ export function createSkillAssistStore(
       }
       if (event.type === 'spell-targeted') {
         handleYanxiSpell(event.seatId, event.spellId, event.cardIds);
+        handleZhouxuanTarget(event.seatId, event.spellId, event.effectIndex ?? null, event.cardIds);
         // 乱击暂时停用。
         // if (event.spellId === LUANJI_SKILL_ID) handleLuanji(event.cardIds);
         publish(buildSnapshot());
         return;
       }
       if (event.type === 'cards-moved') {
-        if (handleCardsMoved(event, scene)) publish(buildSnapshot());
+        handleZhouxuanMove(event);
+        if (handleCardsMoved(event, scene) || event.spellId === 3065) publish(buildSnapshot());
         return;
       }
       if (event.type === 'spell-opt-rep') {
@@ -607,10 +620,43 @@ export function createSkillAssistStore(
       deckCardIds: inferenceFaces.deckCardIds.length
         ? inferenceFaces.deckCardIds
         : faces.deckCardIds,
+      drawPile: mingpaiEngine.getSnapshot().drawPile,
       gameCardCatalog
     });
     runtime.resultText = inference.resultText;
     mingpaiEngine.projectSkillCards(MINGPAI_ZONE.YANXI, inference.candidateIds);
+  }
+
+  function handleZhouxuanTarget(
+    seatId: number,
+    spellId: number,
+    effectIndex: number | null,
+    cardIds: readonly number[]
+  ): void {
+    if (spellId !== 3065 || effectIndex !== 1 || !cardIds.length || !cardKnowledge.isSelfSeat(seatId)) return;
+    const runtime = panels.get('zhouxuan');
+    if (!runtime) return;
+    const names = cardIds.map((cardId) => gameCardCatalog.resolve(cardId).name || `牌${cardId}`);
+    pin(runtime);
+    runtime.resultText = `【周旋】放置牌：${names.join('、')}\n命中状态：待游戏结算\n后续提示：等待牌移入周旋区`;
+    runtime.resultOptions = [];
+    runtime.highlightedOptions = [];
+  }
+
+  function handleZhouxuanMove(event: CardsMovedEvent): void {
+    if (event.spellId !== 3065) return;
+    const runtime = panels.get('zhouxuan');
+    if (!runtime?.pinned || !runtime.resultText) return;
+    if (event.toZone === EQUIP_ZONES[0] && event.toZoneParam === 3065) {
+      runtime.resultText = runtime.resultText
+        .replace('后续提示：等待牌移入周旋区', '后续提示：牌已放置，等待后续结算')
+        .replace('命中状态：待游戏结算', '命中状态：协议未提供结果');
+    } else if (event.fromZone === EQUIP_ZONES[0] && event.fromZoneParam === 3065) {
+      runtime.resultText = runtime.resultText.replace(
+        '后续提示：牌已放置，等待后续结算',
+        '后续提示：牌已离开周旋区，请查看当前技能结算'
+      );
+    }
   }
 }
 

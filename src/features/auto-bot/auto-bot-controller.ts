@@ -127,12 +127,10 @@ export function installAutoBotController(
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const cleanups: Array<() => void> = [];
 
-  silenceLegacyAutoBot(globalObject);
   persistEnabled(globalObject, enabled);
 
   cleanups.push(configStore.subscribe(AUTO_BOT_ENABLED_KEY, ({ value }) => {
     enabled = value === true;
-    silenceLegacyAutoBot(globalObject);
     persistEnabled(globalObject, enabled);
     bumpRun();
     play = { decision: null, mode: 'off' };
@@ -313,29 +311,4 @@ export function installAutoBotController(
       }
     }
   };
-}
-
-function silenceLegacyAutoBot(globalObject: LayaRuntimeWindow): void {
-  try {
-    const config = asRecord(asRecord((globalObject as UnknownRecord).XC)?.globalConfig);
-    if (config && 'autoBotSwitch' in config && Number(config.autoBotSwitch) !== 9) {
-      config.autoBotSwitch = false;
-    }
-  } catch {
-    // ignore
-  }
-  try {
-    const input = globalObject.document?.getElementById?.('autoBotSwitch') as HTMLInputElement | null;
-    if (input?.checked) {
-      input.checked = false;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  } catch {
-    // ignore
-  }
-  try {
-    globalObject.localStorage?.setItem?.('AUTO_BOT_SWITCH', 'false');
-  } catch {
-    // ignore
-  }
 }

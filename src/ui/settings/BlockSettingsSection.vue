@@ -89,7 +89,11 @@ function toggleSelectAll() {
             :data-tooltip="setting.tooltip"
           >
             <span class="xiaochao-block-switch__label">{{ setting.label }}</span>
-            <label class="xiaochao-block-switch__toggle">
+            <label
+              class="xiaochao-block-switch__toggle"
+              :data-tooltip="setting.tooltip"
+              :title="setting.tooltip"
+            >
               <input
                 type="checkbox"
                 :aria-label="setting.label"
