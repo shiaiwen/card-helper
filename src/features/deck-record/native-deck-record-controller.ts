@@ -1,6 +1,8 @@
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
+import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
 import {
   createOfficialCardView,
+  detachOfficialDrawLayer,
   OFFICIAL_CARD_BASE_HEIGHT,
   OFFICIAL_CARD_BASE_WIDTH,
   releaseOfficialCardView,
@@ -94,7 +96,8 @@ const BUTTON_STYLES: Record<DeckRecordListKind, ButtonVisualStyle> = {
 export function installNativeDeckRecordController(
   configStore: XiaochaoConfigStore,
   deckRecordStore: DeckRecordStore,
-  interaction: DeckRecordInteraction
+  interaction: DeckRecordInteraction,
+  gameCardCatalog?: GameCardCatalog
 ): () => void {
   let stopped = false;
   let scene: UnknownRecord | null = null;
@@ -105,6 +108,12 @@ export function installNativeDeckRecordController(
   let popupCards: OfficialCardView[] = [];
   let popupSignature = '';
   let hideTimer = 0;
+
+  const displayableCardIds = (cardIds: readonly number[]) => cardIds.filter((cardId) => {
+    if (!(cardId > 0)) return false;
+    const name = gameCardCatalog?.resolve(cardId).name ?? '';
+    return !/臂膀/.test(name);
+  });
 
   const clearHideTimer = () => {
     if (!hideTimer) return;
@@ -126,9 +135,10 @@ export function installNativeDeckRecordController(
     popupCards = [];
     popupSignature = '';
     if (!popup) return;
+    detachOfficialDrawLayer(popup);
     try {
       call(popup, 'removeSelf');
-      call(popup, 'destroy', true);
+      if (typeof popup.addDrawChild !== 'function') call(popup, 'destroy', false);
     } catch {
       // 场景切换时可能已销毁。
     }
@@ -184,11 +194,14 @@ export function installNativeDeckRecordController(
     }
     const deck = deckRecordStore.getSnapshot();
     const sortMode = configStore.get('display.discardSortMode');
-    const cardIds = activeList === 'top'
+    const rawCardIds = activeList === 'top'
       ? deck.deckTopCardIds
       : activeList === 'bottom'
         ? deck.deckBottomCardIds
         : sortCardIds(deck.currentTurnDiscardCardIds, sortMode);
+    // 神典韦“臂膀”属于技能派生物，不是可展示的实体牌。它进入弃牌区协议时
+    // 不能交给原生牌面池，否则会破坏后续整组弃牌的绘制。
+    const cardIds = displayableCardIds(rawCardIds);
     const knownCount = cardIds.filter(Boolean).length;
     const title = `${LIST_TITLES[activeList]}${knownCount ? ` · ${knownCount}张` : ''}`;
     const signature = `${activeList}:${sortMode}:${cardIds.join(',')}:${title}`;
@@ -252,7 +265,8 @@ export function installNativeDeckRecordController(
     updateButtonLabels(buttons, {
       top: snapshot.deckTopCardIds.filter(Boolean).length,
       bottom: snapshot.deckBottomCardIds.filter(Boolean).length,
-      discard: snapshot.currentTurnDiscardCardIds.length + snapshot.currentTurnHiddenDiscardCount
+      discard: displayableCardIds(snapshot.currentTurnDiscardCardIds).length
+        + snapshot.currentTurnHiddenDiscardCount
     });
 
     const globalPoint = toGlobalPoint(root, 0, rowY);
@@ -297,10 +311,13 @@ function createCardListPopup(
   handlers: { onEnter: () => void; onLeave: () => void }
 ): { popup: UnknownRecord; cards: OfficialCardView[]; width: number; buttonRowOffset: number } | null {
   const laya = asRecord((globalThis as UnknownRecord).Laya);
-  const Sprite = laya?.Sprite;
   const Text = laya?.Text;
-  if (typeof Sprite !== 'function' || typeof Text !== 'function') return null;
+  if (typeof Text !== 'function') return null;
 
+  // 对照 app.bak EG：外壳用普通 Sprite 画底和标题；官方牌 Draw 到内层 SgsSprite。
+  // 底图不能画在 Draw 宿主上，否则不透明 graphics 会盖住绘制层，只剩标题空框。
+  const Sprite = laya?.Sprite;
+  if (typeof Sprite !== 'function') return null;
   const popup = asRecord(new (Sprite as unknown as new () => object)());
   if (!popup) return null;
   popup.name = 'xcNativeDeckRecordList';
@@ -310,13 +327,15 @@ function createCardListPopup(
 
   const cardWidth = OFFICIAL_CARD_BASE_WIDTH * POPUP_CARD_SCALE;
   const cardHeight = OFFICIAL_CARD_BASE_HEIGHT * POPUP_CARD_SCALE;
-  const step = cardIds.length > 1
+  const overlapGap = cardIds.length > 1
     ? Math.max(4, Math.min(cardWidth + 7, (POPUP_MAX_WIDTH - POPUP_PADDING * 2 - cardWidth) / (cardIds.length - 1)))
     : 0;
   const width = cardIds.length
-    ? Math.min(POPUP_MAX_WIDTH, Math.ceil(POPUP_PADDING * 2 + cardWidth + step * (cardIds.length - 1)))
+    ? Math.min(POPUP_MAX_WIDTH, Math.ceil(POPUP_PADDING * 2 + cardWidth + overlapGap * (cardIds.length - 1)))
     : 184;
-  const height = cardIds.length ? Math.ceil(POPUP_TITLE_HEIGHT + cardHeight + POPUP_PADDING) : 54;
+  const height = cardIds.length
+    ? Math.ceil(31 + cardHeight + POPUP_PADDING)
+    : 54;
   call(popup, 'size', width, height);
   paintPopupBackground(popup, width, height, kind);
 
@@ -336,17 +355,21 @@ function createCardListPopup(
 
   const cards: OfficialCardView[] = [];
   if (cardIds.length) {
+    const scene = asRecord(locateGameScene(window));
     cardIds.forEach((cardId, index) => {
       if (!(cardId > 0)) return;
       const view = createOfficialCardView(
         popup,
         cardId,
         cardWidth,
-        cardHeight
+        cardHeight,
+        scene,
+        { x: POPUP_PADDING + overlapGap * index, y: POPUP_TITLE_HEIGHT }
       );
-      if (!view) return;
-      call(view.ui, 'pos', POPUP_PADDING + step * index, POPUP_TITLE_HEIGHT);
-      cards.push(view);
+      if (view) {
+        view.ui.zOrder = 10 + index;
+        cards.push(view);
+      }
     });
   } else {
     const empty = asRecord(new (Text as unknown as new () => object)())!;
@@ -373,6 +396,11 @@ function createCardListPopup(
   };
 }
 
+function sortCardIds(cardIds: readonly number[], _sortMode: SortMode): number[] {
+  // 弹层不重算花色/类型；排序由 Vue 面板与快捷键写入的 discardSortMode 驱动展示侧。
+  return [...cardIds];
+}
+
 function paintPopupBackground(
   target: UnknownRecord,
   width: number,
@@ -394,11 +422,6 @@ function paintPopupBackground(
   } catch {
     call(graphics, 'drawRect', 0, 0, width, height, 'rgba(29, 23, 18, 0.97)', style.border, 1);
   }
-}
-
-function sortCardIds(cardIds: readonly number[], _sortMode: SortMode): number[] {
-  // 弹层不重算花色/类型；排序由 Vue 面板与快捷键写入的 discardSortMode 驱动展示侧。
-  return [...cardIds];
 }
 
 function createOverlayRoot(

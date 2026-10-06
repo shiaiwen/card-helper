@@ -12,32 +12,44 @@ export const OFFICIAL_CARD_BASE_WIDTH = 93;
 export const OFFICIAL_CARD_BASE_HEIGHT = 130;
 
 const artworkCache = new Map<number, string>();
+let cachedCardProvider: { scene: UnknownRecord; provider: UnknownRecord } | null = null;
 
 /** 通过游戏原生卡牌类获取指定 ID 的牌对象。 */
 export function resolveOfficialCard(cardId: number, scene = asRecord(locateGameScene(window))): unknown {
   if (!(cardId > 0) || !scene) return null;
+  const provider = resolveCardProvider(scene);
+  if (!provider || typeof provider.GetInstance !== 'function') return null;
+  try {
+    return (provider.GetInstance as Function).call(provider, cardId) ?? null;
+  } catch {
+    cachedCardProvider = null;
+    return null;
+  }
+}
+
+function resolveCardProvider(scene: UnknownRecord): UnknownRecord | null {
+  if (cachedCardProvider?.scene === scene && cachedCardProvider.provider) return cachedCardProvider.provider;
   const sample = findCardSample(scene);
   for (let provider = asRecord(sample)?.constructor; provider; provider = Object.getPrototypeOf(provider)) {
     if (typeof provider.GetInstance !== 'function') continue;
-    try {
-      return (provider.GetInstance as Function).call(provider, cardId) ?? null;
-    } catch {
-      return null;
-    }
+    cachedCardProvider = { scene, provider };
+    return provider;
   }
+  cachedCardProvider = null;
   return null;
 }
 
 /**
  * 复用游戏 createNormalCardUi + Draw，把官方牌面画到宿主 Sprite 上。
- * 与原版局内弹层、最近用牌同一条渲染链。
+ * 对照 app.bak E1：先 SetActualSize / pos，再 Draw 到带 addDrawChild 的宿主。
  */
 export function createOfficialCardView(
   host: UnknownRecord,
   cardId: number,
   width = OFFICIAL_CARD_BASE_WIDTH,
   height = OFFICIAL_CARD_BASE_HEIGHT,
-  scene = asRecord(locateGameScene(window))
+  scene = asRecord(locateGameScene(window)),
+  position?: { x: number; y: number }
 ): OfficialCardView | null {
   if (!host || !(cardId > 0) || !scene) return null;
   const container = findCardContainer(scene);
@@ -47,7 +59,10 @@ export function createOfficialCardView(
   let ui: UnknownRecord | null = null;
   try {
     ui = asRecord((container.createNormalCardUi as Function).call(container, nativeCard));
-    if (!ui || typeof ui.Draw !== 'function') return null;
+    if (!ui || typeof ui.Draw !== 'function') {
+      if (ui) releaseOfficialCardView({ ui, owner: container, cardId });
+      return null;
+    }
     ui.mouseEnabled = false;
     ui.mouseThrough = true;
     ui.NeedToolTip = cardId > 0;
@@ -56,8 +71,10 @@ export function createOfficialCardView(
     // size 只改布局盒，牌面仍按 93×130 绘制；缩放必须走 SetActualSize。
     if (typeof ui.SetActualSize === 'function') call(ui, 'SetActualSize', actualWidth, actualHeight);
     else call(ui, 'size', actualWidth, actualHeight);
-    call(ui, 'pos', 0, 0);
-    const drawHost = resolveDrawHost(host, scene);
+    const x = Number.isFinite(position?.x) ? Number(position!.x) : 0;
+    const y = Number.isFinite(position?.y) ? Number(position!.y) : 0;
+    call(ui, 'pos', x, y);
+    const drawHost = resolveDrawHost(host);
     if (!drawHost) {
       releaseOfficialCardView({ ui, owner: container, cardId });
       return null;
@@ -71,34 +88,118 @@ export function createOfficialCardView(
 }
 
 /**
- * 牌面 Draw 要求宿主实现 addDrawChild（游戏 SgsSprite），普通 Laya.Sprite 会抛错；
- * 在宿主下挂一个同类绘制层并复用。
+ * 对照 app.bak cS：new 出真正带 addDrawChild 的 SgsSprite。
+ * 禁止 new GameRoundInfo（会再造一份局内 HUD，画面被掏空）。
+ * 禁止给普通 Laya.Sprite 伪造 addDrawChild：Draw 会把牌画进绘制层，普通 Sprite 不渲染那层，弹层就只剩标题。
  */
-function resolveDrawHost(host: UnknownRecord, scene: UnknownRecord): UnknownRecord | null {
-  if (typeof host.addDrawChild === 'function') return host;
+export function createOfficialDrawHost(): UnknownRecord | null {
+  const scene = asRecord(locateGameScene(window));
+  const roundInfo = asRecord(scene?.gameRoundInfo);
+  const roundCtor = roundInfo?.constructor;
+  for (let proto = roundInfo ? Object.getPrototypeOf(roundInfo) : null; proto; proto = Object.getPrototypeOf(proto)) {
+    if (!Object.prototype.hasOwnProperty.call(proto, 'addDrawChild')) continue;
+    if (typeof proto.addDrawChild !== 'function' || typeof proto.constructor !== 'function') continue;
+    if (roundCtor && proto.constructor === roundCtor) continue;
+    const node = tryConstructDrawHost(proto.constructor);
+    if (node) return node;
+  }
+  const classUtils = asRecord(asRecord((globalThis as UnknownRecord).Laya)?.ClassUtils);
+  const getClass = classUtils?.getClass;
+  if (typeof getClass === 'function') {
+    try {
+      const node = tryConstructDrawHost(getClass.call(classUtils, 'SgsSprite'));
+      if (node) return node;
+    } catch {
+      // 类表未注册时走 Object.create 补一层。
+    }
+  }
+  const Sprite = asRecord((globalThis as UnknownRecord).Laya)?.Sprite;
+  if (typeof Sprite === 'function') {
+    for (let proto = roundInfo ? Object.getPrototypeOf(roundInfo) : null; proto; proto = Object.getPrototypeOf(proto)) {
+      if (typeof proto.addDrawChild !== 'function') continue;
+      try {
+        const node = asRecord(Object.create(proto));
+        if (!node) continue;
+        (Sprite as unknown as (this: unknown) => void).call(node);
+        if (typeof node.addDrawChild !== 'function') continue;
+        prepareDrawHost(node);
+        return node;
+      } catch {
+        // 该原型不能当 Sprite 初始化。
+      }
+    }
+  }
+  return null;
+}
+
+function tryConstructDrawHost(ctor: unknown): UnknownRecord | null {
+  if (typeof ctor !== 'function') return null;
+  try {
+    const node = asRecord(new (ctor as new () => object)());
+    if (!node || typeof node.addDrawChild !== 'function') return null;
+    prepareDrawHost(node);
+    return node;
+  } catch {
+    return null;
+  }
+}
+
+function prepareDrawHost(node: UnknownRecord): void {
+  node.name = 'xcOfficialDrawHost';
+  node.mouseEnabled = false;
+  node.mouseThrough = true;
+  call(asRecord(node.graphics), 'clear');
+  const children = Array.isArray(node._children) ? [...node._children] : [];
+  for (const child of children) {
+    try {
+      call(asRecord(child), 'removeSelf');
+    } catch {
+      // 构造函数残留节点摘不掉也不继续用它挡牌。
+    }
+  }
+}
+
+function isRealDrawHost(node: UnknownRecord | null): boolean {
+  if (!node || typeof node.addDrawChild !== 'function') return false;
+  if (node.name === 'xcOfficialDrawHost') return true;
+  for (let proto = Object.getPrototypeOf(node); proto; proto = Object.getPrototypeOf(proto)) {
+    if (Object.prototype.hasOwnProperty.call(proto, 'addDrawChild') && typeof proto.addDrawChild === 'function') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 牌面 Draw 要求宿主实现 addDrawChild。普通弹层是 Laya.Sprite 时，在其下挂一层 SgsSprite。
+ */
+function resolveDrawHost(host: UnknownRecord): UnknownRecord | null {
+  if (isRealDrawHost(host)) return host;
   const existing = asRecord(host.__xcCardDrawLayer);
-  if (existing && !existing.destroyed && existing.parent === host) return existing;
-  const DrawSprite = findDrawSpriteClass(scene);
-  if (!DrawSprite) return null;
-  const layer = asRecord(new DrawSprite());
-  if (!layer || typeof layer.addDrawChild !== 'function') return null;
-  layer.name = 'xcCardDrawLayer';
-  layer.mouseEnabled = false;
-  layer.mouseThrough = true;
-  call(layer, 'pos', 0, 0);
-  call(host, 'addChild', layer);
+  if (isRealDrawHost(existing)) {
+    const parent = asRecord(existing.parent) ?? asRecord(existing._parent);
+    if (parent !== host) call(host, 'addChild', existing);
+    return existing;
+  }
+  const layer = createOfficialDrawHost();
+  if (!layer) return null;
   host.__xcCardDrawLayer = layer;
+  layer.zOrder = 10;
+  call(host, 'addChild', layer);
   return layer;
 }
 
-function findDrawSpriteClass(scene: UnknownRecord): (new () => object) | null {
-  const sample = asRecord(scene.gameRoundInfo);
-  for (let proto = sample && Object.getPrototypeOf(sample); proto; proto = Object.getPrototypeOf(proto)) {
-    if (!Object.prototype.hasOwnProperty.call(proto, 'addDrawChild')) continue;
-    if (typeof proto.addDrawChild !== 'function' || typeof proto.constructor !== 'function') continue;
-    return proto.constructor as new () => object;
+export function detachOfficialDrawLayer(host: UnknownRecord | null | undefined): void {
+  if (!host) return;
+  const layer = asRecord(host.__xcCardDrawLayer);
+  if (!layer) return;
+  try {
+    call(layer, 'removeSelf');
+    if (layer.name === 'xcOfficialDrawHost') call(layer, 'destroy', false);
+  } catch {
+    // 只从树上摘下自制绘制层，不 destroy 游戏节点。
   }
-  return null;
+  host.__xcCardDrawLayer = null;
 }
 
 /**
@@ -231,13 +332,18 @@ function findCardSample(scene: UnknownRecord): unknown {
     const container = asRecord(seatUi.cardContainer);
     for (const key of [
       'cardUis', 'cardUIs', 'handCardUis', 'handCardUIs',
-      'equipCardUis', 'equipCardUIs', 'judgeCardUis', 'judgeCardUIs'
+      'equipCardUis', 'equipCardUIs', 'judgeCardUis', 'judgeCardUIs',
+      'decideCardUis', 'decideCardUIs'
     ]) {
       const item = readArray(container, key)[0];
-      if (item) return asRecord(item)?.Card ?? asRecord(item)?.card ?? item;
+      if (item) {
+        return asRecord(item)?.Card ?? asRecord(item)?.card ?? asRecord(item)?.theCard ?? item;
+      }
     }
     const seat = asRecord(seatUi.seat);
-    const hand = readArray(seat, 'HandCards')[0] ?? readArray(seat, 'handCards')[0];
+    const hand = readArray(seat, 'HandCards')[0]
+      ?? readArray(seat, 'handCards')[0]
+      ?? readArray(seat, 'handShowCards')[0];
     if (hand) return hand;
   }
   return null;
