@@ -1,3 +1,8 @@
+/**
+ * 明牌功能对外导出：引擎、控制器、看牌/移牌规则与查询工具。
+ * 业务侧优先用 createMingpaiEngine + installMingpaiController。
+ */
+
 export {
   createMingpaiEngine,
   formatZoneId,

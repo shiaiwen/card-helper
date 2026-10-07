@@ -1,3 +1,7 @@
+/**
+ * 小抄版本更新提示导出：清单解析、版本比较与控制器。
+ */
+
 export {
   compareVersions,
   getXiaochaoVersion,

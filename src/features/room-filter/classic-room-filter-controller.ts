@@ -1,3 +1,7 @@
+/**
+ * 经典场房间过滤：按设置隐藏密码房等，补丁大厅房间列表渲染。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import { createMethodPatcher } from '../../runtime/method-patch.ts';
 import { locateSceneManager, type GameRuntimeWindow } from '../seat-display/game-scene-locator.ts';
@@ -9,7 +13,7 @@ const SOURCE_KEY = '__xcClassicRoomFilterSource';
 const PATCHED_KEY = '__xcClassicRoomFilterInstalled';
 const PATCH_VERSION = 1;
 
-/** Mirrors app.bak's HallScene room-list filter and bottom-bar checkbox. */
+/** 大厅房间列表筛选，以及底栏勾选框。 */
 export function installClassicRoomFilterController(
   config: XiaochaoConfigStore,
   options: { globalObject?: GameRuntimeWindow; pollIntervalMs?: number } = {}
@@ -70,7 +74,7 @@ export function installClassicRoomFilterController(
 
   function mountCheckbox(scene: Node, roomList: Node): void {
     if (scene.roomListView !== roomList) return;
-    // app.bak creates this control under roomListView, beside its waiting-only checkbox.
+    // 控件挂在 roomListView 下，紧挨「仅等待中」勾选框。
     const anchor = asNode(roomList.isWaitCheckBox);
     if (!anchor) return;
     const CheckBox = anchor.constructor;

@@ -1,3 +1,7 @@
+/**
+ * 原生最近用牌 HUD：把 RecentCardStore 投影到局内 Laya 卡面覆盖层（gameRoundInfo 旁）。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createOfficialCardView,
@@ -12,9 +16,8 @@ type UnknownRecord = Record<string, unknown>;
 /**
  * 使用游戏自己的 Laya 卡牌组件显示最近用牌。
  *
- * 原版小抄并不在 DOM 中仿制卡牌，而是把 createNormalCardUi() 创建的对象
- * 直接 Draw 到 gameRoundInfo 旁边。本控制器保留这一边界：Vue 只管理开关，
- * 牌框、插画、字体、花色和清晰度全部由当前游戏版本负责。
+ * 在 gameRoundInfo 旁挂载原生 createNormalCardUi() 视图，不在 DOM 中仿制卡面。
+ * Vue 只管理开关与模式；牌框、插画、字体、花色由当前游戏版本渲染。
  */
 export function installNativeRecentCardController(
   configStore: XiaochaoConfigStore,
@@ -111,7 +114,7 @@ export function installNativeRecentCardController(
   };
 }
 
-/** 没有可显示的牌时占住牌位，样式对照原版“当前/玩家 用牌”空框。 */
+/** 没有可显示的牌时占住牌位，保持「当前/玩家用牌」空框布局。 */
 function updatePlaceholder(host: UnknownRecord, existing: UnknownRecord | null, text: string, width: number, height: number): UnknownRecord | null {
   const laya = asRecord((globalThis as UnknownRecord).Laya);
   const Sprite = laya?.Sprite;

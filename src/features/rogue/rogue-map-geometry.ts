@@ -1,3 +1,7 @@
+/**
+ * 山河地图几何计算：坐标变换、命中测试与路径辅助。
+ */
+
 import {
   ROGUE_MAP_STYLE,
   type RogueCityGeometry,
@@ -53,7 +57,7 @@ export interface RogueMapViewport {
 }
 
 /**
- * 对照 app.bak `KP`：面板必须落在 topProcesserView 下方、bottomView 上方，
+ * 面板必须落在 topProcesserView 下方、bottomView 上方，
  * 避免盖住顶栏面具/进度条和底栏。
  */
 export function readMapViewport(
@@ -91,7 +95,7 @@ export interface RogueViewportBounds {
 }
 
 /**
- * 对照 app.bak `KP`：面板必须落在 topProcesserView 下方、bottomView 上方，
+ * 面板必须落在 topProcesserView 下方、bottomView 上方，
  * 避免盖住顶栏头像/进度条和底栏。
  */
 export function readMapViewportBounds(
@@ -176,7 +180,7 @@ function projectNodeBounds(
         };
       }
     } catch {
-      // fall through
+      // 计算失败时改走下面的回退
     }
   }
   return null;
@@ -195,7 +199,7 @@ function cityCenter(
     cx = Number(item.PosXCenter);
     cy = Number(item.PosYDown);
   } catch {
-    // ignore
+    // 忽略异常
   }
   return {
     x: Number.isFinite(cx!) ? cx! : x + (ROGUE_MAP_STYLE.cityDefaultWidth * scaleX) / 2,
@@ -259,7 +263,7 @@ function mergeVisualArea(
   };
 }
 
-/** 对照 app.bak `KI`：优先 GetCityItemById，否则用 Rcity 表坐标。 */
+/** 优先 GetCityItemById，否则用 Rcity 表坐标。 */
 export function resolveCityGeometry(
   cityView: UnknownRecord | null,
   cityId: string | number,
@@ -339,7 +343,7 @@ export function readCityHasEvent(
   return 'unknown';
 }
 
-/** 虚线引导：对照 app.bak `Kd`。 */
+/** 虚线引导。 */
 export function dashSegments(
   fromX: number,
   fromY: number,

@@ -1,3 +1,7 @@
+/**
+ * 自动换将运行时：点选黄盖、苦肉/确认点击、桌内补 AI 再开、Laya 节点点击封装。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { locateGameScene, locateSceneManager } from '../seat-display/game-scene-locator.ts';
 import {
@@ -21,6 +25,7 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
+/** 模拟点击 Laya 节点：优先 onMouse / event(CLICK) / onClick / click。 */
 export function clickLayaNode(node: unknown, globalObject?: LayaRuntimeWindow): boolean {
   const record = asRecord(node);
   if (!record) return false;
@@ -32,8 +37,7 @@ export function clickLayaNode(node: unknown, globalObject?: LayaRuntimeWindow): 
       return true;
     }
     if (typeof record.event === 'function') {
-      // Laya.EventDispatcher.event expects the event name first. Passing the
-      // event object as the first argument is silently ignored by skill items.
+      // Laya.EventDispatcher.event 第一个参数必须是事件名。把事件对象放在第一位时，技能项会静默忽略。
       record.event(clickType, record.name ?? clickEvent);
       return true;
     }
@@ -148,6 +152,7 @@ function cancelSpareSeatPrompt(locator: LayaObjectLocator): boolean {
   return mousePress(cancel);
 }
 
+/** 定位桌面/牌桌场景。 */
 export function locateTableScene(globalObject?: LayaRuntimeWindow): UnknownRecord | null {
   const manager = locateSceneManager(globalObject ?? (typeof window !== 'undefined' ? window : {} as LayaRuntimeWindow));
   if (!manager?.IsTableScene) return null;
@@ -167,6 +172,7 @@ function waitInfo(seat: UnknownRecord | null): UnknownRecord | null {
   return asRecord(seat?.WaitInfo) ?? asRecord(seat?.waitInfo);
 }
 
+/** 在选将窗点击黄盖武将。 */
 export function clickHuangGai(windowInstance: UnknownRecord): 'picked' | 'missing' | 'skipped' {
   if (windowInstance.destroyed || windowInstance.visible === false) return 'skipped';
   const picked = findHuangGaiGeneral(windowInstance.generalUis);
@@ -232,6 +238,7 @@ function fallbackDeal(selfSeatUi: UnknownRecord, globalObject?: LayaRuntimeWindo
   return clickEnabledButtons(buttons, CONFIRM_BUTTON_INDICES, globalObject);
 }
 
+/** 执行一次苦肉节拍（点技能或确认）。 */
 export function runKurouTick(
   globalObject: LayaRuntimeWindow,
   tick: number
@@ -325,9 +332,10 @@ export function runTableAssist(
 }
 
 /**
- * 对照 app.bak autoS 的盖主分支：桌上补人机、点「小杀(普通)」、循环点开始。
+ * 盖主分支：桌上补人机、点「小杀(普通)」、循环点开始。
  * 非房主只点准备。
  */
+/** 结算后补 AI 并再开一局。 */
 export function runTableRestart(
   locator: LayaObjectLocator,
   globalObject: LayaRuntimeWindow
@@ -335,6 +343,7 @@ export function runTableRestart(
   return runTableAssist(locator, globalObject, { fillAi: true });
 }
 
+/** 查找当前可见的选将窗口实例。 */
 export function findSelectGeneralWindow(locator: LayaObjectLocator): UnknownRecord | null {
   return locator.window('SelectGeneralWindow')
     ?? locator.findWindows('SelectGeneralWindow')[0]

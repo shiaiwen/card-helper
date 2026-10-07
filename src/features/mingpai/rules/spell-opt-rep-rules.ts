@@ -1,3 +1,7 @@
+/**
+ * CGsRoleSpellOptRep 规则：解析操作回报中的揭示与临时区重排线索。
+ */
+
 import {
   deckReveal,
   handReveal,
@@ -8,7 +12,7 @@ import {
 } from './reveal-types.ts';
 
 /**
- * CGsRoleSpellOptRep 看牌规则表（对照 app.bak 约 45604–45730）。
+ * CGsRoleSpellOptRep 看牌规则表。
  * 同样只登记「技能 → Datas 落到哪」，状态写入交给 reveal-sink。
  */
 

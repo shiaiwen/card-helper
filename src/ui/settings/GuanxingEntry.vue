@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 自助观星外链入口。 */
 import { createElectronPlatform } from '../../adapters/electron-platform';
 import { createUserscriptPlatform } from '../../adapters/userscript-platform';
 

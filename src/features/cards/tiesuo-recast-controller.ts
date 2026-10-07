@@ -1,3 +1,7 @@
+/**
+ * 铁索连环重铸辅助：简化重铸操作流程。
+ */
+
 import { createLayaObjectLocator, type LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { createMethodPatcher } from '../../runtime/method-patch.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
@@ -5,7 +9,7 @@ import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 type Node = Record<string, any>;
 
 /**
- * 对照 app.bak：
+ * 铁索重铸：
  * 1) 包 SelfSeatUi.ButtonBar_UpdateCallback：点确定时若 btnOK 走不通，改走 btnReset（重铸）。
  * 2) 铁索未选目标时游戏会把确定置灰，需额外点亮，否则点不到、回调进不来。
  * 绝不包装 onClick / setEnabled —— 之前那样会吞掉所有牌的确定。
@@ -114,12 +118,12 @@ export function installTiesuoRecastController(
       if (typeof ok.setEnabled === 'function') ok.setEnabled(true);
       else if (typeof ok.setEnable === 'function') ok.setEnable(true);
     } catch {
-      // ignore
+      // 忽略异常
     }
     try {
       if (typeof ok.setGray === 'function') ok.setGray(false);
     } catch {
-      // ignore
+      // 忽略异常
     }
     ok.enabled = true;
     ok._enabled = true;

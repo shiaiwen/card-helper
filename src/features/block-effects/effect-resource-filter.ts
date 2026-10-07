@@ -1,3 +1,7 @@
+/**
+ * 特效资源 URL 过滤：按开关将杀/回血/互动骨骼替换为空动画。
+ */
+
 export interface EffectResourceFlags {
   sha: boolean;
   heal: boolean;
@@ -30,7 +34,7 @@ function isBlockedSkeleton(path: string, flags: EffectResourceFlags): boolean {
   return sha || heal || interact;
 }
 
-/** 对应原版 ul：被屏蔽的 .sk 换成空动画，空动画引用的 placeholder.png 换成透明图。 */
+/** 被屏蔽的 .sk 资源换成空动画；空动画引用的 placeholder.png 换成透明图。 */
 export function replaceBlockedEffectUrl(
   url: string,
   flags: EffectResourceFlags,

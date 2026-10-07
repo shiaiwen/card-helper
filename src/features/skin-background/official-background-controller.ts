@@ -1,3 +1,7 @@
+/**
+ * 官方壁纸/动态背景控制器：与 interceptor 本地资源及皮肤纸扩展菜单协同。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -31,9 +35,9 @@ export interface WallpaperMenuExtension {
   enabled(): boolean;
   /** 使用了官方背景，皮肤背景需让位。 */
   onOfficialWallpaperUsed(): void;
-  /** 面板准备完成后挂上“小抄背景”页签（对照 app.bak 的 bQ，开关关闭时自行移除）。 */
+  /** 面板准备完成后挂上「小抄背景」页签；开关关闭时自行移除。 */
   attachMenu(menu: UnknownRecord): void;
-  /** 移除“小抄背景”页签（对照 app.bak 的 bd）。 */
+  /** 移除「小抄背景」页签。 */
   detachMenu(menu: UnknownRecord): void;
 }
 
@@ -51,7 +55,7 @@ export interface OfficialBackgroundOptions {
 }
 
 /**
- * 官方背景解锁（对照 app.bak 的 bW/V6/V3/V1 一组实现）：
+ * 官方背景解锁：
  * 背景面板里的锁定项全部可选；选择只保存在本地，不上报服务器，
  * 游戏下发当前背景 ID 时替换为本地保存的选择。
  */
@@ -199,7 +203,7 @@ export function installOfficialBackgroundController(
     return Number(item.ID ?? item.Id ?? item.id ?? asRecord(item.data)?.ID ?? 0);
   }
 
-  /** 对照 app.bak 的 ba：背景项去锁、点击直接使用，使用时只写本地。 */
+  /** 背景项去锁，点击直接使用，使用时只写本地。 */
   function prepareItem(item: unknown, isSkinItem: boolean): void {
     const record = asRecord(item);
     const prototype = prototypeOf(record);
@@ -326,7 +330,7 @@ export function installOfficialBackgroundController(
     }
   }
 
-  /** 对照 app.bak 的 V1：首次打开时重建列表并应用本地保存的背景。 */
+  /** 首次打开时重建列表并应用本地保存的背景。 */
   function unlockMenu(menu: UnknownRecord): boolean {
     if (!isOn()) return false;
     installGlobalGuards();
@@ -376,7 +380,7 @@ export function installOfficialBackgroundController(
     prepareAllItems(menu);
   }
 
-  /** 对照 app.bak 的 V0：关闭后让面板按游戏原逻辑重建。 */
+  /** 关闭后让面板按游戏原逻辑重建。 */
   function restoreMenu(menu: unknown): void {
     const record = asRecord(menu);
     if (!record) return;
@@ -397,7 +401,7 @@ export function installOfficialBackgroundController(
     return menu && Array.isArray(buttons) && buttons.length ? menu : null;
   }
 
-  /** 对照 app.bak 的 V3。 */
+  /** 点开皮肤页后准备顶栏背景菜单。 */
   function prepareTopMenu(topMenu: UnknownRecord): void {
     if (!isOn() && !extensionOn()) return;
     void tasks.poll(() => menuReady(topMenu), 100, 50).then((menu) => {
@@ -416,7 +420,7 @@ export function installOfficialBackgroundController(
     });
   }
 
-  /** 还没打开过背景面板时，静默创建一次以应用本地保存的背景（对照 app.bak 的 V4）。 */
+  /** 还没打开过背景面板时，静默创建一次以应用本地保存的背景。 */
   function createHiddenMenu(topMenu: UnknownRecord): boolean {
     callMethod(topMenu, 'onClickSkin');
     const menu = asRecord(topMenu.wallPaperUI);
@@ -427,7 +431,7 @@ export function installOfficialBackgroundController(
     return true;
   }
 
-  /** 对照 app.bak 的 V6。 */
+  /** 场景就绪后安装拦截并同步解锁状态。 */
   function sync(): void {
     installGlobalGuards();
     const topMenu = asRecord(locator.scene()?.topMenu);

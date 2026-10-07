@@ -1,3 +1,7 @@
+/**
+ * 裴秀路线状态仓：保存当前规划结果供 Vue 面板与游戏内地图视图订阅。
+ */
+
 import { PEIXIU_SUIT_META, PEIXIU_SUITS, type PeixiuRewardInfo } from './peixiu-map-model.ts';
 import {
   remainingSuitCounts,

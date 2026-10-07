@@ -1,3 +1,7 @@
+/**
+ * 游戏辅助设置项：进阶辅助、自动托管、自动换将、百胜、酒馆目标等键与文案。
+ */
+
 import type { XiaochaoConfigKey } from '../../config/config-schema.ts';
 
 export const EXTRA_ASSIST_ENABLED_KEY = 'assist.extraEnabled' satisfies XiaochaoConfigKey;
@@ -6,7 +10,7 @@ export const AUTO_HG_ENABLED_KEY = 'assist.autoHGEnabled' satisfies XiaochaoConf
 export const BAI_SHENG_ENABLED_KEY = 'assist.baiShengEnabled' satisfies XiaochaoConfigKey;
 export const AUTO_BOT_TAVERN_TARGET_KEY = 'assist.autoBotTavernTarget' satisfies XiaochaoConfigKey;
 
-/** 对照 app.bak `#owN2jG5x` 的 data-tooltip。 */
+/** 进阶辅助开关的说明文字。 */
 export const EXTRA_ASSIST_TOOLTIP = [
   '开启后可使用进阶武将辅助',
   '魔孙权：显示权御增益状态',

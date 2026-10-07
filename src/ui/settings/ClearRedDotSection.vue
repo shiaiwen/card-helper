@@ -1,4 +1,5 @@
 <script setup>
+/** 一键清理任务/活动红点入口。 */
 import { onBeforeUnmount, ref } from 'vue';
 
 const props = defineProps({

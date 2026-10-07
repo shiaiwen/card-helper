@@ -1,3 +1,7 @@
+/**
+ * 座位状态控制器：轮询/监听场景座位，更新 SeatStateStore。
+ */
+
 import type { SeatStateStore } from './seat-state-store.ts';
 import { locateGameScene, type GameRuntimeWindow } from './game-scene-locator.ts';
 import { readSeatStateFromGameScene } from './seat-game-adapter.ts';

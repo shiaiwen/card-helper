@@ -1,3 +1,7 @@
+/**
+ * 自动任务配置数据：任务 ID、武将灯系列与物品名等表结构构建。
+ */
+
 type UnknownRecord = Record<string, unknown>;
 
 /** 自动任务需要的静态配置（来自 Config_w.sgs）。 */

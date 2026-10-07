@@ -1,3 +1,7 @@
+/**
+ * 明牌引擎：维护已知牌分区、牌堆顺序与 findKZ 查询索引。
+ */
+
 import {
   createKnownCardRegistry,
   type KnownCardLocation,
@@ -14,9 +18,9 @@ export interface MingpaiZoneRef {
 }
 
 export interface MingpaiFindResult {
-  /** 对照 nD.findKZ.keys：已知牌用 cardId；归属不明时可能含 0 / 负键（本实现用 cardId 与 0）。 */
+  /** 已知牌以 cardId 为键；归属不明时可能使用 0（本实现用 cardId 与 0）。 */
   keys: readonly number[];
-  /** 对照 findKZ.zones：如 `5-3`、`1-255`、`unknown`、`?`。 */
+  /** 分区键列表，如 `5-3`、`1-255`、`unknown`、`?`。 */
   zones: readonly string[];
 }
 
@@ -43,7 +47,7 @@ export interface MingpaiEngine {
   addZoneCardIds(zoneId: string, cardIds: readonly number[]): void;
   removeZoneCardIds(zoneId: string, cardIds: readonly number[]): void;
   clearZone(zoneId: string): void;
-  /** 对照 nD.findKZ：按登记位置推断牌可能所在分区。 */
+  /** 按登记位置推断某张牌可能所在的分区。 */
   findKZ(cardIdOrNode: number): MingpaiFindResult;
   /** 手牌区已知牌 ID。 */
   getHandCardIds(seatId: number): readonly number[];
@@ -52,7 +56,7 @@ export interface MingpaiEngine {
   clearKnownDrawPileOrder(): void;
   observeKnownHandCard(cardId: number, seatId: number, tags?: readonly string[]): void;
   rememberPersistentCardTag(cardId: number, tag: string, originalOwnerSeatId?: number | null): void;
-  /** 对照 nb.show(1-255)：鉴定牌堆内已知牌（顶 / 底 / 未指定）。 */
+  /** 鉴定牌堆内已知牌，并标记相对位置（顶 / 底 / 未指定）。 */
   observeKnownDrawPileCards(cardIds: readonly number[], position: number): void;
   getPersistentTags(cardId: number): string[];
   getOriginalOwnerSeatId(cardId: number): number | null;
@@ -76,7 +80,7 @@ const TEMPORARY_CARD_ZONES = new Set([3, 8, 10]);
 const GLOBAL_OWNER = 0xff;
 
 /**
- * 明牌引擎：对照 app.bak 的 nD 职责（身份、位置、分区投影、findKZ），
+ * 明牌引擎：维护身份、位置、分区投影和已知牌查找，
  * 不依赖 legacy。完整链表 pack/swap 键网在可观测协议面上用位置登记表等价实现。
  */
 export function createMingpaiEngine(
@@ -427,7 +431,7 @@ function hydrateIndexFromRegistryStorage(
       });
     }
   } catch {
-    // ignore
+    // 忽略异常
   }
 }
 

@@ -61,7 +61,7 @@ function ensureWindowsUtf8Console() {
       process.stderr.setDefaultEncoding('utf8');
     }
   } catch {
-    // ignore
+    // 忽略异常
   }
 }
 
@@ -73,7 +73,7 @@ function forwardChildOutput(chunk, stream) {
       stream.write(new TextDecoder('gbk').decode(buf));
       return;
     } catch {
-      // fall through
+      // 计算失败时改走下面的回退
     }
   }
   stream.write(buf);
@@ -185,7 +185,7 @@ function shutdown() {
     try {
       child.kill();
     } catch {
-      // ignore
+      // 忽略异常
     }
   }
   purgeDebugLogFiles(root);

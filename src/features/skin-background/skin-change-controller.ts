@@ -1,3 +1,7 @@
+/**
+ * 本地皮肤切换控制器：按设置改写他人/本家皮肤相关协议或资源。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -82,7 +86,7 @@ export interface SkinChangeOptions {
 }
 
 /**
- * 皮肤解锁与他人换肤（对照 app.bak 的 GI/GP/Gp 与 F0~F4、Yu/YP 一组实现）。
+ * 皮肤解锁与他人换肤。
  * 两者共用换肤窗口：未拥有的皮肤显示为可选，确认时只在本地调用座位的
  * SetGeneralSkin；自己的选择按武将保存，开局时改写服务器下发的皮肤。
  */
@@ -163,7 +167,7 @@ export function installSkinChangeController(
     }
   }
 
-  /** 对照 app.bak 的 GX + Ge：在自己座位上本地应用皮肤。 */
+  /** 在自己座位上本地应用皮肤。 */
   function applyToSelfSeat(generalID: number, skinID: number, isDynamic: boolean): boolean {
     const seat = selfSeat();
     if (!seat || !(generalID > 0)) return false;
@@ -267,7 +271,7 @@ export function installSkinChangeController(
     return null;
   }
 
-  /** 对照 app.bak 的 GP：确认选择时，未拥有的皮肤只在本地应用。 */
+  /** 确认选择时，未拥有的皮肤只在本地应用。 */
   function handleLocalSelection(view: UnknownRecord, native: PatchableFunction, args: unknown[]): { handled: boolean; result?: unknown } {
     const guard = guardedViews.get(view);
     if (!guard) return { handled: false };
@@ -422,7 +426,7 @@ export function installSkinChangeController(
     return '_visible' in lookOn ? lookOn._visible === true : lookOn.visible === true;
   }
 
-  /** 悬停的是主将还是副将（对照 app.bak 的 YE）。 */
+  /** 悬停的是主将还是副将。 */
   function hoveredIsZhu(manager: UnknownRecord): boolean {
     const seat = asRecord(manager.seat);
     if (!seat) return manager.isZhu !== false;
@@ -545,7 +549,7 @@ export function installSkinChangeController(
     return state > 0 || state === -1;
   }
 
-  /** 对照 app.bak 的 Yu + YP：确认后只在本地替换该座位皮肤并记住，服务器刷新时继续覆盖。 */
+  /** 确认后只在本地替换该座位皮肤并记住，服务器刷新时继续覆盖。 */
   function finishOtherSelection(view: UnknownRecord): { handled: boolean; applied: boolean } {
     const session = sessionFor(view);
     if (!session) return { handled: false, applied: false };
@@ -657,7 +661,7 @@ export function installSkinChangeController(
     });
   }
 
-  /** 对照 app.bak 的 F0：打开原生换肤框，并把窗口绑定到这次他人换肤会话。 */
+  /** 打开原生换肤框，并把窗口绑定到这次他人换肤会话。 */
   function openOtherPicker(manager: UnknownRecord, args: unknown[], original: PatchableFunction): boolean {
     const button = asRecord(manager.skinBtn);
     const isZhu = typeof button?.__xcOtherSkinIsZhu === 'boolean' ? button.__xcOtherSkinIsZhu : hoveredIsZhu(manager);
@@ -735,7 +739,7 @@ export function installSkinChangeController(
     });
   }
 
-  /** 进入新牌局时清空覆盖记录（对照 app.bak 的 F4）。 */
+  /** 进入新牌局时清空覆盖记录。 */
   function resetForScene(): void {
     hideOwnSkinButtons();
     ownSkinButtons.clear();

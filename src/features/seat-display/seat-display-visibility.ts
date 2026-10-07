@@ -1,3 +1,7 @@
+/**
+ * 座位 UI 显示开关：按 display.seatUiEnabled 控制座位相关覆盖层。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store';
 
 const SEAT_DISPLAY_STYLE_ID = 'xiaochao-seat-display-visibility-style';

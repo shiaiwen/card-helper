@@ -1,3 +1,7 @@
+/**
+ * 配置持久化适配：读写 XC::config 文档，损坏回退默认值并迁移历史独立键。
+ */
+
 import type { PlatformAdapter } from '../adapters/platform';
 import {
   CONFIG_DOCUMENT_VERSION,

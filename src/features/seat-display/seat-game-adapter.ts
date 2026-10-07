@@ -1,3 +1,7 @@
+/**
+ * 座位与游戏对象适配：从场景座位实例读取手牌/身份等字段。
+ */
+
 import type { SeatStateSnapshot } from './seat-state.ts';
 
 /** 游戏对象只在运行时存在，因此适配层只描述迁移所需的最小只读结构。 */

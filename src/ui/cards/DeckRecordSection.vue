@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 常规页牌局记录区块：弃牌/牌堆顶底等列表与排序。 */
 import { computed, onBeforeUnmount, ref } from 'vue';
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import type { DeckRecordStore } from '../../features/deck-record/deck-record-store.ts';
@@ -215,7 +216,7 @@ function rankOrder(rank: string): number {
 .xc-deck-record__discard-title:hover {
   color: #fff3d0;
 }
-/* 对齐 app.bak 卡牌页牌堆容器：无重框，左浮小牌。 */
+/* 卡牌页牌堆容器：无重框，左浮小牌。 */
 .xc-deck-record__cards {
   position: relative;
   display: block;

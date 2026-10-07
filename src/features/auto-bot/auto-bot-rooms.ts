@@ -1,3 +1,7 @@
+/**
+ * 自动托管大厅与房间流程：识别模式、建房/填位/开局、桌内 AI 提示与会话状态。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { locateSceneManager } from '../seat-display/game-scene-locator.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
@@ -31,6 +35,7 @@ export interface AutoBotRoomSession {
   aiPromptDone: boolean;
 }
 
+/** 创建空白房间会话状态（未托管、默认模式 1）。 */
 export function emptyRoomSession(): AutoBotRoomSession {
   return {
     managedRoom: false,
@@ -47,6 +52,7 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
+/** 定位当前活动场景（大厅 / 桌面 / 山河等）。 */
 export function locateCurrentScene(globalObject: LayaRuntimeWindow): UnknownRecord | null {
   const manager = locateSceneManager(globalObject);
   return asRecord(manager?.CurrentScene);
@@ -374,6 +380,7 @@ function runCreateIdentityRoom(
   return true;
 }
 
+/** 大厅轮询：按模式建房或进入合适房间。 */
 export function runAutoBotHall(
   locator: LayaObjectLocator,
   globalObject: LayaRuntimeWindow,
@@ -402,6 +409,7 @@ export function runAutoBotHall(
   return { ...session, kind: 1, managedRoom: true, lastHallMark: mark, lastCreateAt: now };
 }
 
+/** 桌内轮询：填 AI、准备/开局、处理 AI 提示框。 */
 export function runAutoBotTable(
   locator: LayaObjectLocator,
   globalObject: LayaRuntimeWindow,

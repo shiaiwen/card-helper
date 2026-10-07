@@ -1,3 +1,7 @@
+/**
+ * 顶部居中 Toast：可叠加多条，定时自动移除。
+ */
+
 export type ToastKind = 'success' | 'warning' | 'error';
 
 const TOAST_HOST_ID = 'xiaochao-toast-host';

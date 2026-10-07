@@ -1,3 +1,11 @@
+/**
+ * 小抄核心启动器（Electron / 油猴共用）。
+ *
+ * 组装：配置仓库、游戏事件总线、卡牌目录、明牌引擎、各功能控制器，
+ * 以及 Vue 面板挂载与 `__XIAOCHAO_ENGINEERING__` 运行时桥。
+ * 平台差异只通过 PlatformAdapter 注入；协议改写过滤器在消息源上串联。
+ */
+
 import { createLifecycle } from '../runtime/lifecycle.js';
 import { installRuntimeBridge } from '../runtime/wait-for-game-runtime.js';
 import type { PlatformAdapter } from '../adapters/platform';

@@ -1,3 +1,7 @@
+/**
+ * 手牌排序控制器：在手牌区挂载排序按钮，按类型/花色/点数重排，并持久化位置与锁定模式。
+ */
+
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import { createMethodPatcher } from '../../runtime/method-patch.ts';
@@ -138,7 +142,7 @@ function setVisible(node: Node | null | undefined, visible: boolean): void {
   if ('_visible' in node) node._visible = visible;
 }
 
-/** 对照 app.bak `BP`：类型走原生 SortNormalCards，花色/点数排 cardUis 后重绘。 */
+/** 类型走原生 SortNormalCards，花色和点数排 cardUis 后重绘。 */
 export function sortHand(container: Node | null | undefined, mode: SortMode): boolean {
   if (!container || !cardList(container).length) return false;
   if (mode === 'CardType') {
@@ -605,7 +609,7 @@ function patchSeatPrototype(selfSeatUi: Node, patcher: ReturnType<typeof createM
   return proto;
 }
 
-/** 对照 app.bak：把原生整理按钮换成类型/花色/点数三段，双击锁定后手牌变化自动整理。 */
+/** 把原生整理按钮换成类型、花色、点数三段；双击锁定后，手牌变化时自动整理。 */
 export function installHandSortController(
   store: XiaochaoConfigStore,
   runtime: Window = window

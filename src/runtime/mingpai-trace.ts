@@ -1,3 +1,8 @@
+/**
+ * 明牌调试追踪缓冲：写入 window.__XIAOCHAO_MINGPAI_TRACE__，
+ * 供开发监控（dev-main 诊断模式）增量拉取，不影响正式业务路径。
+ */
+
 export interface MingpaiTraceEntry {
   seq: number;
   time: number;

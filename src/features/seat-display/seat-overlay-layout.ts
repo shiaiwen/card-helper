@@ -1,3 +1,7 @@
+/**
+ * 座位叠加层布局：计算各座位已知牌/标记在屏幕上的位置。
+ */
+
 export type SeatOverlaySide = 'left' | 'top' | 'right';
 
 export interface SeatOverlayPosition {

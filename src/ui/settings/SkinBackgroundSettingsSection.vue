@@ -1,4 +1,5 @@
 <script setup>
+/** 皮肤与背景设置：本地皮肤、官方壁纸、皮肤纸等。 */
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import BaseDialog from '../dialog/BaseDialog.vue';
 import {

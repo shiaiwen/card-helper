@@ -1,3 +1,7 @@
+/**
+ * 屏蔽设置项声明：特效类与其它弹窗/跑马灯类，供设置页与控制器共用。
+ */
+
 import type { XiaochaoConfigKey } from '../../config/config-schema.ts';
 
 export interface BlockSetting {

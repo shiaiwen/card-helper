@@ -1,3 +1,7 @@
+/**
+ * 游戏视口观察：监听画布/舞台尺寸变化，供座位叠加层重新布局。
+ */
+
 export interface GameViewportBounds {
   left: number;
   top: number;

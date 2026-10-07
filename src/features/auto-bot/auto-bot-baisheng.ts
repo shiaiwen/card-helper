@@ -1,3 +1,7 @@
+/**
+ * 百胜点将：根据成就列表挑选未完成武将并自动点将。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { HIDDEN_BAI_SHENG_GENERAL_IDS, pickBaiShengGeneralId } from './auto-bot-mode.ts';
 
@@ -54,7 +58,7 @@ function applyFigure(manager: UnknownRecord, generalId: number): boolean {
 }
 
 /**
- * 对照 app.bak jK：桌上点将未完成百胜的反贼武将。
+ * 桌上点将未完成百胜的反贼武将。
  * 禁将方案整表暂存/恢复体量大，有问题再补；这里只做点将。
  */
 export function tryBaiShengDianjiang(

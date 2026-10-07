@@ -1,14 +1,21 @@
 <script setup lang="ts">
+/**
+ * 小抄主面板 Vue 根组件。
+ *
+ * 负责：面板拖拽/右停靠/折叠尺寸、Tab 切换与配置持久化、
+ * 常规/山河图/工具三大页内容装配，以及重置配置对话框。
+ * 业务数据全部经 props 注入的 store/controller，本组件不直接读游戏全局。
+ */
+
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-// Vite/Vue resolves these SFC imports at build time; TS may still complain without
-// the project's Vue shim declarations, so suppress the false-positive here.
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// Vite 在构建时解析这些 Vue 单文件；类型检查缺少项目声明时会误报，这里压掉误报。
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import PanelHeader from './panel/PanelHeader.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import PanelTabs from './panel/PanelTabs.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import TooltipLayer from './tooltip/TooltipLayer.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import DisplaySettingsSection from './settings/DisplaySettingsSection.vue';
 import BlockSettingsSection from './settings/BlockSettingsSection.vue';
 import ClearRedDotSection from './settings/ClearRedDotSection.vue';
@@ -17,17 +24,17 @@ import SkinBackgroundSettingsSection from './settings/SkinBackgroundSettingsSect
 import AutoTaskSettingsSection from './settings/AutoTaskSettingsSection.vue';
 import RogueSettingsSection from './settings/RogueSettingsSection.vue';
 import GameAssistSettingsSection from './settings/GameAssistSettingsSection.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import VersionNoticeSection from './settings/VersionNoticeSection.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import DeckRecordSection from './cards/DeckRecordSection.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import DeckRecordOverlay from './deck-record/DeckRecordOverlay.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import SkillAssistSection from './cards/SkillAssistSection.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import TurnStatusBar from './cards/TurnStatusBar.vue';
-// @ts-expect-error - Vue SFC module is provided by the project Vue runtime.
+// @ts-expect-error Vue 单文件由项目运行时提供。
 import BaseDialog from './dialog/BaseDialog.vue';
 import {
   createXiaochaoPanelModel,
@@ -470,10 +477,10 @@ function handleResizeStart(event: PointerEvent): void {
           <button
             type="button"
             class="xiaochao-block-entry xiaochao-block-entry--center"
-            data-tooltip="在浏览器新页面打开小抄官网"
+            data-tooltip="在浏览器新页面打开小抄主页"
             @click="openXiaochaoSite"
           >
-            <span>小抄官网</span>
+            <span>小抄主页</span>
           </button>
           <button
             type="button"

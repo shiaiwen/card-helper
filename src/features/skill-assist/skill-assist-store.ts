@@ -1,3 +1,7 @@
+/**
+ * 技能辅助状态仓：权变、宴戏、严教、资援等技能的面板数据与可见性。
+ */
+
 import type { MingpaiEngine } from '../mingpai/mingpai-engine.ts';
 import { MINGPAI_ZONE } from '../mingpai/mingpai-zones.ts';
 import { collectHandAndDeckFaces, partitionCandidatesByMingpai } from '../mingpai/mingpai-queries.ts';
@@ -519,7 +523,7 @@ export function createSkillAssistStore(
     return true;
   }
 
-  /** 对照原版：GsCRoleOptTargetNtf SpellID=严教且 Param=0 时，Params（或 CardIDs）为亮出的牌。 */
+  /** GsCRoleOptTargetNtf 且 SpellID=严教、Param=0 时，Params（或 CardIDs）为亮出的牌。 */
   function handleYanjiaoReveal(event: OptTargetEvent): void {
     if (event.spellId !== YANJIAO_SKILL_ID || event.param !== 0) return;
     const runtime = panels.get(YANJIAO_PANEL_ID);
@@ -581,7 +585,7 @@ export function createSkillAssistStore(
     runtime.resultText = formatQuandao(resolveCards(handCardIds));
   }
 
-  /** 牌堆里可能的牌：本局卡号去掉明牌引擎已知在牌堆以外的牌（对照原版 paidui）。 */
+  /** 牌堆候选：本局全部卡号去掉明牌引擎已知不在牌堆中的牌。 */
   function possibleDrawPileCardIds(excluded: readonly number[]): number[] {
     const elsewhere = new Set(excluded);
     for (const record of mingpaiEngine.getSnapshot().records) {

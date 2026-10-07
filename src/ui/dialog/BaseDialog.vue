@@ -1,4 +1,5 @@
 <script setup>
+/** 通用模态对话框外壳（确认重置配置等）。 */
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { calculateDialogPosition } from './dialog-position';
 

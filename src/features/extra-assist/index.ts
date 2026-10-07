@@ -1,3 +1,7 @@
+/**
+ * 进阶辅助导出：南华/许劭/裴秀等技能提示，以及游戏辅助开关文案。
+ */
+
 export {
   installExtraAssistController,
   type ExtraAssistController,

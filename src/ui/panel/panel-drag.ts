@@ -1,3 +1,7 @@
+/**
+ * 面板拖拽几何：阈值、视口约束、右缘停靠判定。
+ */
+
 export const RIGHT_DOCK_THRESHOLD_PX = 25;
 export const FLOATING_PANEL_SAFE_MARGIN_PX = 8;
 export const DRAG_START_THRESHOLD_PX = 5;

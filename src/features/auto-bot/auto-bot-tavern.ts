@@ -1,3 +1,7 @@
+/**
+ * 酒馆进度：读取每日/每周对局目标，供自动托管决定是否继续开房。
+ */
+
 import type { LayaObjectLocator } from '../../adapters/laya-object-locator.ts';
 import type { XiaochaoConfig } from '../../config/config-schema.ts';
 

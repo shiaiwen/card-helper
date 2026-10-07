@@ -1,6 +1,10 @@
+/**
+ * 回合状态仓：当前行动座位、阶段与剩余出杀次数，供标题栏展示。
+ */
+
 import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
 
-/** 对照原版阶段文案，下标即 GsCGamephaseNtf.Round。 */
+/** 阶段文案表，下标即 GsCGamephaseNtf.Round。 */
 export const PHASE_LABELS = [
   '回合开始时',
   '准备阶段',
@@ -33,6 +37,7 @@ const EMPTY_SNAPSHOT: Readonly<TurnStatusSnapshot> = Object.freeze({
   shaRemaining: null
 });
 
+/** 创建回合状态仓；开局/结束时清空。 */
 export function createTurnStatusStore(): TurnStatusStore {
   let snapshot = EMPTY_SNAPSHOT;
   const listeners = new Set<(snapshot: Readonly<TurnStatusSnapshot>) => void>();
@@ -84,7 +89,7 @@ export function createTurnStatusStore(): TurnStatusStore {
   };
 }
 
-/** 对照原版 TX：上限 <0 或 ≥99 视为无限。 */
+/** 出杀上限 <0 或 ≥99 时按「无限」显示。 */
 export function remainingSha(used: number, limit: number): number {
   if (limit < 0 || limit >= 99) return Infinity;
   return Math.max(0, limit - (Number.isFinite(used) ? used : 0));
@@ -103,6 +108,7 @@ export function formatShaRemaining(remaining: number | null): string {
   return remaining === Infinity ? '∞' : String(remaining);
 }
 
+/** 把游戏事件总线接到回合状态仓。 */
 export function bindTurnStatusStoreToGameEvents(store: TurnStatusStore, gameEvents: GameEventBus): () => void {
   return gameEvents.subscribe((event) => store.handleGameEvent(event));
 }

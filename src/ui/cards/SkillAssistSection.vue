@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 常规页技能辅助区块：权变/宴戏/严教等条文展示。 */
 import { computed, onBeforeUnmount, ref } from 'vue';
 import type { SkillAssistStore } from '../../features/skill-assist/skill-assist-store.ts';
 import type { GameCardCatalog } from '../../features/cards/game-card-catalog.ts';

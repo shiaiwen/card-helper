@@ -1,3 +1,14 @@
+/**
+ * 本地开发启动器：在加载正式 main.cjs 之前配置隔离环境。
+ *
+ * - 将 userData 指到仓库内 .dev-data，避免污染正式微端数据；
+ * - 关闭首次公告、清理过期远程脚本配置项；
+ * - 可选诊断模式（SGSOL_DIAGNOSTICS=1）轮询 webview 健康、明牌/皮肤追踪、probe.js；
+ * - 将渲染进程错误与加载失败写入 .dev-data/runtime.log。
+ *
+ * 用法：electron 指向本文件（或 npm 脚本包装），最终 require('./main.cjs')。
+ */
+
 const { app } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -5,14 +16,14 @@ const root = __dirname;
 // 尽早关掉 Chromium 文件日志，避免在仓库里生成 debug.log
 app.commandLine.appendSwitch('disable-logging');
 app.commandLine.appendSwitch('log-file', process.platform === 'win32' ? 'NUL' : '/dev/null');
-// Hardware acceleration stays enabled for the game's WebGL rendering.
-// Opt into software rendering only when diagnosing a GPU-specific problem.
+// 默认保留硬件加速（游戏 WebGL 需要）；仅诊断 GPU 问题时再开软件渲染。
 if (process.env.SGSOL_SOFTWARE_RENDERING === '1') app.disableHardwareAcceleration();
 process.chdir(root);
 const data = path.join(root, '.dev-data');
 fs.mkdirSync(path.join(data, 'xiaochao'), { recursive: true });
 app.setPath('userData', data);
 const configPath = path.join(data, 'xiaochao/config.json');
+/** 为 1 时启用 webview 健康探针、明牌/皮肤 trace 与 probe.js 热执行。 */
 const diagnosticsEnabled = process.env.SGSOL_DIAGNOSTICS === '1';
 const config = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : {};
 Object.assign(config, { firstTime: false, firstTimeAnnouncementSeen: true });
@@ -21,6 +32,7 @@ delete config.autoUpdateEnabled;
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 const logPath = path.join(data, 'runtime.log');
 fs.writeFileSync(logPath, '');
+/** 追加 JSON 行到 runtime.log；URL 只保留 origin+pathname。 */
 function log(event, detail) {
   fs.appendFileSync(logPath, JSON.stringify({ time: new Date().toISOString(), event, detail }, (key, value) => {
     if (typeof value === 'string' && /^https?:\/\//.test(value)) { try { const u = new URL(value); return u.origin + u.pathname; } catch {} }

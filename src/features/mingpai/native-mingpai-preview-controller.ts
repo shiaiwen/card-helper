@@ -1,3 +1,7 @@
+/**
+ * 原生明牌预览：在游戏 UI 上展示已鉴定牌面（受显示设置控制）。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
 import {
@@ -16,7 +20,7 @@ import type { GameEventBus } from '../../runtime/game-event-bus.ts';
 type UnknownRecord = Record<string, unknown>;
 interface Rect { x: number; y: number; width: number; height: number }
 
-// 对照 app.bak 明牌卡牌预览的布局常量。
+// 明牌卡牌预览的布局常量。
 const TILE_WIDTH = 41;
 const TILE_HEIGHT = 50;
 const TILE_GAP = 4;
@@ -50,7 +54,7 @@ interface SeatStrip {
   nativeSprite: UnknownRecord | null;
 }
 
-/** 在其他武将牌下方用 Laya 画明牌小牌条，悬停弹出官方牌面列表（对照 app.bak）。 */
+/** 在其他武将牌下方用 Laya 画明牌小牌条，悬停弹出官方牌面列表。 */
 export function installNativeMingpaiPreviewController(
   configStore: XiaochaoConfigStore,
   seatStateStore: SeatStateStore,
@@ -493,7 +497,7 @@ export function installNativeMingpaiPreviewController(
       if (seatUi && refreshEquipmentTags) refreshNativeEquipmentTags(seatUi);
       if (seat.seatId === snapshot.selfSeatId) continue;
       const anchor = seatUi ? readAnchorRect(seatUi, host) : null;
-      // 引擎位置表是 app.bak 明牌区的权威来源；座位快照负责补上场景直接公开的牌。
+      // 引擎位置表是明牌区的权威来源；座位快照负责补上场景直接公开的牌。
       // 两路合并可避免状态事件与场景轮询短暂不同步时整条已知手牌消失。
       const engineHandIds = mingpaiEngine?.getHandCardIds(seat.seatId) ?? [];
       const equipmentIds = new Set(
@@ -548,7 +552,7 @@ export function installNativeMingpaiPreviewController(
     const selected = selectedBySeat.get(entry.seatId) ?? new Set<number>();
     if (selected.has(cardId)) selected.delete(cardId);
     else {
-      // app.bak 默认 RecCardLimit=1；游戏原生有配置时读取配置上限。
+      // 默认识别上限 RecCardLimit=1；游戏原生有配置时读取配置上限。
       const limit = readTeammateMarkLimit(scene);
       while (selected.size >= limit) selected.delete(selected.values().next().value as number);
       selected.add(cardId);
@@ -581,7 +585,7 @@ export function installNativeMingpaiPreviewController(
     markTimers.set(entry.seatId, timer);
   }
 
-  /** 对照 app.bak：将明牌引擎记录的持续标签刷回原生装备卡 UI。 */
+  /** 将明牌引擎记录的持续标签刷回原生装备卡 UI。 */
   function refreshNativeEquipmentTags(seatUi: UnknownRecord): void {
     const container = asRecord(seatUi.cardContainer);
     const cardUis = [

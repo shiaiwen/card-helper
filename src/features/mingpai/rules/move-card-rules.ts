@@ -1,7 +1,11 @@
+/**
+ * PubGsCMoveCard 移牌规则：忽略无效移动、展示性同区移动、整手转移与牌堆位重映射。
+ */
+
 import { DRAW_PILE_POSITION } from './reveal-types.ts';
 
 /**
- * PubGsCMoveCard 纠偏规则（对照 app.bak 约 45735–46101）。
+ * PubGsCMoveCard 纠偏规则。
  * 只在明牌控制器内使用；牌堆记录 / 弃牌统计仍吃原始事件，互不影响。
  */
 
@@ -114,7 +118,7 @@ export function remapDrawPileToPosition(move: Readonly<MoveCardFields>): number 
   return move.toPosition;
 }
 
-/** 同区同主人的「移动」其实是展示（对照原版 KY.show），排除个别真实重排。 */
+/** 同区同主人的「移动」多数是展示而非真实换位；个别技能例外需真实重排。 */
 const SAME_ZONE_NOT_SHOW = [
   (m: Readonly<MoveCardFields>) => m.spellId === 7011 && m.moveType === 19,
   (m: Readonly<MoveCardFields>) => m.spellId === 3744 && m.moveType === 21

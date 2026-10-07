@@ -1,3 +1,8 @@
+/**
+ * 明牌控制器：订阅游戏事件，驱动明牌引擎更新手牌/牌堆/临时区等分区，
+ * 并把看牌、移牌规则解析后的揭示结果写入统一鉴定汇点。
+ */
+
 import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
 import type { SeatStateStore } from '../seat-display/seat-state-store.ts';
 import {
@@ -146,7 +151,7 @@ export function installMingpaiController(
       applyTemporaryCardReorder(event, temporaryCardZones);
       return;
     }
-    // 对照 nb.show：看牌协议 → 规则表 → 统一鉴定汇点
+    // 看牌协议 → 规则表解析 → 统一鉴定汇点
     if (event.type === 'opt-target') {
       const srcSeatId = event.srcSeatId ?? event.seatId;
       const reveals = resolveOptTargetReveals({
@@ -293,7 +298,7 @@ export function installMingpaiController(
     engine.applyMovement(event, recoveredCardIds);
     specialRecovery.record(event, recoveredCardIds);
 
-    // 对照 nD.move：临时区进出刷新 unknown 投影
+    // 临时区进出时刷新 unknown 投影
     const known = recoveredCardIds.filter((id) => id > 0);
     if (TEMPORARY_CARD_ZONES.has(event.toZone) && known.length) {
       engine.addZoneCardIds(MINGPAI_ZONE.UNKNOWN, known);
@@ -501,7 +506,7 @@ interface SpellCardClue {
 
 /**
  * 控座位（本家）手牌离开时，协议常藏 CardIDs；座位快照里仍有完整已知手牌。
- * 数量恰好匹配时整手拿走；否则按 FromPosition 切片（对照原版 zone.remove 的 pos/count）。
+ * 数量恰好匹配时整手拿走；否则按 FromPosition 与数量切片移除。
  */
 function recoverCardsFromControlledSeat(
   movement: TemporaryZoneMovement,

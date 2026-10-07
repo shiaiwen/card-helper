@@ -1,3 +1,7 @@
+/**
+ * 皮肤收藏 Tab：在游戏皮肤相关界面扩展收藏列表交互。
+ */
+
 import type { LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import type { MethodPatcher, PatchableFunction } from '../../runtime/method-patch.ts';
 import type { BackgroundFavorite, BackgroundResource, SkinBackgroundStore } from './skin-background-store.ts';
@@ -15,14 +19,14 @@ export interface FavoritesTabOptions {
   enabled(): boolean;
   /** 点击收藏项时设为背景。 */
   applyFavorite(resource: BackgroundResource): Promise<boolean>;
-  /** 收藏项是否为当前背景（对照 app.bak 的 be）。 */
+  /** 收藏项是否为当前背景。 */
   isCurrent(favorite: BackgroundFavorite): boolean;
 }
 
 export interface FavoritesTab {
   attach(menu: UnknownRecord): void;
   detach(menu: UnknownRecord): void;
-  /** 当前背景变化后刷新选中态（对照 app.bak 的 bj）。 */
+  /** 当前背景变化后刷新选中态。 */
   refreshSelection(): void;
   dispose(): void;
 }
@@ -36,7 +40,7 @@ interface MenuState {
   tabBound?: boolean;
 }
 
-/** 背景面板中的“小抄背景”页签（对照 app.bak 的 bo/bJ/bQ/bd/bA/bk/bC/bU）。 */
+/** 背景面板中的「小抄背景」页签。 */
 export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
   const { globalObject, store, patcher } = options;
   const states = new WeakMap<object, MenuState>();
@@ -125,7 +129,7 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
     callMethod(cropped, 'destroy', false);
   }
 
-  /** 预览图按 95×40 居中裁切（对照 app.bak 的 bp）。 */
+  /** 预览图按 95×40 居中裁切。 */
   function cropPreview(item: UnknownRecord): boolean {
     const background = asRecord(item.bg);
     if (!background) return false;
@@ -176,7 +180,7 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
     cropPreview(this);
   }
 
-  /** 纹理被回收后重新加载（对照 app.bak 的 bI）。 */
+  /** 纹理被回收后重新加载。 */
   function reloadPreview(item: UnknownRecord): boolean {
     const background = asRecord(item.bg);
     const skin = String(background?.skin || '');
@@ -296,7 +300,7 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
     return hint;
   }
 
-  /** 重建收藏列表（对照 app.bak 的 bC）。 */
+  /** 重建收藏列表。 */
   function renderList(menu: UnknownRecord): boolean {
     rememberConstructors(menu);
     const panel = ensurePanel(menu);
@@ -337,7 +341,7 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
     state.loadMoreVisibility = undefined;
   }
 
-  /** 显示或隐藏收藏面板（对照 app.bak 的 bA）。 */
+  /** 显示或隐藏收藏面板。 */
   function showPanel(menu: UnknownRecord, show: boolean, restoreLoadMore = true): boolean {
     const state = stateOf(menu);
     if (!show) {
@@ -376,7 +380,7 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
 
   // ---------- 页签 ----------
 
-  /** 复制第一个原生页签按钮的样式建“小抄背景”页签（对照 app.bak 的 bo）。 */
+  /** 复制第一个原生页签按钮的样式，建立「小抄背景」页签。 */
   function ensureTab(menu: UnknownRecord): UnknownRecord | null {
     const group = asRecord(menu.tabGroup);
     const buttons = group?.BtnList;
@@ -423,7 +427,7 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
     return tab;
   }
 
-  /** 接管页签切换与列表刷新（对照 app.bak 的 bJ）。 */
+  /** 接管页签切换与列表刷新。 */
   function bindTabSwitch(menu: UnknownRecord): boolean {
     const group = asRecord(menu.tabGroup);
     const prototype = Object.getPrototypeOf(menu) as UnknownRecord | null;

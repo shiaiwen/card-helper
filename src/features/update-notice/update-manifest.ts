@@ -8,7 +8,7 @@ export interface XiaochaoUpdateManifest {
   pageUrl: string;
 }
 
-/** 与 app.bak 微端比较规则一致：按点分段的整数，缺段当 0。 */
+/** 版本比较：按点分段的整数，缺段当 0。 */
 export function compareVersions(left: string, right: string): number {
   const leftParts = String(left || '0').split('.').map((part) => Number.parseInt(part, 10) || 0);
   const rightParts = String(right || '0').split('.').map((part) => Number.parseInt(part, 10) || 0);
@@ -39,6 +39,7 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+/** 解析远程 JSON 为版本/说明/下载页；非法 URL 回退默认下载页。 */
 export function parseUpdateManifest(raw: unknown, fallbackPageUrl = XIAOCHAO_UPDATE_PAGE_URL): XiaochaoUpdateManifest | null {
   if (!raw || typeof raw !== 'object') return null;
   const data = raw as Record<string, unknown>;
@@ -50,6 +51,7 @@ export function parseUpdateManifest(raw: unknown, fallbackPageUrl = XIAOCHAO_UPD
   return { version, notes, pageUrl };
 }
 
+/** 构建时注入的 __XIAOCHAO_VERSION__；缺失时回退 0.0.0。 */
 export function getXiaochaoVersion(): string {
   return typeof __XIAOCHAO_VERSION__ === 'string' && __XIAOCHAO_VERSION__.trim()
     ? __XIAOCHAO_VERSION__.trim()

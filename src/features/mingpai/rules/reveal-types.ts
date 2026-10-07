@@ -1,11 +1,11 @@
 /**
- * 明牌「鉴定」描述：对照 app.bak `nb.show(cardIds)` 的输入。
+ * 明牌「鉴定」描述，作为看牌结果的统一输入。
  * 规则层只产出 CardReveal，不直接改状态；统一由 reveal-sink 写入引擎与座位。
  */
 
 export const DRAW_PILE_OWNER = 0xff;
 
-/** 对照原版 je / js / jq：牌堆顶 / 底 / 未指定。 */
+/** 看牌相对牌堆位置：顶 / 底 / 未指定。 */
 export const DRAW_PILE_POSITION = Object.freeze({
   TOP: 0xff00,
   BOTTOM: 0,
@@ -26,7 +26,7 @@ export interface CardReveal {
    * false：视为完整手牌（攻心类整段看牌）。
    */
   partial: boolean;
-  /** 对照原版 7010/7011 的 pack：同时投影进 unknown 区。 */
+  /** 部分技能看牌时同时投影进 unknown 区（供权变等面板使用）。 */
   packUnknown?: boolean;
 }
 

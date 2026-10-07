@@ -1,3 +1,7 @@
+/**
+ * 山河地图布局：城市节点排列与连线几何。
+ */
+
 import {
   ROGUE_MAP_STYLE,
   type RogueMapPanelLayout,

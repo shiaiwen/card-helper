@@ -1,6 +1,21 @@
-// Modules to control application life and create native browser window
+/**
+ * 三国杀打小抄微端 —— Electron 主进程入口。
+ *
+ * 职责概览：
+ * - 创建无边框主窗口并加载 index_wd.html；
+ * - 初始化 userData 下的 config / shared / 内置脚本路径；
+ * - 注册 IPC（窗口控制、共享设置、凭证、本地脚本读取、外链等）；
+ * - Steam 渠道时初始化 steamworks 与微交易回调；
+ * - 正式包启用 electron-updater 自动更新；
+ * - 开发时监视 dist/electron/xiaochao.js 变更并通知渲染进程热重载。
+ *
+ * 本地脚本注入由 preload（electron_frame.cjs）通过 read-local-script 完成；
+ * 网络层壁纸/贴图替换见 interceptor.cjs。
+ */
+
 const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, Menu, systemPreferences, screen } = require('electron')
 const { crashReporter, session  } = require('electron')
+/** electron-updater 实例；加载失败时保持 null 并记录原因。 */
 let autoUpdater = null;
 let autoUpdaterLoadError = null;
 let updateHandleInitialized = false;
@@ -13,10 +28,11 @@ const { createSharedStore, normalizeCredentials: normalizeSharedCredentials } = 
 const { createHtmlReportOpener } = require('./report-window.cjs')
 
 
+/** Steam 应用 ID（platform==1 渠道使用）。 */
 const steamAppID = 4209770;
 let mainWindow;
 
-// Runtime writes go to userData; the install directory may be read-only (e.g. C:\Program Files).
+// 运行时写入落在 userData；安装目录可能只读（如 Program Files）。
 let dataDirectory = '';
 let configPath = '';
 let sharedConfigPath = '';
@@ -25,12 +41,14 @@ let scriptPath = '';
 let tempScriptPath = '';
 let logFilePath = '';
 let config = null;
+/** Vite 开发产物路径；存在时优先于内置/用户目录脚本。 */
 const developmentScriptPath = path.join(__dirname, 'dist', 'electron', 'xiaochao.js');
 let developmentScriptWatcher = null;
 let developmentReloadTimer = null;
 global.config = config;
 global.scriptPath = '';
 global.configPath = '';
+/** 本地注入脚本内容缓存，按路径+mtime+size 命中。 */
 const localScriptCache = {
     sourcePath: '',
     mtimeMs: -1,
@@ -113,6 +131,7 @@ if (process.platform == 'win32') {
     }
 }
 
+/** app ready 后按渠道创建主窗口（官服 / Steam 共用 createWindow）。 */
 function loadWindow() {
     if (global.platform == 0) {
         createWindow();
@@ -123,6 +142,10 @@ function loadWindow() {
 }
 
 
+/**
+ * 创建主 BrowserWindow：无边框、开启 webview、挂 preload 与拦截器，
+ * 并注册全屏/F11/F6 快捷键。
+ */
 async function createWindow() {
     await initConfig();
     global.PackageId = config.get('packageId', package.packageId);
@@ -223,6 +246,7 @@ async function createWindow() {
     }
 }
 
+/** 注册 Steam 相关 IPC（Steam ID、成就、语言）与包信息快照。 */
 function initEvent() {
     //require('./script/ipc_main');
     //require('./script/electron_frame.cjs');
@@ -265,7 +289,7 @@ function initEvent() {
 }
 initEvent();
 
-// Codex migration IPC shims used by the app_old preload script.
+// 兼容 preload 的同步 IPC：读取运行时全局量与 app 路径。
 ipcMain.on('get-global-sync', (event, name) => {
     event.returnValue = getRuntimeGlobal(name);
 });
@@ -278,6 +302,7 @@ ipcMain.on('get-app-path-sync', (event, name) => {
     }
 });
 
+// 渲染/preload 拉取待注入的小抄脚本（异步 / 同步两套）
 ipcMain.handle('read-local-script', async () => readLocalScriptCached());
 
 ipcMain.on('read-local-script-sync', (event) => {
@@ -316,6 +341,7 @@ ipcMain.handle('save-userlist', (event, userlist) => {
 
 //initCrash();
 
+/** 启动 crashReporter（当前默认未调用）。 */
 function initCrash() {
     console.log("crashReporter.start");
     console.log(app.getPath('crashDumps'))
@@ -331,6 +357,7 @@ function initCrash() {
     crashReporter.addExtraParameter("whlie", global.globle_name);
 }
 
+/** Steam 微交易授权回调：成功/失败事件转发给渲染进程。 */
 function setupPaymentCallback() {
     // 注册微交易授权响应回调
     console.log('Steam init setupPaymentCallback');
@@ -395,6 +422,7 @@ app.on('activate', function () {
 
 let guanxingWindow = null;
 
+/** 判断是否为自助观星站点（gx.95chong.cn）。 */
 function isGuanxingPageUrl(url) {
     try {
         return new URL(url).hostname === 'gx.95chong.cn';
@@ -403,6 +431,7 @@ function isGuanxingPageUrl(url) {
     }
 }
 
+/** 在沙箱子窗口中打开观星页；已有窗口则复用并聚焦。 */
 function openGuanxingBrowserWindow(url) {
     if (guanxingWindow && !guanxingWindow.isDestroyed()) {
         if (guanxingWindow.webContents.getURL() !== url) guanxingWindow.loadURL(url);
@@ -443,6 +472,7 @@ app.on('web-contents-created', (e, webContents) => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
+/** 惰性加载 electron-updater；Node 过旧或缺 fs/promises 时禁用。 */
 function loadAutoUpdaterCompat() {
     if (autoUpdater) return autoUpdater;
     if (autoUpdaterLoadError) return null;
@@ -465,7 +495,7 @@ function loadAutoUpdaterCompat() {
     }
 }
 
-// 检测更新，在你想要检查更新的时候执行，renderer事件触发后的操作自行编写
+/** 正式包自动更新：检查、下载进度转发、下载完成后 quitAndInstall。 */
 function updateHandle() {
     if (!app.isPackaged) return;
     if (updateHandleInitialized) return;
@@ -527,12 +557,12 @@ function updateHandle() {
     mainWindow.once('focus', () => mainWindow.flashFrame(false))
 }
 
-// 通过main进程发送事件给renderer进程，提示更新信息
+/** 向渲染进程推送更新状态文案。 */
 function sendUpdateMessage(text) {
     mainWindow.webContents.send('message', text)
 }
 
-//接收最小化命令
+// —— 窗口控制 IPC ——
 ipcMain.on('window-min', function () {
     mainWindow.minimize();
 })
@@ -558,6 +588,7 @@ ipcMain.on('window-close', function () {
     })
 })
 
+// —— 外链 / 缓存 / 搜索 ——
 ipcMain.on('e-feed', (event) => {
     console.log("e-feed");
     let url = global.FeedURL[global.PackageId - 1];
@@ -587,7 +618,10 @@ ipcMain.handle('pc_2_flashWindow', (event, str) => {
 });
 
 
-// Codex migration helpers from app_old, adapted for the newer official app.
+/**
+ * 轻量 JSON 配置读写（带内存缓存）。
+ * 用于微端自身 config.json（窗口尺寸、大区、首次公告等）。
+ */
 function createJsonConfig(filePath) {
     let storeCache = null;
 
@@ -647,6 +681,7 @@ function createJsonConfig(filePath) {
     };
 }
 
+/** 惰性获取跨实例共享存储（shared-store.cjs）。 */
 function getSharedConfig() {
     if (!sharedConfig) {
         const filePath = sharedConfigPath || path.join(app.getPath('userData'), 'xiaochao', 'shared.json');
@@ -655,6 +690,7 @@ function getSharedConfig() {
     return sharedConfig;
 }
 
+// —— 共享设置 / 凭证 IPC（同步，供多微端实例对齐）——
 ipcMain.on('xiaochao-settings-register-sync', (event, payload) => {
     try {
         const keys = Array.isArray(payload && payload.keys)
@@ -718,8 +754,11 @@ ipcMain.on('xiaochao-credentials-set-sync', (event, payload) => {
     }
 });
 
+/**
+ * 解析待注入的小抄脚本路径优先级：
+ * 开发产物 → 安装包内置 xiaochao.js → userData 已同步脚本。
+ */
 function resolveLocalScriptPath() {
-    // 开发：Vite 产物；正式包：根目录内置脚本，其次用户目录已同步脚本。
     if (fs.existsSync(developmentScriptPath)) return { path: developmentScriptPath, development: true };
     const bundledPath = bundledScriptPath();
     if (fs.existsSync(bundledPath)) return { path: bundledPath, development: false };
@@ -727,6 +766,7 @@ function resolveLocalScriptPath() {
     return null;
 }
 
+/** 读取本地脚本（带 mtime 缓存），供 preload 注入渲染/webview。 */
 function readLocalScriptCached() {
     try {
         const resolved = resolveLocalScriptPath();
@@ -757,6 +797,7 @@ function readLocalScriptCached() {
     }
 }
 
+/** 监视开发产物 xiaochao.js，变更后清缓存并通知渲染进程重载。 */
 function startDevelopmentScriptWatcher() {
     if (developmentScriptWatcher) return;
     if (!fs.existsSync(developmentScriptPath)) return;
@@ -778,6 +819,7 @@ function startDevelopmentScriptWatcher() {
     }
 }
 
+/** 清空脚本内容缓存，迫使下次 IPC 重新读盘。 */
 function clearLocalScriptCache() {
     localScriptCache.sourcePath = '';
     localScriptCache.mtimeMs = -1;
@@ -785,6 +827,7 @@ function clearLocalScriptCache() {
     localScriptCache.data = '';
 }
 
+/** 合并 package.json 与当前 config 中的 packageId，供渲染进程查询。 */
 function getPackageSnapshot() {
     return {
         ...package,
@@ -803,6 +846,7 @@ function getPackageSnapshot() {
     };
 }
 
+/** 按名称返回运行时全局量（供 preload 同步 IPC 使用）。 */
 function getRuntimeGlobal(name) {
     switch (name) {
         case 'PackageId': return config.get('packageId', package.packageId);
@@ -823,6 +867,7 @@ function getRuntimeGlobal(name) {
     }
 }
 
+/** 追加写入 userData/xiaochao/app-log.txt。 */
 function logMessage(message) {
     try {
         fs.mkdirSync(path.dirname(logFilePath), { recursive: true });
@@ -832,6 +877,7 @@ function logMessage(message) {
     }
 }
 
+/** 弹框切换游戏大区；isSave 为真时写入默认 packageId。 */
 function changePackage(window, isSave = false) {
     dialog.showMessageBox(window, {
         type: 'warning',
@@ -848,10 +894,12 @@ function changePackage(window, isSave = false) {
     });
 }
 
+/** changePackage 的别名（菜单文案「切换游戏大区」）。 */
 function changeChannel(window, isSave = false) {
     changePackage(window, isSave);
 }
 
+/** 弹框选择分辨率并持久化，立即 setBounds。 */
 function resize(window) {
     dialog.showMessageBox(window, {
         type: 'warning',
@@ -872,6 +920,7 @@ function resize(window) {
     });
 }
 
+/** 首次启动或手动查看时展示微端功能说明。 */
 function firstTimeAnnouncement(window, manual = false) {
     if (!window) return;
     dialog.showMessageBox(window, {
@@ -895,6 +944,7 @@ function firstTimeAnnouncement(window, manual = false) {
     });
 }
 
+/** 右键菜单：切大区、默认大区、分辨率、说明、版本号。 */
 function createContextMenu() {
     return Menu.buildFromTemplate([
         { label: '切换游戏大区', click: () => changeChannel(mainWindow, false) },
@@ -906,10 +956,12 @@ function createContextMenu() {
     ]);
 }
 
+/** 计算文件 SHA-256，用于同版本脚本内容是否变化。 */
 function sha256File(filePath) {
     return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
+/** 从脚本头 @version 注释解析版本号。 */
 function readVersionFromScript(filePath) {
     return new Promise((resolve, reject) => {
         fs.readFile(filePath, 'utf8', (error, data) => {
@@ -923,6 +975,7 @@ function readVersionFromScript(filePath) {
     });
 }
 
+/** 点分版本比较：1 表示 left 更新，-1 表示 right 更新，0 相等。 */
 function compareVersions(left, right) {
     const leftParts = String(left || '0').split('.').map((part) => Number.parseInt(part, 10) || 0);
     const rightParts = String(right || '0').split('.').map((part) => Number.parseInt(part, 10) || 0);
@@ -934,10 +987,15 @@ function compareVersions(left, right) {
     return 0;
 }
 
+/** 安装包内置小抄脚本路径（与 main 同级的 xiaochao.js）。 */
 function bundledScriptPath() {
     return path.join(__dirname, 'xiaochao.js');
 }
 
+/**
+ * 若内置脚本版本更新或同版本内容变更，则同步到 userData/xiaochao.js。
+ * 通过临时文件 + rename 降低半截写入风险。
+ */
 async function syncBundledScriptIfNewer() {
     const bundledPath = bundledScriptPath();
     if (!fs.existsSync(bundledPath)) {
@@ -1008,6 +1066,7 @@ async function syncBundledScriptIfNewer() {
     }
 }
 
+/** 在 userData/xiaochao 下准备 config、shared、脚本与日志路径。 */
 function initializeWritablePaths() {
     dataDirectory = path.join(app.getPath('userData'), 'xiaochao');
     fs.mkdirSync(dataDirectory, { recursive: true });
@@ -1023,6 +1082,7 @@ function initializeWritablePaths() {
     global.scriptPath = scriptPath;
 }
 
+/** 初始化可写路径、同步内置脚本、写入默认配置项。 */
 async function initConfig() {
     initializeWritablePaths();
     await syncBundledScriptIfNewer();

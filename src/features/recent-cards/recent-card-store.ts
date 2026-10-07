@@ -1,3 +1,8 @@
+/**
+ * 最近用牌状态仓：区分「玩家最近」与「当前回合最近」两种展示模式。
+ * 由 cards-used / spell-targeted / turn-started 等事件驱动。
+ */
+
 import type { GameEventBus } from '../../runtime/game-event-bus.ts';
 
 export type RecentCardDisplayMode = 'player' | 'current';

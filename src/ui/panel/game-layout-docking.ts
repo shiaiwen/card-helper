@@ -1,3 +1,7 @@
+/**
+ * 右停靠时压缩游戏画布区域；解除停靠后恢复全宽。
+ */
+
 interface DockingSnapshot {
   padding: unknown;
   backgroundWidth: string;

@@ -1,3 +1,8 @@
+/**
+ * 更新提示控制器：拉取远程 manifest，维护 hasUpdate / 弹窗状态，
+ * 支持「稍后」记下已忽略版本，以及打开下载页。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store';
 import {
   getXiaochaoVersion,
@@ -48,6 +53,7 @@ function createEmptySnapshot(currentVersion: string): UpdateNoticeSnapshot {
   };
 }
 
+/** 创建更新提示控制器（不自动请求；由 install / checkNow 触发）。 */
 export function createUpdateNoticeController(
   configStore: XiaochaoConfigStore,
   openExternal: (url: string) => Promise<void>,
@@ -66,12 +72,14 @@ export function createUpdateNoticeController(
     listeners.forEach((listener) => listener(snapshot));
   }
 
+  /** 「稍后」：记下 latestVersion 并关闭弹窗；角标仍由 hasUpdate 决定。 */
   function dismissDialog(): void {
     const latest = snapshot.latestVersion;
     if (latest) configStore.set(DISMISSED_VERSION_KEY, latest);
     if (snapshot.dialogOpen) emit({ ...snapshot, dialogOpen: false });
   }
 
+  /** 用远程清单刷新快照（本轮不自动弹窗，dialogOpen=false）。 */
   function applyManifest(manifest: XiaochaoUpdateManifest): void {
     const hasUpdate = isNewerVersion(manifest.version, currentVersion);
     emit({
@@ -84,6 +92,7 @@ export function createUpdateNoticeController(
     });
   }
 
+  /** 带超时拉取 manifest；失败静默忽略以免打扰对局。 */
   async function checkRemote(): Promise<void> {
     if (!fetchImpl) return;
     abortController?.abort();
@@ -139,6 +148,7 @@ export function createUpdateNoticeController(
   };
 }
 
+/** 安装并 start 更新提示控制器，供工具 Tab 角标与弹窗使用。 */
 export function installUpdateNoticeController(
   configStore: XiaochaoConfigStore,
   openExternal: (url: string) => Promise<void>,

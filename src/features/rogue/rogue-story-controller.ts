@@ -1,3 +1,7 @@
+/**
+ * 山河剧情隐藏：按设置跳过/关闭剧情相关窗口与流程。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -61,7 +65,7 @@ export interface RogueStoryOptions {
 }
 
 /**
- * 隐藏对白：对照 app.bak——`ShowWindow("RogueChapterStoryWindow")` 后
+ * 隐藏对白：`ShowWindow("RogueChapterStoryWindow")` 后
  * 若 `rogue.hideStory` 开启则 `Close`；关闭时原样返回，对白正常显示。
  * 只认 configStore，不读写 XC / 旧 DOM / 旧存储键。
  */

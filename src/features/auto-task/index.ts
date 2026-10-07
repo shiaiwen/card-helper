@@ -1,3 +1,7 @@
+/**
+ * 自动任务导出：控制器状态机与设置项（跳过酒馆/邮件/签到等）。
+ */
+
 export {
   installAutoTaskController,
   type AutoTaskController,

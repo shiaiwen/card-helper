@@ -1,3 +1,7 @@
+/**
+ * 面板布局样式所有权：通过 data 属性标记小抄自身写入的 left/top/width/height。
+ */
+
 export interface PanelLayoutStyle {
   left?: string;
   top?: string;

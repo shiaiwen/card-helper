@@ -1,4 +1,4 @@
-/** 山河地图透视：对照 app.bak 的类型与常量。 */
+/** 山河地图透视用的类型与常量。 */
 
 export interface RogueCitySpot {
   id: string | number;
@@ -35,7 +35,7 @@ export interface RogueChooseMeta {
   text?: string;
 }
 
-/** 同步包里的成长上下文（对照 app.bak `ic` / `RC`）。 */
+/** 同步包里的成长上下文。 */
 export interface RogueMapRuntime {
   difficulty: number;
   seasonId: number;
@@ -52,9 +52,9 @@ export interface RogueMapConfigData {
   RadventureChoices: Record<string, Array<string | number>>;
   Rchoose: Record<string, RogueChooseMeta>;
   text: Record<string, string>;
-  /** Tactics/Spell/Card 合并表，对照 app.bak `hG`/`Rplot`。 */
+  /** 战法、技能、卡牌合并表。 */
   Rplot: Record<string, RoguePlotMeta>;
-  /** RewardGroup+Other，对照 app.bak `Lw`。 */
+  /** RewardGroup 与 Other 合并后的奖励表。 */
   Rreward: Record<string, string>;
   /** EnemyGrowth：`moon_diffnum` */
   Rgrow: Record<string, Record<string, unknown>>;
@@ -115,7 +115,7 @@ export interface RogueMapPanelLayout {
   lines: RoguePanelLine[];
 }
 
-/** 面板与引导线常量（对照 app.bak Rc…Rt / Rd…RT）。 */
+/** 面板与引导线常量。 */
 export const ROGUE_MAP_STYLE = Object.freeze({
   panelWidth: 190,
   labelPad: 6,
@@ -133,7 +133,7 @@ export const ROGUE_MAP_STYLE = Object.freeze({
   dashGap: 5,
   leaderLineWidth: 3,
   leaderColor: '#e56666',
-  // 对照 app.bak KQ：标题强制 #ff7043；RX.TITLE 其它字段仍用 17/bold
+  // 标题强制 #ff7043；标题其余字段仍用 17 号加粗。
   titleColor: '#ff7043',
   titleSize: 17,
   // RX.GENERAL

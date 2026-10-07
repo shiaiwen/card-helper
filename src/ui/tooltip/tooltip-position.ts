@@ -1,3 +1,7 @@
+/**
+ * Tooltip 定位：优先锚点上方，空间不足时翻转到下方并限制在视口内。
+ */
+
 export interface TooltipPoint {
   left: number;
   top: number;

@@ -1,3 +1,7 @@
+/**
+ * 原生牌局记录控制器：把 DeckRecordStore 投影到游戏内 HUD / 面板展示。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import { isDianweiArmCardName, type GameCardCatalog } from '../cards/game-card-catalog.ts';
 import {
@@ -314,7 +318,7 @@ function createCardListPopup(
   const Text = laya?.Text;
   if (typeof Text !== 'function') return null;
 
-  // 对照 app.bak EG：外壳用普通 Sprite 画底和标题；官方牌 Draw 到内层 SgsSprite。
+  // 外壳用普通 Sprite 画底和标题；官方牌 Draw 到内层 SgsSprite。
   // 底图不能画在 Draw 宿主上，否则不透明 graphics 会盖住绘制层，只剩标题空框。
   const Sprite = laya?.Sprite;
   if (typeof Sprite !== 'function') return null;

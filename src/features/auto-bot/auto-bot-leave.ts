@@ -1,3 +1,7 @@
+/**
+ * 死后离桌判断与执行：托管局结束后延时离开，避免卡在结算。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 import { clickLayaNode, confirmNamedPrompt } from '../auto-hg/auto-hg-runtime.ts';
@@ -30,7 +34,7 @@ export function readSeatAiFlags(globalObject: LayaRuntimeWindow): Array<{ ai?: u
   return seats.map((item) => asRecord(item) ?? {});
 }
 
-/** 对照 app.bak：自己阵亡且其余全是 AI 时点返回并确认退出。 */
+/** 自己阵亡且其余全是 AI 时，点返回并确认退出。 */
 export function leaveGameAfterDeath(locator: LayaObjectLocator, globalObject: LayaRuntimeWindow): boolean {
   const scene = asRecord(locateGameScene(globalObject));
   const back = asRecord(asRecord(scene?.topMenu)?.backBtn);

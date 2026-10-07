@@ -1,3 +1,10 @@
+/**
+ * 自动托管总控：按轮询驱动大厅/房间/对局流程，并改写部分协议以配合托管。
+ *
+ * 依赖配置项 assist.autoBotEnabled / 百胜 / 酒馆目标；与自动换将（auto-hg）互斥协调。
+ * filterMessage 供消息源在游戏处理前改写 payload。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -66,7 +73,7 @@ function persistEnabled(globalObject: LayaRuntimeWindow, enabled: boolean): void
     if (enabled) globalObject.localStorage?.setItem?.(STATE_KEY, '1');
     else globalObject.localStorage?.removeItem?.(STATE_KEY);
   } catch {
-    // ignore
+    // 忽略异常
   }
 }
 
@@ -79,7 +86,7 @@ function persistSession(globalObject: LayaRuntimeWindow, session: AutoBotRoomSes
       aiPromptDone: session.aiPromptDone
     }));
   } catch {
-    // ignore
+    // 忽略异常
   }
 }
 
@@ -96,16 +103,17 @@ function restoreSession(globalObject: LayaRuntimeWindow): AutoBotRoomSession {
     if (Number(parsed.baiShengGeneralId) > 0) session.baiShengGeneralId = Number(parsed.baiShengGeneralId);
     if (parsed.aiPromptDone === true) session.aiPromptDone = true;
   } catch {
-    // ignore
+    // 忽略异常
   }
   return session;
 }
 
 /**
  * 自动挂机全套：建房/入座/开局、选将、出牌、窗口、酒馆目标、百胜点将、阵亡离场。
- * 对照 app.bak autoR/autoS/deal。不重包 ShowWindow，轮询窗口。
+ * 托管出牌与桌上流程。不重包 ShowWindow，改为轮询窗口。
  * 盖主速刷开启时让出选将、出牌和房间流程。
  */
+/** 安装自动托管控制器；返回 dispose / filterMessage / getStatus。 */
 export function installAutoBotController(
   configStore: XiaochaoConfigStore,
   options: AutoBotControllerOptions = {}

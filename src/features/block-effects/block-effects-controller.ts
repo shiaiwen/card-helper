@@ -1,3 +1,7 @@
+/**
+ * 屏蔽特效/弹窗总控：按配置关闭广告、MVP、特效资源与协议字段改写。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -55,7 +59,7 @@ const CLOSE_BY_SWITCH: Partial<Record<BlockSettingKey, string>> = {
 export interface BlockEffectsController {
   /** 协议分发前调用，按开关改写击杀、皮肤状态与势力口号消息。 */
   filterMessage(payload: UnknownRecord, className: string): void;
-  /** 对照 app.bak「清除红点」：清掉红点树上仍亮着的叶子。 */
+  /** 清掉红点树上仍亮着的叶子。 */
   clearRedDots(): { found: boolean; count: number };
   dispose(): void;
 }
@@ -140,7 +144,7 @@ export function installBlockEffectsController(
 
   // ---------- 弹窗 ----------
 
-  /** 原版 kn：按名字关闭 WindowManager 与 WindowLayer 中的窗口。 */
+  /** 按名字关闭 WindowManager 与 WindowLayer 中的窗口。 */
   function closeWindowByName(name: string, retries = 0, interval = 500): boolean {
     let closed = false;
     const windows = new Set([locator.window(name), ...locator.findWindows(name)].filter(Boolean));
@@ -165,7 +169,7 @@ export function installBlockEffectsController(
     return closed;
   }
 
-  /** 原版 kb：广告窗口先关闭其内部视图，再关闭窗口本身；未关到时重试。 */
+  /** 广告窗口先关闭其内部视图，再关闭窗口本身；未关到时重试。 */
   function closeBySwitch(key: BlockSettingKey, retries = 0, interval = 500): boolean {
     if (!isOn(key)) return false;
     const name = CLOSE_BY_SWITCH[key];
@@ -189,7 +193,7 @@ export function installBlockEffectsController(
     return closed;
   }
 
-  /** 原版 kj：隐藏大厅右侧广告位。 */
+  /** 隐藏大厅右侧广告位。 */
   function hideLobbyAd(retries = 0): boolean {
     if (!isOn('block.adWindow')) return false;
     let hidden = false;
@@ -529,7 +533,7 @@ export function installBlockEffectsController(
     };
   }
 
-  /** 原版 uF + 城池 Boss 出场特效：BaseEffect 在大厅可能尚未出现，随场景切换重试。 */
+  /** 屏蔽入场等 BaseEffect；大厅中实例可能尚未出现，随场景切换重试。 */
   function installBaseEffectPatches(): void {
     const prototype = locator.baseEffectPrototype();
     if (!prototype) return;

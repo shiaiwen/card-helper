@@ -1,3 +1,7 @@
+/**
+ * 牌局记录交互状态：选中牌、高亮与面板联动。
+ */
+
 export type DeckRecordListKind = 'top' | 'bottom' | 'discard';
 
 export interface DeckRecordAnchor {

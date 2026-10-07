@@ -1,3 +1,7 @@
+/**
+ * 山河商店预览：拦截/请求商店数据，生成可在面板展示的商品列表。
+ */
+
 import {
   createLayaObjectLocator,
   type LayaObjectLocator,
@@ -10,16 +14,16 @@ import type { RoguePlotMeta } from './rogue-map-types.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
-/** 对照 app.bak `openStore` → `GameEventDispatcher.ShowWindow("RogueJiShiWindow")`。 */
+/** 集市窗口名，对应 GameEventDispatcher.ShowWindow("RogueJiShiWindow")。 */
 export const ROGUE_SHOP_WINDOW = 'RogueJiShiWindow';
 
 /**
- * 对照 app.bak `MX` / `RogueLikeDataReq`：集市同步缺 shopData 时请求完整山河数据。
+ * 集市同步缺 shopData 时，用 RogueLikeDataReq 请求完整山河数据。
  * `0x3f` 为原版默认 dataMark 掩码。
  */
 export const ROGUE_SHOP_DATA_REQ_MARK = 0x3f;
 
-/** 对照 app.bak `c9`：商品 type → 标题前缀。 */
+/** 商品 type 对应的标题前缀。 */
 export const ROGUE_SHOP_TYPE_LABELS: Readonly<Record<number, string>> = Object.freeze({
   2: '战法',
   3: '技能',
@@ -44,7 +48,7 @@ export interface RogueShopController {
   /** 订阅透视列表变化。 */
   subscribePreview(listener: RogueShopPreviewListener): () => void;
   /**
-   * 协议分发前改写：对照 app.bak `f6`/`wY`——
+   * 协议分发前改写：
    * dataMark bit4 时强制 `shopData.bShow`；缺 shopData 则 `RogueLikeDataReq`；
    * 有 shopData 时刷新集市透视（`cD`）。
    */
@@ -69,7 +73,7 @@ function asArray(value: unknown): unknown[] {
 }
 
 /**
- * 对照 app.bak `Ve` → `wY(KE)` / `f6(kN)`：山河同步业务字段在 ProtoObj 上
+ * 山河同步业务字段在 ProtoObj 上
  *（`allData` / `dataMark` / `shopData`），外层只带 ClassName。
  */
 export function resolveRogueLikeSyncBody(payload: UnknownRecord): UnknownRecord {
@@ -81,7 +85,7 @@ export function resolveRogueLikeSyncBody(payload: UnknownRecord): UnknownRecord 
     ?? payload;
 }
 
-/** 对照 app.bak：`Array.from(Number(dataMark).toString(2), Number).reverse()[4]`。 */
+/** dataMark 的 bit4 表示本次同步带集市数据。 */
 export function hasRogueShopSyncFlag(payload: UnknownRecord): boolean {
   const body = resolveRogueLikeSyncBody(payload);
   const mark = Number(body.dataMark ?? body.DataMark ?? payload.dataMark ?? payload.DataMark);
@@ -110,7 +114,7 @@ function isRplotReady(rplot: Record<string, RoguePlotMeta> | null | undefined): 
 }
 
 /**
- * 对照 app.bak `cD` 的商品解析部分：用 Rplot 解析 shopData.itemId。
+ * 用 Rplot 解析 shopData.itemId。
  * 无数据 / 解析不出商品时返回空列表（界面不展示占位方案名）。
  */
 export function buildRogueShopPreviewItems(
@@ -130,7 +134,7 @@ export function buildRogueShopPreviewItems(
       : '';
     const typeLabel = ROGUE_SHOP_TYPE_LABELS[Number(meta.type)] ?? '';
     const rawLevel = Number(meta.level) || 0;
-    // 对照 app.bak：等级样式类 TkxdW9UzobK1~4，超出范围按 0（默认色）处理。
+    // 等级样式类 TkxdW9UzobK1~4，超出范围按 0（默认色）处理。
     const level = rawLevel >= 1 && rawLevel <= 4 ? rawLevel : 0;
     goods.push({
       id,
@@ -143,7 +147,7 @@ export function buildRogueShopPreviewItems(
 }
 
 /**
- * 打开集市 + 集市透视：对照 app.bak `#openStore` / `bShow=true` / `cD(shop itemIds)`。
+ * 打开集市并启用透视：强制 bShow，并用商品 id 刷新列表。
  */
 export function installRogueShopController(
   options: RogueShopOptions = {}
@@ -157,11 +161,11 @@ export function installRogueShopController(
   let disposed = false;
   /** 同步包里原始 bShow；为 false 时购买提示改为“月份未到”。 */
   let originalShopVisible: boolean | null = null;
-  /** 对照 app.bak `MX`：避免重复 RogueLikeDataReq。 */
+  /** 避免重复发送 RogueLikeDataReq。 */
   let shopDataRequested = false;
   let previewItems: RogueShopPreviewItem[] = [];
   /**
-   * 同步包先于 Rplot 到达时暂存 itemId；对照 app.bak `cD` 在 `Object.keys(Rplot).length`
+   * 同步包先于 Rplot 到达时暂存 itemId；Rplot 还是空对象时
    * 为 0 时解析不出商品——我们不展示占位方案，因此等配置就绪后再刷一次。
    */
   let pendingShopItemIds: unknown[] | null = null;
@@ -234,7 +238,7 @@ export function installRogueShopController(
     publishPreview(buildRogueShopPreviewItems(itemIds, rplot));
   }
 
-  /** 对照 app.bak：强制可见，并记下协议里的原始 bShow。 */
+  /** 强制可见，并记下协议里的原始 bShow。 */
   function forceShopVisible(shopData: UnknownRecord, recordOriginal: boolean): void {
     if (recordOriginal) {
       originalShopVisible = shopData.bShow === true || shopData.BShow === true;
@@ -251,7 +255,7 @@ export function installRogueShopController(
       ?? readShopData(asRecord(manager.AllData) ?? {});
   }
 
-  /** 对照 app.bak `MX(dm)`：缺 shopData 时向 RogueLikePveManager 要一次完整同步。 */
+  /** 缺 shopData 时向 RogueLikePveManager 要一次完整同步。 */
   function requestShopData(mark = ROGUE_SHOP_DATA_REQ_MARK): boolean {
     if (shopDataRequested) {
       console.warn('[山河图] 集市数据已请求过，跳过重复请求, dm=', mark);
@@ -321,7 +325,7 @@ export function installRogueShopController(
     const shopFlag = hasRogueShopSyncFlag(payload);
     const shopData = readShopData(payload);
 
-    // 对照 app.bak：dataMark bit4 且无 shopData → RogueLikeDataReq 后返回。
+    // dataMark bit4 且无 shopData 时发 RogueLikeDataReq 后返回。
     if (shopFlag && !shopData) {
       requestShopData();
       return;
@@ -329,17 +333,17 @@ export function installRogueShopController(
 
     if (!shopData) return;
 
-    // 对照 app.bak：bit4 时记下原始 bShow 并强制可见；同时复位 MX 请求锁。
+    // bit4 时记下原始 bShow 并强制可见，同时复位数据请求锁。
     if (shopFlag) {
       resetShopDataRequest();
       forceShopVisible(shopData, true);
     }
 
-    // 对照 app.bak `cD`：只要有 shopData 就刷新透视列表（不依赖 bit4）。
+    // 只要有 shopData 就刷新透视列表，不依赖 bit4。
     refreshPreviewFromShopData(shopData);
   }
 
-  // 对照 app.bak：购买成功提示在集市提前显示且原 bShow=false 时改写文案。
+  // 购买成功提示在集市提前显示且原 bShow=false 时改写文案。
   void poll(() => {
     const context = asRecord(locator.gameContext())
       ?? asRecord((globalObject as UnknownRecord).GameContext)

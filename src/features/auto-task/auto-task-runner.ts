@@ -1,3 +1,7 @@
+/**
+ * 自动任务执行器：打开任务/福利窗口并点击领取、签到、邮件等具体操作。
+ */
+
 import type { LayaObjectLocator } from '../../adapters/laya-object-locator.ts';
 import type { TaskScope } from '../skin-background/skin-runtime.ts';
 import type { AutoTaskClaims } from './auto-task-claims.ts';
@@ -46,7 +50,7 @@ export interface AutoTaskRunner {
   runPass(): void;
   /** 每日免费武将包。 */
   claimDailyGeneralBag(): void;
-  /** 大厅场景切换后补领低欢乐豆（对照 app.bak ga）。 */
+  /** 大厅场景切换后补领低欢乐豆。 */
   scheduleLowBeanFree(reason: string): void;
 }
 

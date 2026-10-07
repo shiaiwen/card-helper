@@ -1,8 +1,12 @@
+/**
+ * 牌堆顶底顺序：放回与摸牌时维护数组头尾语义。
+ */
+
 import { DRAW_PILE_POSITION } from './rules/reveal-types.ts';
 
 /**
  * 牌堆顶 / 底的有序已知牌（0 表示该位置的牌不可见）。
- * 对照原版 nb(1-255)：放回牌堆顶时消息里最后一张在最上面；从顶摸 N 张就是顶部前 N 张。
+ * 放回牌堆顶时：消息里最后一张成为新顶；从顶摸 N 张即取当前顶部前 N 张。
  */
 export interface DrawPileOrder {
   /** 离开牌堆前按位置预判即将移出的牌；位置未指定时返回全 0。 */
@@ -82,8 +86,7 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
       const size = Math.max(0, count);
       const known = [...new Set(cardIds.filter((cardId) => cardId > 0))];
       if (known.length) {
-        // CardIDs are authoritative when present. Remove those exact positions so an
-        // out-of-order known move cannot shift unrelated top/bottom predictions.
+        // 有明确 CardID 时按这些牌的实际位置删除，避免乱序已知移动带动无关的顶、底预测。
         const removed = new Set<number>();
         for (const cardId of known) {
           let index = top.indexOf(cardId);
@@ -105,7 +108,7 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
         }
       } else if (position === DRAW_PILE_POSITION.TOP) top.splice(0, size);
       else if (position === DRAW_PILE_POSITION.BOTTOM) bottom.splice(Math.max(0, bottom.length - size), size);
-      // Position-unspecified extraction still uses the explicit IDs to compact known slots.
+      // 未指定位置的抽出仍用明确牌号压缩已知槽位。
       else extract(known);
       forget(known);
       trim();
@@ -140,7 +143,7 @@ export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrd
     },
     getSnapshot: () => ({ top: [...top], bottom: [...bottom] }),
     invalidate() {
-      // Reconnect/shuffle gaps make prior identities unsafe; discard stale order entirely.
+      // 重连或洗牌后旧顺序不可信，整段丢掉。
       top = [];
       bottom = [];
       persist();

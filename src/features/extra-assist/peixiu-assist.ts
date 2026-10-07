@@ -1,3 +1,7 @@
+/**
+ * 裴秀辅助入口：把地图模型、路线规划与视图串起来。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { createMethodPatcher, type MethodPatcher } from '../../runtime/method-patch.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
@@ -50,7 +54,7 @@ export function isPeixiuBackground(node: unknown): node is PeixiuOverlayHost {
   return !!record && (
     record.name === 'PeiXiuMapBackground'
     || record.name === 'peixiuSpBg'
-    // app.bak Mx 解混淆后的真实字段：resName === 'peixiuSpBg'。
+    // 正式服混淆后仍保留 resName === 'peixiuSpBg'。
     || record.resName === 'peixiuSpBg'
     || record._name === 'peixiuSpBg'
     || record.sceneName === 'PeiXiuMapBackground'
@@ -68,7 +72,7 @@ function hasUsableMapState(node: unknown): node is PeixiuOverlayHost {
   );
 }
 
-/** app.bak MK 的完整宿主条件，防止其它带 mapState 的界面被误认成裴秀地图。 */
+/** 完整宿主条件，防止其它带 mapState 的界面被误认成裴秀地图。 */
 function isPeixiuMapHost(node: unknown): node is PeixiuOverlayHost {
   const record = asRecord(node);
   return !!(
@@ -114,7 +118,7 @@ function walkForMap(root: unknown, seen = new Set<unknown>(), budget = 20000): P
     ]) {
       if (child && !seen.has(child)) queue.push(child);
     }
-    // app.bak 的 lv 会优先读取 _children，并兼容 Laya 新版本公开的 children。
+    // 优先读取 _children，并兼容 Laya 新版本公开的 children。
     // 部分正式服构建没有 _children，遗漏 children 会导致地图已存在时永远扫描不到。
     const children = Array.isArray(record?._children)
       ? record!._children as unknown[]
@@ -148,7 +152,7 @@ function collectedCellsOf(host: PeixiuOverlayHost): number[] {
 }
 
 /**
- * 对照 app.bak 的裴秀决策规则读取地图和手牌，把结果发布给 Vue 面板。
+ * 按裴秀决策规则读取地图和手牌，把结果发布给 Vue 面板。
  * 仅自己回合且进阶辅助开启时计算。
  */
 export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
@@ -156,7 +160,7 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
   const globalObject = options.globalObject ?? (typeof window !== 'undefined' ? window as LayaRuntimeWindow : {});
   const pollIntervalMs = options.pollIntervalMs ?? 800;
   const tracked = new Set<PeixiuOverlayHost>();
-  // app.bak 会按 __xcPeiXiu* 属性清理自己的节点。绘制状态放到独立代理上，
+  // 旧实现会按 __xcPeiXiu* 属性清理自己的节点。绘制状态放到独立代理上，
   // 场景刷新时保留当前实现的路线层。
   const overlayHosts = new WeakMap<object, PeixiuOverlayHost>();
   let active: PeixiuOverlayHost | null = null;
@@ -320,7 +324,7 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
   }
 
   /**
-   * 对照 app.bak AQ/AR：裴秀背景是动态挂入 Laya 显示树的，不能只依赖场景轮询。
+   * 裴秀背景是动态挂入 Laya 显示树的，不能只依赖场景轮询。
    * 在节点完成 _setParent 后延迟一帧读取 mapState，避免初始化顺序导致空配置。
    */
   function ensureNodeAttachmentPatch(): void {
@@ -351,8 +355,7 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
     // 正式服经常混淆 constructor/name，但 mapState 结构保持稳定。
     if (!isVisibleMap(host) || !isPeixiuMapHost(host)) return false;
     if (active && active !== host) clearActive();
-    // Match app.bak: capture the owner when the map first appears. Replacing it
-    // on every poll makes the map appear to belong to whoever is acting now.
+    // 地图第一次出现时记下主人。每次轮询都改写的话，地图会看起来属于当前行动的人。
     if (host.__xcPeiXiuRouteOwnerSeatID == null) {
       const owner = readCurrentSeatId(globalObject, options.locator.gameContext());
       if (owner) host.__xcPeiXiuRouteOwnerSeatID = owner;
@@ -473,7 +476,7 @@ export function installPeixiuAssist(options: PeixiuAssistOptions): () => void {
     const mapFingerprint = fingerprintMapConfig(config);
     const progressKey = [mapFingerprint, startCell, collected.join(',')].join('#');
     const overlayHost = overlayHostFor(host);
-    // app.bak 会在地图、当前位置或已领取格变化时回到第一套（上策）路线。
+    // 地图、当前位置或已领取格变化时，回到第一套（上策）路线。
     // 若沿用上一局/上一阶段点过的中策、下策索引，界面虽然仍可显示“上策”，
     // 实际绘制却可能继续取旧方案，导致司州首步看起来不是向下。
     if (host.__xcPeiXiuRouteProgressKey !== progressKey) {

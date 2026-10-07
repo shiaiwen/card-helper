@@ -1,3 +1,7 @@
+/**
+ * 微端消息源：包装 console.log，改写协议并发布到游戏事件总线。
+ */
+
 import { findGameMessage, translateGameMessages } from './game-message-adapter.ts';
 import type { GameEventBus } from '../runtime/game-event-bus.ts';
 

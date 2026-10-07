@@ -1,10 +1,14 @@
+/**
+ * 明牌分区投影仓（兼容层）：向权变/宴戏等面板提供分区卡号。
+ */
+
 import type { MingpaiZoneId } from './mingpai-zones.ts';
 
 /**
  * 明牌一等公民仓库：全局「我看见了哪些牌、挂在哪个展示分区」。
  * 技能辅助、座位明牌、牌堆已知面都应读这里（或由此投影），禁止在技能里私自猜牌。
  *
- * 现阶段先落地「分区卡号」投影（对应原版 nD 各 DOM 区）。
+ * 现阶段落地「分区卡号」投影，供权变/宴戏等面板消费。
  * 后续把 known-card-registry 的身份/位置记录也收敛进本仓，再补 findKZ 级键网。
  */
 export interface MingpaiSnapshot {

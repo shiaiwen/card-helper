@@ -1,3 +1,7 @@
+/**
+ * 对话框定位：相对面板或锚点居中，并限制在游戏窗口内。
+ */
+
 export interface DialogPosition {
   left: number;
   top: number;

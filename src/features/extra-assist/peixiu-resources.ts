@@ -1,3 +1,7 @@
+/**
+ * 裴秀对局资源快照：手牌花色统计、已装备诸葛、剩余出杀与酒/桃/闪电限制等，供路线规划。
+ */
+
 import type { LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 import {
@@ -82,6 +86,7 @@ function firstNumber(...values: unknown[]): number | null {
   return null;
 }
 
+/** 从 DOM/场景读取本回合剩余出杀次数。 */
 export function remainingShaFromDom(documentObject?: Document | null): number {
   const text = documentObject?.getElementById?.('sha')?.textContent || '';
   if (/∞/.test(text)) return Infinity;
@@ -89,6 +94,7 @@ export function remainingShaFromDom(documentObject?: Document | null): number {
   return matched ? Math.max(0, Number(matched[1]) || 0) : 1;
 }
 
+/** 汇总裴秀规划用资源：手牌、花色计数、血量与限制等。 */
 export function collectPeixiuResources(options: {
   globalObject?: LayaRuntimeWindow;
   cardLookup?: PeixiuCardLookup;
@@ -174,6 +180,7 @@ export function collectPeixiuResources(options: {
   }
 }
 
+/** 读取本家座位 ID。 */
 export function readSelfSeatId(globalObject?: LayaRuntimeWindow, gameContext?: unknown): string {
   const runtime = globalObject ?? (typeof window !== 'undefined' ? window as LayaRuntimeWindow : {});
   const scene = asRecord(locateGameScene(runtime));
@@ -191,6 +198,7 @@ export function readSelfSeatId(globalObject?: LayaRuntimeWindow, gameContext?: u
   return id == null ? '' : String(id);
 }
 
+/** 读取当前行动座位 ID。 */
 export function readCurrentSeatId(globalObject?: LayaRuntimeWindow, gameContext?: unknown): string {
   const runtime = globalObject ?? (typeof window !== 'undefined' ? window as LayaRuntimeWindow : {} as LayaRuntimeWindow);
   const context = asRecord(gameContext)
@@ -200,6 +208,7 @@ export function readCurrentSeatId(globalObject?: LayaRuntimeWindow, gameContext?
   return id == null ? '' : String(id);
 }
 
+/** 当前是否轮到本家行动。 */
 export function isLocalPlayerTurn(
   globalObject?: LayaRuntimeWindow,
   ownerSeatId?: string,
@@ -211,6 +220,7 @@ export function isLocalPlayerTurn(
   return !ownerSeatId || ownerSeatId === current;
 }
 
+/** 收集本家已拥有技能 ID 列表。 */
 export function collectOwnedSkills(
   map: { rewards?: Array<{ cell?: number; rawCell?: number; rewardId?: number; type?: unknown }> } | null | undefined,
   collectedCells: number[],
@@ -236,6 +246,7 @@ export function collectOwnedSkills(
     .filter((item) => item.name);
 }
 
+/** 解析地图格子上的奖励 ID。 */
 export function resolveRewardIdAt(
   map: { rewards?: Array<{ cell?: number; rewardId?: number }> } | null | undefined,
   cell: number

@@ -1,3 +1,7 @@
+/**
+ * 山河地图 DOM/Laya 视图层：把控制器草稿渲染到游戏内覆盖层或面板区域。
+ */
+
 import {
   ROGUE_MAP_STYLE,
   type RogueMapPanelLayout
@@ -87,7 +91,7 @@ function createDivider(): UnknownRecord | null {
   return node;
 }
 
-/** 对照 app.bak `KQ`+`Km`：创建城池信息面板与引导虚线。 */
+/** 创建城池信息面板与引导虚线。 */
 export function createCityOverlayNodes(
   panel: RogueMapPanelLayout
 ): UnknownRecord[] {
@@ -232,7 +236,7 @@ export function clearCityOverlays(cityView: UnknownRecord | null): void {
       try {
         if (typeof child.destroy === 'function') child.destroy(true);
       } catch {
-        // ignore
+        // 忽略异常
       }
     }
   }

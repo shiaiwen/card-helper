@@ -1,3 +1,8 @@
+/**
+ * 进阶辅助总控：开关开启时挂载南华、许劭、裴秀等子辅助，并轮询座位武将 tip。
+ * 配置来自 cha_spellextend.sgs（经 CardConfigSource）；关闭时清理裴秀路线状态。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -38,7 +43,10 @@ export interface ExtraAssistControllerOptions {
   peixiuRouteStore?: PeixiuRouteStore;
 }
 
-/** 独立进阶辅助实现。 */
+/**
+ * 安装进阶辅助：按配置开关挂载子模块，轮询刷新权变/座位提示。
+ * @returns dispose 清理补丁、定时器与 tip
+ */
 export function installExtraAssistController(
   configStore: XiaochaoConfigStore,
   options: ExtraAssistControllerOptions = {}

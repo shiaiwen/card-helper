@@ -1,3 +1,7 @@
+/**
+ * 配置仓库：Schema 校验后读写平台存储，并通知键级订阅者与 DOM 自定义事件。
+ */
+
 import {
   CONFIG_SCHEMA,
   getDefaultConfig,

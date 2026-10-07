@@ -1,3 +1,7 @@
+/**
+ * 山河地图配置表解析：从 hd_roguelike 等原始数据构建城市/事件/奖励结构。
+ */
+
 import type {
   RogueChooseMeta,
   RogueCityMeta,
@@ -37,7 +41,7 @@ function rootOf(value: unknown): UnknownRecord | null {
   return asRecord(record?.Root) ?? asRecord(record?.root) ?? record;
 }
 
-/** `root.abbreviation` 与 `Root` 并列；对照 app.bak `hp`/`L4`。 */
+/** `root.abbreviation` 与 `Root` 并列。 */
 function readAbbreviationMap(raw: unknown): Map<string, string> {
   const record = asRecord(raw);
   const metaRoot = asRecord(record?.root) ?? asRecord(record?.Root) ?? record;
@@ -230,7 +234,7 @@ function buildRfight(
 
 function buildRewardNames(root: UnknownRecord): Record<string, string> {
   const table: Record<string, string> = {};
-  // 对照 app.bak：先 Other，再 RewardGroup 覆盖；表名是 RewardGroup 不是 Reward。
+  // 先读 Other，再用 RewardGroup 覆盖；表名是 RewardGroup，不是 Reward。
   for (const entry of asArray(root.Other)) {
     const record = asRecord(entry);
     if (!record || record.reward == null) continue;
@@ -254,7 +258,7 @@ function buildRewardNames(root: UnknownRecord): Record<string, string> {
         .join('/')
       : '';
     const body = `${multi}${desc.replace('多选一', '自选')}`;
-    // 对照实际展示：有放弃铜币时写成「普通装备自选/50铜币」
+    // 有放弃铜币选项时展示文案写成「普通装备自选/50铜币」
     const abandon = Number(record.abandonmoney);
     table[String(id)] = Number.isFinite(abandon) && abandon > 0
       ? `${body}/${abandon}铜币`
@@ -263,7 +267,7 @@ function buildRewardNames(root: UnknownRecord): Record<string, string> {
   return table;
 }
 
-/** 对照 app.bak `hG`：Tactics + Spell + Card。 */
+/** 战法、技能、卡牌三张表合并。 */
 function buildRplot(root: UnknownRecord, names: RogueMapNameTables = {}): Record<string, RoguePlotMeta> {
   const table: Record<string, RoguePlotMeta> = {};
   for (const entry of asArray(root.Tactics)) {
@@ -318,7 +322,7 @@ function buildRplot(root: UnknownRecord, names: RogueMapNameTables = {}): Record
 }
 
 /**
- * 对照 app.bak `Lp`：奇遇选项得失文案。
+ * 奇遇选项得失文案。
  * `type,rarity` → 传说战法；否则查 Reward / Rplot / 武将组。
  */
 function resolveChooseItem(
@@ -347,7 +351,7 @@ function resolveChooseItem(
   if (plot?.name) return plot.name;
   const generals = generalGroups[text];
   if (generals?.length) {
-    // 对照 Lp：用 effectId/10 反查奇遇章名作缓存键（展示仍用武将名列表）
+    // 用 effectId/10 反查奇遇章名作缓存键（展示仍用武将名列表）
     void adventureTitles[String(Math.trunc(Number(effectId) / 10))];
     return generals.map((general) => String(general.generalname ?? '')).filter(Boolean).join('\n');
   }
@@ -370,7 +374,7 @@ function buildRchoose(
     if (effectID == null) continue;
     const type = Number(record.type);
     if (type === 7) {
-      // 对照 app.bak：奇遇开战选项直接挂 Rfight[event1]（问号关常见）。
+      // 奇遇开战选项直接挂 Rfight[event1]（问号关常见）。
       const fight = rfight[String(record.event1)];
       if (fight) table[String(effectID)] = { ...fight };
       else table[String(effectID)] = {};
@@ -516,7 +520,7 @@ function emptyConfig(): RogueMapConfigData {
 
 /**
  * 从 `hd_roguelike.sgs` 构建地图透视表。
- * 对照 app.bak：缩写展开、RewardGroup、Rplot(Tactics/Spell/Card)、Lp 解析 Choose、成长表。
+ * 缩写展开、RewardGroup、Rplot（战法/技能/卡牌）、奇遇选项解析、成长表。
  */
 export function buildRogueMapConfigData(
   raw: unknown,

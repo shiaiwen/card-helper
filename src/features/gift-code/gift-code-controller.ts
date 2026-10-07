@@ -1,3 +1,8 @@
+/**
+ * 礼包码自动兑换：登录后拉取远程码列表，对本账号尚未尝试过的码逐个填入游戏兑换窗。
+ * 尝试记录按 ClientID 写入 localStorage，避免重复兑换。
+ */
+
 import {
   createLayaObjectLocator,
   type LayaObjectLocator,
@@ -29,6 +34,7 @@ function asRecord(value: unknown): UnknownRecord | null {
     : null;
 }
 
+/** 从 UserInfoManger 读取当前 ClientID，作为账号维度的兑换记录键。 */
 function accountId(locator: LayaObjectLocator): string {
   const manager = locator.manager('UserInfoManger');
   const self = asRecord(manager?.Self) ?? asRecord(manager?.self);
@@ -41,6 +47,7 @@ function accountId(locator: LayaObjectLocator): string {
   return value == null ? '' : String(value);
 }
 
+/** 规范化远程返回的码列表：去空、去重、保序。 */
 function normalizeCodes(value: unknown): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -74,6 +81,7 @@ function writeAttempts(
   }
 }
 
+/** 安装礼包码控制器；返回 dispose（清定时器与窗口引用）。 */
 export function installGiftCodeController(options: GiftCodeControllerOptions = {}): () => void {
   const globalObject = options.globalObject ?? (window as LayaRuntimeWindow);
   const locator = options.locator ?? createLayaObjectLocator(globalObject);
@@ -85,6 +93,7 @@ export function installGiftCodeController(options: GiftCodeControllerOptions = {
   const scheduledAccounts = new Set<string>();
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+  /** GET 远程礼包码接口，校验 ok 字段后返回码数组。 */
   async function fetchCodes(): Promise<string[]> {
     if (!fetcher) return [];
     const response = await fetcher(endpoint, {
@@ -100,6 +109,7 @@ export function installGiftCodeController(options: GiftCodeControllerOptions = {
     return normalizeCodes(payload.codes);
   }
 
+  /** 对指定账号尝试兑换所有尚未记录过的码；窗口未就绪则放弃等待下次登录。 */
   async function redeemAccount(id: string): Promise<void> {
     // 延迟期间若切换账号，不为旧账号继续执行。
     if (!id || accountId(locator) !== id || tasks.disposed) return;
@@ -139,6 +149,7 @@ export function installGiftCodeController(options: GiftCodeControllerOptions = {
     }
   }
 
+  /** 新账号首次出现时延迟 LOGIN_DELAY_MS 再开始兑换。 */
   function scheduleCurrentAccount(): void {
     const id = accountId(locator);
     if (!id || scheduledAccounts.has(id)) return;

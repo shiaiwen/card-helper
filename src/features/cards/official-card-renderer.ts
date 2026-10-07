@@ -1,3 +1,7 @@
+/**
+ * 官方卡面渲染：创建/释放游戏原生卡牌 UI，供最近用牌等 HUD 复用。
+ */
+
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -41,7 +45,7 @@ function resolveCardProvider(scene: UnknownRecord): UnknownRecord | null {
 
 /**
  * 复用游戏 createNormalCardUi + Draw，把官方牌面画到宿主 Sprite 上。
- * 对照 app.bak E1：先 SetActualSize / pos，再 Draw 到带 addDrawChild 的宿主。
+ * 先 SetActualSize / pos，再 Draw 到带 addDrawChild 的宿主。
  */
 export function createOfficialCardView(
   host: UnknownRecord,
@@ -116,7 +120,7 @@ function suppressOfficialCardSkillTags(ui: UnknownRecord): void {
 }
 
 /**
- * 对照 app.bak cS：new 出真正带 addDrawChild 的 SgsSprite。
+ * new 出真正带 addDrawChild 的 SgsSprite。
  * 禁止 new GameRoundInfo（会再造一份局内 HUD，画面被掏空）。
  * 禁止给普通 Laya.Sprite 伪造 addDrawChild：Draw 会把牌画进绘制层，普通 Sprite 不渲染那层，弹层就只剩标题。
  */

@@ -1,3 +1,7 @@
+/**
+ * 皮肤背景设置项声明与文案。
+ */
+
 import type { XiaochaoConfigKey } from '../../config/config-schema.ts';
 
 export type SkinBackgroundSettingKey = XiaochaoConfigKey & `skin.${string}`;

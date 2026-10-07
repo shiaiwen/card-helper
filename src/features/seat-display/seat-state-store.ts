@@ -1,3 +1,7 @@
+/**
+ * 座位状态仓：各座位已知手牌、未知数量、控制座位与是否在局。
+ */
+
 import {
   createEmptySeatState,
   normalizeSeatState,
@@ -10,7 +14,7 @@ export interface SeatStateStore {
   getSnapshot(): Readonly<SeatStateSnapshot>;
   replace(candidate: Partial<SeatStateSnapshot>): void;
   applyKnownHandMovement(movement: KnownHandMovement): void;
-  /** 暗牌离开手牌：部分移走时已知牌降为可能牌，整手移走时可能牌随之转移（对照 nD.pack）。 */
+  /** 暗牌离开手牌：部分移走时已知牌降为可能牌，整手移走时可能牌随之转移。 */
   applyHiddenHandMovement(movement: HiddenHandMovement): void;
   revealKnownHand(seatId: number, cardIds: readonly number[]): void;
   /** 部分展示：并入该座位已知手牌，不覆盖已有明牌。 */

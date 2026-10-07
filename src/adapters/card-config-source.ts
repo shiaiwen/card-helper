@@ -1,3 +1,7 @@
+/**
+ * 官方 Config_w.sgs 配置源：下载解密后提供卡牌字典、技能名、自动任务/山河/进阶辅助表。
+ */
+
 import {
   AUTO_TASK_CONFIG_FILES,
   buildAutoTaskConfigData,

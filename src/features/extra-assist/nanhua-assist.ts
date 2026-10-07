@@ -1,3 +1,7 @@
+/**
+ * 南华辅助：在相关技能触发 UI 上展示效果说明。
+ */
+
 import type { LayaObjectLocator } from '../../adapters/laya-object-locator.ts';
 import { createMethodPatcher, type MethodPatcher } from '../../runtime/method-patch.ts';
 
@@ -12,7 +16,7 @@ export interface NanHuaAssistConfig {
 
 export interface NanHuaAssistOptions {
   isEnabled: () => boolean;
-  /** 天书提示文案开关；对照 app.bak tianshuSwitch，默认开启。 */
+  /** 天书提示文案开关，默认开启。 */
   isTipVisible?: () => boolean;
   getConfig: () => NanHuaAssistConfig | null;
   locator: LayaObjectLocator;
@@ -26,7 +30,7 @@ export interface NanHuaAssistOptions {
 }
 
 /**
- * 对照 app.bak TianShuWindow.updateWinUI 的南华分支：
+ * TianShuWindow.updateWinUI 的南华分支：
  * type=1 时按 triggerType 排序选项、显示问号钮与效果 HTML。
  */
 export function installNanHuaAssist(options: NanHuaAssistOptions): () => void {

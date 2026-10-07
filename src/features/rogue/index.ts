@@ -1,3 +1,7 @@
+/**
+ * 山河图（Roguelike）功能导出：地图透视、商店预览、剧情隐藏与设置项。
+ */
+
 export {
   installRogueController,
   type RogueController,

@@ -1,3 +1,7 @@
+/**
+ * 皮肤运行时工具：查找皮肤资源与应用状态。
+ */
+
 import type { LayaObjectLocator } from '../../adapters/laya-object-locator.ts';
 import type { MethodPatcher } from '../../runtime/method-patch.ts';
 
@@ -168,7 +172,7 @@ export function watchSceneSwitch(
   });
 }
 
-/** 座位上主将 / 副将的武将与皮肤信息（对照 app.bak 的 Yy）。 */
+/** 座位上主将、副将的武将与皮肤信息。 */
 export interface SeatGeneralInfo {
   seat: UnknownRecord;
   isZhu: boolean;
@@ -211,7 +215,7 @@ export function seatHoldsGeneral(seat: UnknownRecord, info: SeatGeneralInfo, gen
   }
 }
 
-/** 皮肤详情 / 换肤项是否支持动态（对照 app.bak 的 GM）。 */
+/** 皮肤详情或换肤项是否支持动态。 */
 export function supportsDynamicSkin(item: UnknownRecord): boolean {
   if (item.dynamicState) return true;
   const data = asRecord(item.skinData);

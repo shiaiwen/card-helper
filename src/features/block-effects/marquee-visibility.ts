@@ -1,3 +1,7 @@
+/**
+ * 顶部跑马灯可见性接管：屏蔽时强制不绘制，解除时恢复游戏期望的 visible。
+ */
+
 type UnknownRecord = Record<string, unknown>;
 
 interface VisibilityGuard {

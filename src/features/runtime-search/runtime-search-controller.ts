@@ -1,3 +1,8 @@
+/**
+ * 运行时搜索增强：给游戏原生背包（BagView）与将池窗（ModeGeneralPoolWindow）
+ * 注入关键词输入框，并包装列表刷新方法实现本地过滤。
+ */
+
 import {
   createLayaObjectLocator,
   type LayaObjectLocator,
@@ -112,6 +117,7 @@ export function installRuntimeSearchController(
   };
 }
 
+/** 在背包视图上挂搜索框，包装 showBags / updatePageIdx 按关键词过滤道具。 */
 function attachBagSearch(
   bagView: UnknownRecord,
   globalObject: LayaRuntimeWindow,
@@ -196,6 +202,7 @@ function attachBagSearch(
   activeStates.add(state);
 }
 
+/** 在将池窗口挂搜索框，包装武将列表刷新方法按名过滤。 */
 function attachGeneralPoolSearch(
   poolWindow: UnknownRecord,
   globalObject: LayaRuntimeWindow,
@@ -290,6 +297,7 @@ function attachGeneralPoolSearch(
   activeStates.add(state);
 }
 
+/** 解析将池窗口用于刷新列表的方法名。 */
 function resolvePoolUpdateItemsName(poolWindow: UnknownRecord): string | null {
   for (const name of ['updateItems', 'UpdateItems', 'updateGeneralItems']) {
     if (typeof poolWindow[name] === 'function') return name;
@@ -297,6 +305,7 @@ function resolvePoolUpdateItemsName(poolWindow: UnknownRecord): string | null {
   return null;
 }
 
+/** 创建 Laya 搜索输入框与容器节点。 */
 function createSearchInput(
   globalObject: LayaRuntimeWindow,
   prompt: string,
@@ -334,6 +343,7 @@ function createSearchInput(
   }
 }
 
+/** 按关键词过滤背包道具（名称/描述等字段）。 */
 function filterBagItems(items: unknown[], keyword: string): unknown[] {
   if (!keyword) return items;
   return items.filter((item) => {
@@ -369,6 +379,7 @@ function searchableText(...records: Array<UnknownRecord | null>): string {
     .toLocaleLowerCase();
 }
 
+/** 规范化搜索关键词（去空白、小写等）。 */
 function normalizeKeyword(value: unknown): string {
   return String(value ?? '').trim().toLocaleLowerCase();
 }

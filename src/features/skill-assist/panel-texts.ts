@@ -1,4 +1,4 @@
-/** 双雄 / 吉占 / 和衷 / 权道的结果文案（对照 app.bak），纯函数，只读卡牌元数据。 */
+/** 双雄、吉占、和衷、权道的结果文案。纯函数，只读卡牌元数据。 */
 import type { GameCardMetadata } from '../cards/game-card-catalog.ts';
 import { compareRanks } from './point-calculators.ts';
 

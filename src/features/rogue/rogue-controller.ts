@@ -1,3 +1,7 @@
+/**
+ * 山河图总控：组合地图透视、商店预览、剧情隐藏，并暴露 filterMessage / 设置联动。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import type { CardConfigSource } from '../../adapters/card-config-source.ts';
 import {

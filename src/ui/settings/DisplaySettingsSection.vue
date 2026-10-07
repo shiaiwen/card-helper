@@ -1,4 +1,5 @@
 <script setup>
+/** 显示相关开关：座位 UI、牌局 HUD、最近用牌模式、弃牌排序、卡牌标签、倒计时等。 */
 import { onBeforeUnmount, reactive } from 'vue';
 
 const props = defineProps({

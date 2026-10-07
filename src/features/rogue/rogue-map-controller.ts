@@ -1,3 +1,7 @@
+/**
+ * 山河地图透视控制器：读取配置表与场景城市数据，生成面板文案并驱动地图视图。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -62,7 +66,7 @@ function asRecord(value: unknown): UnknownRecord | null {
 }
 
 /**
- * 对照 app.bak `f6(kN)`：业务在 ProtoObj.allData；外层只有 ClassName。
+ * 业务在 ProtoObj.allData；外层只有 ClassName。
  * 兼容直接传入 allData / manager 缓存的测试与回填路径。
  */
 function readAllData(payload: UnknownRecord): UnknownRecord | null {
@@ -158,7 +162,7 @@ export function installRogueMapController(
     return node.visible !== false;
   }
 
-  /** 对照 app.bak `KR`：只认地图场景，不回落到当前战斗场景。 */
+  /** 只认地图场景，不回落到当前战斗场景。 */
   function findMapScene(): UnknownRecord | null {
     for (const sceneName of ['RogueSmallMapScene', 'RogueLikeBigMapScene']) {
       const scenes = locator.findInLayer('SceneLayer', sceneName);
@@ -254,7 +258,7 @@ export function installRogueMapController(
       return;
     }
 
-    // 对照 M0：无 cityView / 无 cities 时清面板（离开地图必须消失）。
+    // 无 cityView / 无 cities 时清面板（离开地图必须消失）。
     if (!cityView || !cities.length) {
       clear();
       publishDebug({ reason: !cityView ? 'no-cityView' : 'no-cities', cities });
@@ -262,7 +266,7 @@ export function installRogueMapController(
     }
     lastCityView = cityView;
 
-    // 难度未同步前不按 raid 门控清空；对照 app.bak Ke 只在已知 difficulty≤100 时等待 raid。
+    // 难度未同步前不按 raid 门控清空；只在已知 difficulty≤100 时等待 raid。
     if (runtime.difficulty > 0 && needsRaidGate(runtime.difficulty) && !readRaidItem(cityView)) {
       clear(cityView);
       publishDebug({ reason: 'raid-gate', cities, difficulty: runtime.difficulty });
@@ -371,7 +375,7 @@ export function installRogueMapController(
         ...detail
       };
     } catch {
-      // ignore
+      // 忽略异常
     }
   }
 

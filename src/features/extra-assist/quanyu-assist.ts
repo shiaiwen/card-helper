@@ -1,7 +1,7 @@
-/** 权御技能 ID（对照 app.bak Ve）。 */
+/** 权御技能 ID。 */
 export const QUANYU_SKILL_ID = 3793;
 
-/** 权御增益位文案（对照 app.bak VP）；bit0 不用，从 bit1 起对应。 */
+/** 权御增益位文案；bit0 不用，从 bit1 起对应。 */
 export const QUANYU_BUFF_LABELS = Object.freeze([
   '伤害+1',
   '目标+1',
@@ -14,7 +14,7 @@ export const QUANYU_BUFF_LABELS = Object.freeze([
 type UnknownRecord = Record<string, unknown>;
 
 /**
- * 对照 app.bak Vk：座位持有权御且 GetSeatState 为真时，
+ * 座位持有权御且 GetSeatState 为真时，
  * 用 GetSkillBuffInfo 的 bitmask 拼出多行增益文案。
  */
 export function formatQuanyuTipText(seat: unknown): string {

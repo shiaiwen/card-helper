@@ -1,3 +1,7 @@
+/**
+ * 选牌窗工具条：在 SelectCardWindow 叠加全选、反选、快速选择。
+ */
+
 import { createLayaObjectLocator, type LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 
 type Node = Record<string, any>;
@@ -9,6 +13,7 @@ export function installSelectionToolsController(runtime: LayaRuntimeWindow = win
   const states = new Set<Node>();
   let stopped = false;
 
+  /** 轮询：为打开的选牌窗挂工具条，清理已销毁窗口状态。 */
   function sync(): void {
     if (stopped) return;
     const windows = [...locator.findWindows('SelectCardWindow')];
@@ -19,6 +24,7 @@ export function installSelectionToolsController(runtime: LayaRuntimeWindow = win
     for (const win of windows) attach(win);
   }
 
+  /** 在选牌窗确认按钮旁创建全选/反选/快速选择按钮。 */
   function attach(win: Node): void {
     if (win[ROOT_KEY] || !readCards(win).length) return;
     const laya = runtime.Laya as Node | undefined;
@@ -57,6 +63,7 @@ export function installSelectionToolsController(runtime: LayaRuntimeWindow = win
     states.add(win);
   }
 
+  /** 移除工具条 DOM 并清除窗口上的状态键。 */
   function destroy(win: Node): void {
     const root = win[ROOT_KEY] as Node | undefined;
     root?.removeSelf?.();
@@ -74,6 +81,7 @@ export function installSelectionToolsController(runtime: LayaRuntimeWindow = win
   };
 }
 
+/** 读取选牌窗内可选卡牌 UI 列表。 */
 function readCards(win: Node): Node[] {
   for (const key of ['selectCardUis', 'cardUis', 'cardUIs', 'itemUis', 'itemList']) {
     if (Array.isArray(win[key])) return win[key];
@@ -114,6 +122,7 @@ function setSelected(win: Node, card: Node, value: boolean): void {
   card.isSelected = value;
 }
 
+/** 按动作改写选中态：全选、反选、或选满合法数量。 */
 function apply(win: Node, action: 'all' | 'invert' | 'quick'): void {
   const cards = readCards(win).filter(selectable);
   const { min, max } = limits(win, cards.length);

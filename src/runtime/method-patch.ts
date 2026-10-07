@@ -1,3 +1,7 @@
+/**
+ * 可撤销方法包装器：闭包保存原方法，支持 wrap / wrapGetter / restoreAll。
+ */
+
 export type PatchableFunction = (this: any, ...args: any[]) => any;
 
 export interface MethodPatcher {
@@ -21,9 +25,10 @@ export interface MethodPatcher {
 }
 
 /**
- * 对应原版 kD：原方法不写回游戏对象（原版存为 `__name`），而是保存在闭包里，
- * 以免与其他补丁互相覆盖。恢复时若外层已被别人再次包装，
- * 则保留包装但让它直接透传原方法。
+ * 创建可撤销的方法包装器。
+ *
+ * 原方法保存在闭包中，不写回游戏对象上的备用属性名，避免与其它补丁互相覆盖。
+ * 恢复时若外层已被再次包装，则保留外层但让本层直接透传原方法。
  */
 export function createMethodPatcher(): MethodPatcher {
   const wrappedNames = new WeakMap<object, Set<string>>();

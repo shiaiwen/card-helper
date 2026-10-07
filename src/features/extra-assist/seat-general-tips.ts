@@ -1,3 +1,7 @@
+/**
+ * 座位武将 tip：收集目标座位并应用/清理浮层提示。
+ */
+
 type UnknownRecord = Record<string, unknown>;
 
 export interface SeatTipTarget {
@@ -33,7 +37,7 @@ export interface SeatTipTextNode {
 const TIP_PROPERTY_PREFIX = '__xcGeneralTip_';
 
 /**
- * 对照 app.bak 的 qo：在武将头像右下角挂 Laya.Text 提示。
+ * 在武将头像右下角挂 Laya.Text 提示。
  * enabled=false 或文案为空时隐藏；节点复用，避免每帧重建。
  */
 export function applySeatGeneralTip(options: {
@@ -93,7 +97,7 @@ export function clearSeatGeneralTips(
       node.removeSelf?.();
       node.destroy?.(true);
     } catch {
-      // ignore
+      // 忽略异常
     }
     delete avatar[property];
   }

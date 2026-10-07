@@ -1,3 +1,7 @@
+/**
+ * 明牌鉴定汇点：将规则层 CardReveal 批量写入明牌引擎。
+ */
+
 import type { SeatStateStore } from '../seat-display/seat-state-store.ts';
 import type { MingpaiEngine } from './mingpai-engine.ts';
 import { MINGPAI_ZONE } from './mingpai-zones.ts';
@@ -5,7 +9,7 @@ import { DRAW_PILE_POSITION, type CardReveal } from './rules/reveal-types.ts';
 import { traceMingpai } from '../../runtime/mingpai-trace.ts';
 
 /**
- * 唯一的「鉴定」写入口，对照 app.bak `nb.show`。
+ * 唯一的「鉴定」写入口。
  * OptTarget / SpellOptRep / 同区展示 / 好友手牌都汇到这里，
  * 保证引擎分区与座位明牌条永远同步。
  */

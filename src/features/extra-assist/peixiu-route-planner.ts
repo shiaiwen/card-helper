@@ -1,3 +1,7 @@
+/**
+ * 裴秀路线规划：根据地图格子与花色方向，计算可达路径供面板高亮。
+ */
+
 import {
   PEIXIU_SUIT_META,
   PEIXIU_SUITS,

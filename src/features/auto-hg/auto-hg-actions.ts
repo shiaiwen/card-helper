@@ -1,3 +1,7 @@
+/**
+ * 自动换将（盖主速刷）常量与纯函数：黄盖识别、苦肉节拍、确认按钮索引、挂机踢出判定。
+ */
+
 export const KUROU_SKILL_ID = 62;
 export const HUANG_GAI_NAME = '黄盖';
 export const LEAVE_TABLE_IDLE_WHY = 25;
@@ -9,6 +13,7 @@ export const AI_PROMPT_LABEL = '小杀(普通)';
 
 export type KurouTickAction = 'skill' | 'confirm';
 
+/** 苦肉节拍：偶数拍点技能，奇数拍点确认。 */
 export function nextKurouAction(tick: number): KurouTickAction {
   return tick % 2 === 0 ? 'skill' : 'confirm';
 }
@@ -24,6 +29,7 @@ export function generalDisplayName(generalUi: unknown): string {
   return String(general?.name ?? general?.Name ?? record.name ?? '');
 }
 
+/** 在选将列表中按显示名查找黄盖。 */
 export function findHuangGaiGeneral(generalUis: unknown): unknown | null {
   if (!Array.isArray(generalUis)) return null;
   return generalUis.find((item) => generalDisplayName(item) === HUANG_GAI_NAME) ?? null;

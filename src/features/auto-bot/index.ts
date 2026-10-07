@@ -1,3 +1,7 @@
+/**
+ * 自动托管（AutoBot）导出：大厅建房/进房、对局出牌、百胜点将、酒馆进度等。
+ */
+
 export {
   installAutoBotController,
   type AutoBotController,

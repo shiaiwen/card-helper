@@ -1,4 +1,5 @@
 <script setup>
+/** 山河图设置：地图透视、隐藏剧情，以及商店预览入口。 */
 import { onBeforeUnmount, reactive, ref } from "vue";
 import {
   ROGUE_OPEN_SHOP_LABEL,

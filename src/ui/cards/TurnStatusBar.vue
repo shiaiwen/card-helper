@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 标题栏回合阶段与出杀计数展示。 */
 import { onBeforeUnmount, ref } from 'vue';
 import {
   formatPhase,

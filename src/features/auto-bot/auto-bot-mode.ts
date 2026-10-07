@@ -1,3 +1,7 @@
+/**
+ * 自动托管模式检测：识别当前玩法种类、建房默认参数、百胜武将选择。
+ */
+
 export type AutoBotKind = 1 | 11 | 28 | 29;
 
 export const ROGUE_1V1_SCENE = 'RogueLike1v1Scene';
@@ -38,7 +42,7 @@ export function isManagedHallMode(modeId: number): boolean {
   return (MANAGED_HALL_MODE_IDS as readonly number[]).includes(modeId);
 }
 
-/** 对照 app.bak：非托管房、非百胜时房主只接管出牌，不补人机、不代开。 */
+/** 非托管房、非百胜时，房主只接管出牌，不补人机、不代开。 */
 export function shouldHostFillAndStart(input: {
   managedRoom: boolean;
   baiSheng: boolean;

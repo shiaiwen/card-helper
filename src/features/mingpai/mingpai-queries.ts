@@ -1,3 +1,7 @@
+/**
+ * 明牌查询：按引擎归属把候选牌分为手牌/牌堆，供宴戏等面板求交。
+ */
+
 import { formatZoneId, type MingpaiEngine } from './mingpai-engine.ts';
 import { MINGPAI_ZONE } from './mingpai-zones.ts';
 
@@ -6,7 +10,7 @@ const DRAW_PILE_ZONE = 1;
 const GLOBAL_OWNER = 0xff;
 
 /**
- * 用明牌引擎的 findKZ / 分区投影，把候选牌分成手牌 vs 牌堆（对照宴戏 U9/Uc 求交）。
+ * 用明牌引擎按卡号查找归属，把候选牌分成「手牌」与「牌堆」两组（宴戏面板求交用）。
  */
 export function partitionCandidatesByMingpai(
   engine: MingpaiEngine,

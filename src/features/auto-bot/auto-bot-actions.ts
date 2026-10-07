@@ -1,3 +1,7 @@
+/**
+ * 自动托管底层动作：按钮优先级、托管请求条件、决策状态刷新与回退。
+ */
+
 export const DEAL_INTERVAL_MS = 400;
 export const OFFICIAL_WAIT_MS = 1000;
 export const LOCAL_BEFORE_TRUSTEE_MS = 3000;
@@ -47,7 +51,7 @@ export function refreshDecisionState(
 }
 
 /**
- * 对照 app.bak deal：官方推荐超时降到本地，本地超时再托管。
+ * 官方推荐超时后改用本地规则，本地超时再点托管。
  */
 export function advanceFallback(
   state: AutoBotDecisionState,

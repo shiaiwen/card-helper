@@ -1,9 +1,25 @@
+/**
+ * Electron 主进程网络拦截器。
+ *
+ * 在主窗口 session 上挂 onBeforeRequest：
+ * 1. 屏蔽 4399 统计脚本；
+ * 2. 将官服卡牌贴图重定向到本地 cards.webp；
+ * 3. 将壁纸资源替换为本地 MP4/JPG/PNG（经 myprotocol 自定义协议提供）。
+ *
+ * 由 main.cjs 在 createWindow 后调用：await interceptor(mainWindow)。
+ */
+
 const {protocol} = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+/** 官服壁纸编号 → 本地资源序号（1-based）的映射表。 */
 const bgList = [1,15,2,3,4,5,6,23,9,10,11,12,13,14,26,17,18,19,20,21]
 
+/**
+ * 注册自定义协议与请求拦截，仅作用于传入主窗口的 session。
+ * @param {import('electron').BrowserWindow} mainWindow
+ */
 module.exports = async function (mainWindow) {
     // const programDir = path.dirname(require('electron').app.getPath('exe')); // 程序目录
     // let afterjs = false;
@@ -19,6 +35,7 @@ module.exports = async function (mainWindow) {
     // }
     //
     // configInit();
+    /** 异步检测本地文件是否存在。 */
     function checkFileExists(filePath) {
         return new Promise((resolve) => {
             const fullPath = path.resolve(filePath);
@@ -28,6 +45,7 @@ module.exports = async function (mainWindow) {
         });
     }
 
+    /** 预扫描 1..16 号本地壁纸资源（按扩展名），结果缓存为字典。 */
     async function createFileExistenceDictionary(type) {
         const fileExistDict = {};
         for (let index = 1; index <= 16; index++) {
@@ -49,7 +67,7 @@ module.exports = async function (mainWindow) {
     //     const url = request.url.substr(12); // remove 'myprotocol://'
     //     callback({ path: path.join(__dirname, url) });
     // });
-    // // 注册自定义协议以重定向到本地文件
+    // 注册 myprotocol，把本地壁纸/贴图以带 CORS 头的文件响应出去
     protocol.registerFileProtocol('myprotocol', (request, callback) => {
         const url = request.url.substr(12); // 去掉协议部分
         const localPath = path.join(__dirname, url); // 基于 URL 的本地文件路径
@@ -71,6 +89,7 @@ module.exports = async function (mainWindow) {
 
     });
 
+    /** 根据扩展名推断 MIME，供 myprotocol 响应头使用。 */
     function getMimeType(filePath) {
         const ext = path.extname(filePath).toLowerCase();
         switch (ext) {
@@ -102,6 +121,10 @@ module.exports = async function (mainWindow) {
 
     const ses = mainWindow.webContents.session;
 
+    /**
+     * 处理单次 webRequest：取消统计、重定向卡牌贴图、替换壁纸。
+     * 未命中规则时 callback({}) 放行。
+     */
     async function processRequest(details, callback) {
         const url = details.url;
         if (url === 'https://mygame.5054399.com/js/stat.js' || url.startsWith('https://4399logs.4399doc.com/event/')) {
@@ -161,7 +184,7 @@ module.exports = async function (mainWindow) {
             callback({});
         }
     }
-    // 在 ses.webRequest.onBeforeRequest 中执行
+    // 所有匹配请求进入 processRequest；错误只打日志，不抛到 Chromium
     ses.webRequest.onBeforeRequest((details, callback) => {
         processRequest(details, callback).catch(error => console.error('Error processing request:', error));
     });

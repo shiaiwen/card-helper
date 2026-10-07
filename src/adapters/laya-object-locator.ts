@@ -1,3 +1,7 @@
+/**
+ * Laya 运行时对象定位：从事件监听者与方法特征字符串找回管理器单例及混淆方法。
+ */
+
 import {
   locateGameEventDispatcher,
   locateSceneManager,
@@ -79,7 +83,7 @@ export interface LayaObjectLocator {
   obfuscatedMethodName(target: unknown, owner: string, method: string): string | null;
 }
 
-/** 对应原版 zy 的只读部分；不创建游戏实例，只从已有对象上取引用。 */
+/** 只读定位器：不创建游戏实例，只从已有 Laya/场景对象上取管理器与方法引用。 */
 export function createLayaObjectLocator(
   globalObject: LayaRuntimeWindow = window as LayaRuntimeWindow
 ): LayaObjectLocator {

@@ -1,3 +1,7 @@
+/**
+ * GsCRoleOptTargetNtf 看牌规则：按技能从 Params/CardIDs 解析揭示列表。
+ */
+
 import {
   deckReveal,
   DRAW_PILE_OWNER,
@@ -10,13 +14,13 @@ import {
 } from './reveal-types.ts';
 
 /**
- * GsCRoleOptTargetNtf 看牌规则表（对照 app.bak 约 44634–45572）。
+ * GsCRoleOptTargetNtf 看牌规则表。
  *
  * 维护方式：新增「看牌进明牌」的技能只在这里加一行，
  * 选一个 Params 切片器即可；不要在控制器 / 技能面板里写 spellId 判断。
  */
 
-// ---------- Params 切片器（对照原版各分支的取牌方式） ----------
+// ---------- Params 切片器（各技能从 Params/CardIDs 取牌的方式） ----------
 
 /** 整段 Params 就是目标手牌（攻心类）。 */
 const wholeTargetHand = (partial = false): OptTargetRule => (ctx) => (

@@ -1,4 +1,5 @@
 <script setup>
+/** 全局 Tooltip 层：跟随指针/锚点展示 data-tooltip 文案。 */
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { calculateTooltipPosition } from './tooltip-position';
 

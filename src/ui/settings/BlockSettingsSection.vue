@@ -1,4 +1,5 @@
 <script setup>
+/** 屏蔽设置：广告/MVP/特效/红点/阵营口号等开关列表。 */
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import BaseDialog from '../dialog/BaseDialog.vue';
 import {

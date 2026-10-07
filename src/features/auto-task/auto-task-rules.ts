@@ -1,3 +1,7 @@
+/**
+ * 自动任务规则：判断任务是否可领、是否应跳过等纯逻辑。
+ */
+
 type UnknownRecord = Record<string, unknown>;
 
 /** 酒馆碎片任务。 */

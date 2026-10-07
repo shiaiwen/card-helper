@@ -1,3 +1,7 @@
+/**
+ * 山河图武将战力/属性统计辅助：从配置与场景数据汇总展示用数值。
+ */
+
 import type { RogueMapConfigData, RogueMapRuntime } from './rogue-map-types.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -34,7 +38,7 @@ function scaleAdd(raw: number): number {
   return Math.floor(raw);
 }
 
-/** 高难分段额外属性字段前缀（对照 app.bak `Rz`）。 */
+/** 高难分段额外属性字段前缀。 */
 function hardExtraField(difficulty: number, prefix: string): string | null {
   if (difficulty >= 0x65 && difficulty <= 0x6d) return `${prefix}1`;
   if (difficulty >= 0x6f && difficulty <= 0x77) return `${prefix}2`;
@@ -163,7 +167,7 @@ function readNumGrowRow(
   return asRecord(config.RnumGrow[`${mode}_${visible.length}`]) ?? null;
 }
 
-/** 对照 app.bak `Rj`：血/牌/摸/杀/甲。 */
+/** 武将属性行：血、牌、摸、杀、甲。 */
 export function formatGeneralStatsLine(
   general: UnknownRecord,
   config: RogueMapConfigData,

@@ -1,3 +1,7 @@
+/**
+ * 皮肤背景收藏与选项持久化存储。
+ */
+
 import { accountStorageKey, readJson, writeJson } from './skin-runtime.ts';
 
 /** type：0 静态图，1 视频（不支持做背景），2 骨骼 .sk，3 新版 Spine，4 旧版 Spine。 */
@@ -8,7 +12,7 @@ export interface BackgroundResource {
   height: number;
 }
 
-/** “小抄背景”收藏项（对照 app.bak 的 bH 结构）。 */
+/** 「小抄背景」收藏项。 */
 export interface BackgroundFavorite {
   id: string;
   skinId: string;
@@ -26,7 +30,7 @@ type BackgroundStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const RESOURCE_SUFFIX = '::paperRes';
 const FAVORITES_SUFFIX = '::XC_SKIN_BACKGROUND_FAVORITES';
 
-/** 当前皮肤背景与收藏按账号持久化（对照 app.bak 的 `<userID>::paperRes` / `::XC_SKIN_BACKGROUND_FAVORITES`）。 */
+/** 当前皮肤背景与收藏按账号持久化，键为 `<userID>::paperRes` 与 `::XC_SKIN_BACKGROUND_FAVORITES`。 */
 export interface SkinBackgroundStore {
   loadResource(): Partial<BackgroundResource>;
   saveResource(resource: BackgroundResource): void;

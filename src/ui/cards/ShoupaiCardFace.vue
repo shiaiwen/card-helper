@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import type { GameCardCatalog } from '../../features/cards/game-card-catalog.ts';
 
 /**
- * 卡牌页牌堆区用的迷你牌面，视觉对齐 app.bak 的 .shoupai（非 Laya 官方立绘）。
+ * 卡牌页牌堆区用的迷你牌面（非 Laya 官方立绘）。
  * 局内悬停弹层仍由 createNormalCardUi 画官方牌。
  */
 const props = defineProps<{

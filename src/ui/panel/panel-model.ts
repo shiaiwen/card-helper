@@ -1,3 +1,7 @@
+/**
+ * 面板纯 UI 状态：Tab 与折叠；持久化由上层 configStore 完成。
+ */
+
 import { computed, ref, type Ref } from 'vue';
 
 /** 一级页面。原“配置”页已并入“常规”（id 仍为 cards，兼容已保存的选中状态）。 */

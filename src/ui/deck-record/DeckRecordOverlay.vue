@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 游戏内牌局记录浮层（非面板内嵌区块）。 */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import type { DeckRecordStore } from '../../features/deck-record/deck-record-store.ts';

@@ -1,3 +1,7 @@
+/**
+ * 裴秀地图模型：格子/奖励解析、卡牌名分类（花色方向等）。
+ */
+
 export const PEIXIU_SUITS = [1, 2, 3, 4] as const;
 
 export const PEIXIU_SUIT_META: Readonly<Record<number, {
@@ -77,7 +81,7 @@ export function parseNumberList(value: unknown): number[] {
     .filter(Number.isFinite);
 }
 
-/** 对照 app.bak Td：把 11–55 的行列编号压成 1–25。 */
+/** 把 11–55 的行列编号压成 1–25。 */
 export function normalizeCell(value: unknown): number {
   const cell = Number(value) || 0;
   if (cell <= 25) return cell;
@@ -172,7 +176,7 @@ export function parsePeixiuMapConfig(raw: unknown): PeixiuMapConfig | null {
       param2: Number(entry.param2) || 0
     });
   }
-  // 正式服 PeiXiuMapConfig 使用 RewardCells；app.bak 的 sK 同时兼容这四种写法。
+  // 正式服 PeiXiuMapConfig 使用 RewardCells，同时兼容另外三种写法。
   const rewards = parseRewardCells(pickField(record, 'reward', 'RewardCells', 'Rewards', 'rewardCells'));
   const rewardCells = [...new Set(
     rewards.filter((item) => isBoardCell(item.cell) && cells.has(item.cell)).map((item) => item.cell)

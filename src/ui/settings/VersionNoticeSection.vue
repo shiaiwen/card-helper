@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** 版本更新提示：展示远程更新信息与打开下载页。 */
 import { onBeforeUnmount, ref } from 'vue';
 import type { UpdateNoticeController, UpdateNoticeSnapshot } from '../../features/update-notice';
 import { getXiaochaoVersion, XIAOCHAO_UPDATE_PAGE_URL } from '../../features/update-notice';

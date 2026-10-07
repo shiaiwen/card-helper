@@ -1,3 +1,8 @@
+/**
+ * 自动托管对局出牌逻辑：解析操作提示、选牌/选目标/点按钮，必要时请求官方托管。
+ * 由 auto-bot-controller 轮询调用 runAutoBotDeal。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
 import { isEnabledFlag, skillItemId } from '../auto-hg/auto-hg-actions.ts';
@@ -305,7 +310,7 @@ function canUseOfficial(locator: LayaObjectLocator, globalObject: LayaRuntimeWin
     modeType = Number(vo?.ModeType ?? vo?.modeType ?? context?.GetModeType?.() ?? 0) || 0;
     if (vo && 'TrusteeAiManual' in vo) trusteeAiManual = !!vo.TrusteeAiManual;
   } catch {
-    // ignore
+    // 忽略异常
   }
   let canOpen: boolean | null = null;
   try {
@@ -324,8 +329,9 @@ function canUseOfficial(locator: LayaObjectLocator, globalObject: LayaRuntimeWin
 }
 
 /**
- * 对照 app.bak `deal`：一拍内尽量执行一次操作。
+ * 一拍内尽量执行一次操作。
  */
+/** 执行一轮出牌/操作决策：刷新提示状态，自动选牌点确定或回退。 */
 export function runAutoBotDeal(
   locator: LayaObjectLocator,
   globalObject: LayaRuntimeWindow,

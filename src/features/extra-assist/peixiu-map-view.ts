@@ -1,3 +1,7 @@
+/**
+ * 裴秀地图视图：在游戏场景上绘制路线/格子提示，随路线 store 更新。
+ */
+
 import { PEIXIU_SUIT_META, PEIXIU_SUITS } from './peixiu-map-model.ts';
 import type { PeixiuRewardInfo } from './peixiu-map-model.ts';
 import {
@@ -89,7 +93,7 @@ function boardRectIn(
         };
       }
     } catch {
-      // Fall back to the board's display coordinates when a host does not expose transforms.
+      // 宿主没有变换信息时，退回棋盘显示坐标。
     }
   }
   return {

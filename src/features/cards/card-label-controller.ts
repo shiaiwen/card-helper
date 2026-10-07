@@ -1,3 +1,7 @@
+/**
+ * 卡牌标签：按设置在游戏卡牌 UI 上叠加名称等标签。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import { locateGameScene, type GameRuntimeWindow } from '../seat-display/game-scene-locator.ts';
 

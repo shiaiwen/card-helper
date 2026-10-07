@@ -1,10 +1,14 @@
+/**
+ * 技能辅助可见性：桌上是否存在某技能、面板条目是否展示。
+ */
+
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
 import type { SkillAssistDefinition } from './skill-definitions.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
 /**
- * 对照原版 VV：任意座位 HasSkill(id) 即视为桌上有该技能。
+ * 任意座位 HasSkill(id) 为真时，即视为本局桌上存在该技能。
  * 不依赖 legacy，只读 Laya 座位对象上的 HasSkill。
  */
 export function anySeatHasSkill(

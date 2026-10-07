@@ -1,3 +1,7 @@
+/**
+ * 宴戏辅助：根据亮出牌与牌堆/手牌候选计算面板文案。
+ */
+
 import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
 import { partitionCandidatesByKnownFaces } from '../mingpai/mingpai-queries.ts';
 import { MINGPAI_ZONE } from '../mingpai/mingpai-zones.ts';

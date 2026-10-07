@@ -1,7 +1,11 @@
+/**
+ * 自动任务领奖逻辑：识别可领任务并触发领取请求。
+ */
+
 const DAILY_RECORD_SUFFIX = '::XC_DAILY_AUTO_CLAIM_RECORD';
 const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** 同一个请求键 15 秒内不重复发送（对照 app.bak O9）。 */
+/** 同一个请求键 15 秒内不重复发送。 */
 export const CLAIM_THROTTLE_MS = 15_000;
 
 type ClaimStorage = Pick<Storage, 'getItem' | 'setItem'>;

@@ -1,3 +1,7 @@
+/**
+ * 牌局记录仓：跟踪弃牌、牌堆顶底、本回合弃牌等，可与明牌牌堆订阅联动。
+ */
+
 import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
 
 export interface CardMovementRecord {

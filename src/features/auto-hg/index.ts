@@ -1,3 +1,7 @@
+/**
+ * 自动换将（auto-hg）功能导出。
+ */
+
 export {
   installAutoHgController,
   type AutoHgController,

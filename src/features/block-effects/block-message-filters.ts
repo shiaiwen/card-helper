@@ -1,3 +1,7 @@
+/**
+ * 协议级屏蔽：击杀特效、他人动态皮肤、势力口号聊天消息改写。
+ */
+
 import { FACTION_SLOGANS } from './faction-slogans.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -13,7 +17,7 @@ export interface BlockMessageFilterOptions {
 }
 
 /**
- * 对应原版在协议分发前改写消息：击杀特效把 Type 置 0；他人动态皮肤把非本家
+ * 在协议分发前改写消息：击杀特效把 Type 置 0；他人动态皮肤把非本家
  * 武将的皮肤 state 置 0；势力口号删除游戏读取的 data.protoObj 使其不显示。
  * 必须在游戏处理该协议前调用。
  */

@@ -1,3 +1,7 @@
+/**
+ * 进阶辅助配置解析：从 cha_spellextend 等表构建南华/许劭等数据结构。
+ */
+
 type UnknownRecord = Record<string, unknown>;
 
 export interface ExtraAssistPeixiuReward {
@@ -21,7 +25,7 @@ export interface ExtraAssistConfigData {
 }
 
 /**
- * 从 cha_spellextend.sgs 解析南华触发/效果与许劭评鉴词条（对照 app.bak hH / ShiLun）。
+ * 从 cha_spellextend.sgs 解析南华触发、效果与许劭评鉴词条。
  */
 export function buildExtraAssistConfigData(raw: unknown): ExtraAssistConfigData | null {
   const root = asRecord(raw);
@@ -47,7 +51,7 @@ export function buildExtraAssistConfigData(raw: unknown): ExtraAssistConfigData 
     return { type, desc };
   }).sort((left, right) => left.type - right.type || left.desc.length - right.desc.length);
 
-  // 对照 app.bak：同类型效果拼进 HTML 片段数组，供 slice(minType) 使用。
+  // 同类型效果拼进 HTML 片段数组，供 slice(minType) 使用。
   const effectHtml: string[] = [];
   for (let index = 0; index < effectEntries.length; index += 1) {
     const current = effectEntries[index];

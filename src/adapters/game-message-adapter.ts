@@ -1,3 +1,7 @@
+/**
+ * 游戏协议 → 业务事件翻译：从日志参数识别 ClassName，产出 GameEvent。
+ */
+
 import type { GameEvent } from '../runtime/game-event-bus.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -118,7 +122,7 @@ function translatePhase(payload: UnknownRecord): GameEvent | null {
   return { type: 'phase-changed', seatId, phase };
 }
 
-/** 对照原版：DataID=1 且 Datas 至少 3 项时，Datas[1] 为已出杀次数、Datas[2] 为上限。 */
+/** DataID=1 且 Datas 至少 3 项时，Datas[1] 为已出杀次数、Datas[2] 为上限。 */
 function translateShaCount(payload: UnknownRecord): GameEvent | null {
   const dataId = readNonNegativeInteger(payload, ['DataID', 'DataId', 'dataID', 'dataId']);
   const datas = payload.Datas ?? payload.datas;

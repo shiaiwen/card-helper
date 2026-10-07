@@ -1,3 +1,7 @@
+/**
+ * 自动任务设置项：总开关与各项「跳过」选项声明。
+ */
+
 import type { XiaochaoConfigKey } from '../../config/config-schema.ts';
 
 export type AutoTaskSkipKey = XiaochaoConfigKey & `autoTask.skip${string}`;
@@ -15,7 +19,7 @@ export const AUTO_TASK_ENABLED_TOOLTIP = '自动完成砍树、敲鼓等枯燥�
   + '这是总开关，下面的选项可在此基础上排除部分内容\n'
   + '自动化操作存在账号风险，请自行斟酌';
 
-/** 开启 = 跳过该类奖励（对照 app.bak 的叉号语义）。 */
+/** 开启表示跳过该类奖励。 */
 export const AUTO_TASK_SKIP_SETTINGS: readonly AutoTaskSkipSetting[] = [
   { key: 'autoTask.skipTavern', label: '酒馆', tooltip: '跳过酒馆碎片任务，也不同步酒馆进度' },
   { key: 'autoTask.skipMail', label: '邮件', tooltip: '跳过邮件附件' },

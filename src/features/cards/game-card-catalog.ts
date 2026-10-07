@@ -1,3 +1,7 @@
+/**
+ * 本局卡牌目录：结合场景与官方配置解析 cardId → 名称/花色/点数/立绘。
+ */
+
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
 import { clearOfficialCardArtworkCache } from './official-card-renderer.ts';
 

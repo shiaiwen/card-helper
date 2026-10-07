@@ -1,3 +1,7 @@
+/**
+ * 山河地图配置源适配：从 CardConfigSource 取 RogueMapConfigData。
+ */
+
 import type { CardConfigSource } from '../../adapters/card-config-source.ts';
 import {
   isRogueMapConfigReady,

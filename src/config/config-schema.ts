@@ -1,3 +1,8 @@
+/**
+ * 小抄配置 Schema：键名、默认值、旧 localStorage 键迁移与 parse 校验的唯一声明处。
+ * 面板 Tab、显示开关、屏蔽项、皮肤、自动任务、山河图、辅助功能等均在此登记。
+ */
+
 import type { XiaochaoPanelTabId } from '../ui/panel/panel-model';
 
 export const CONFIG_DOCUMENT_VERSION = 1;

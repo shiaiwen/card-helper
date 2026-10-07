@@ -1,3 +1,8 @@
+/**
+ * 将 Vue 根应用挂到页面：创建 #xiaochao-app，注入各 store/controller props，
+ * 并校验面板壳 DOM（#createIframe / #iframe-source）已渲染。
+ */
+
 import { createApp, type App as VueApp } from 'vue';
 import XiaochaoApp from './App.vue';
 import type { XiaochaoPlatform } from '../adapters/platform';

@@ -1,3 +1,7 @@
+/**
+ * 座位 inGame 变化 → game-started / game-ended，供功能模块统一订阅。
+ */
+
 import type { SeatStateStore } from '../features/seat-display/seat-state-store.ts';
 import type { GameEventBus } from './game-event-bus.ts';
 

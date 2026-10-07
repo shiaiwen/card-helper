@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * 主面板一级 Tab：常规 / 山河图 / 工具。
+ * 工具 Tab 在有版本更新时可显示高亮（toolsHasUpdate）。
+ */
 import { XIAOCHAO_PANEL_TABS } from './panel-model';
 
 defineProps({

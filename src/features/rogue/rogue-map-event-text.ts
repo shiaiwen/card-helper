@@ -1,3 +1,7 @@
+/**
+ * 山河事件文案：拼装城市事件标题/正文，决定是否跳过展示。
+ */
+
 import type {
   RogueCitySpot,
   RogueMapConfigData,
@@ -102,7 +106,7 @@ export function isAdventureEvent(config: RogueMapConfigData, event: string | num
 }
 
 /**
- * 对照 app.bak `Kv`/`KE`：武将名 + 属性行，再接奖励/奇遇得失。
+ * 武将名加属性行，再接奖励和奇遇得失。
  * 奇遇（含地图问号关）优先于 Rfight，避免 generalgroup 空壳抢走正文。
  */
 export function buildEventLines(

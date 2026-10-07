@@ -1,10 +1,14 @@
+/**
+ * 自动任务窗口定位与开关：按窗口名获取/释放游戏弹窗实例。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import type { TaskScope } from '../skin-background/skin-runtime.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
 /**
- * 按类名创建游戏窗口 / 视图实例而不加到舞台，用来调用其业务方法（对照 app.bak 的 Za.get / Za.del）。
+ * 按类名创建游戏窗口或视图实例而不加到舞台，用来调用其业务方法。
  * 同名实例复用，直到被释放。
  */
 export interface AutoTaskWindows {

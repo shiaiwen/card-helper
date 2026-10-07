@@ -1,3 +1,7 @@
+/**
+ * 许劭（识论）辅助：匹配可选技能条目并在相关 UI 上展示提示。
+ */
+
 import type { LayaObjectLocator } from '../../adapters/laya-object-locator.ts';
 import { createMethodPatcher, type MethodPatcher } from '../../runtime/method-patch.ts';
 
@@ -22,7 +26,7 @@ export interface XuShaoAssistOptions {
       Text?: new () => UnknownRecord;
     };
   };
-  /** 评鉴格子边长，对照 app.bak WG=6。 */
+  /** 评鉴格子边长，固定为 6。 */
   gridSize?: number;
 }
 
@@ -33,7 +37,7 @@ const TRIGGER_STYLES: Readonly<Record<number, { border: string; backing: string;
 };
 
 /**
- * 对照 app.bak 许劭评鉴：在 PingJianWindow 上画出可连成技能名的格子框。
+ * 许劭评鉴：在 PingJianWindow 上画出可连成技能名的格子框。
  */
 export function installXuShaoAssist(options: XuShaoAssistOptions): () => void {
   const patcher = options.patcher ?? createMethodPatcher();

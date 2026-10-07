@@ -34,7 +34,7 @@ export interface GameSeatSnapshot {
   knownCards: KnownHandCardSnapshot[];
   /** 游戏公开装备区，用于装备状态标签和装备来源预览。 */
   equipmentCards?: KnownEquipmentCardSnapshot[];
-  /** 暗牌移动后「可能在该座位」的牌（对照 app.bak 可能牌），不计入已知手牌数。 */
+  /** 暗牌移动后「可能在该座位」的牌，不计入已知手牌数。 */
   possibleCards?: KnownHandCardSnapshot[];
   unknownCardCount: number;
 }

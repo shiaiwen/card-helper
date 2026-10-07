@@ -1,3 +1,7 @@
+/**
+ * 游戏场景定位：从 Laya/全局对象找到牌局场景、场景管理器与事件分发器。
+ */
+
 import type { GameSceneSeatSource } from './seat-game-adapter.ts';
 
 type UnknownRecord = Record<string, unknown>;

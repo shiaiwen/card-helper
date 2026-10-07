@@ -1,3 +1,7 @@
+/**
+ * 皮肤/背景渲染：应用本地皮肤与壁纸资源到游戏显示对象。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import type { BackgroundResource, SkinBackgroundStore } from './skin-background-store.ts';
 import { asRecord, callMethod, type TaskScope, type UnknownRecord } from './skin-runtime.ts';
@@ -30,7 +34,7 @@ export interface SkinBackgroundRendererOptions {
   tasks: TaskScope;
 }
 
-/** 对照 app.bak 的 br：在 BackgroundLayer 上绘制静态图或骨骼动画背景。 */
+/** 在 BackgroundLayer 上绘制静态图或骨骼动画背景。 */
 export function createSkinBackgroundRenderer(options: SkinBackgroundRendererOptions): SkinBackgroundRenderer {
   const { globalObject, locator, store, tasks } = options;
   const effectClasses = new Map<EffectClassKind, EffectConstructor>();
@@ -115,7 +119,7 @@ export function createSkinBackgroundRenderer(options: SkinBackgroundRendererOpti
     return effectClasses.get(kind) ?? null;
   }
 
-  /** 大厅没有座位时，临时建一个皮肤详情窗口读取特效类（对照 app.bak 的 Za.class 回退）。 */
+  /** 大厅没有座位时，临时建一个皮肤详情窗口读取特效类。 */
   function captureClassesFromSkinInfoWindow(): void {
     const win = locator.createInstance('SkinInfoWindow');
     const bigSprites = asRecord(win?.skinBigSps);

@@ -1,3 +1,7 @@
+/**
+ * 皮肤纸控制器：本家/全场皮肤纸开关与壁纸菜单扩展。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,
@@ -57,7 +61,7 @@ function isPortrait(is169: unknown, isHorizontal: unknown): boolean {
 }
 
 /**
- * 皮肤做背景与全局背景（对照 app.bak 的 br / VZ / VO / bD / V8 一组实现）：
+ * 皮肤做背景与全局背景：
  * 皮肤详情可保存图片、设为背景；换肤窗口悬停出“设为背景”图标。
  */
 export function installSkinPaperController(
@@ -104,7 +108,7 @@ export function installSkinPaperController(
     return response.ok ? { response, url } : null;
   }
 
-  /** 静态原画优先取高清版并量出真实尺寸（对照 app.bak 的 VD）。 */
+  /** 静态原画优先取高清版并量出真实尺寸。 */
   async function measureStatic(url: string, width: number, height: number): Promise<BackgroundResource> {
     if (!url) return { url: '', type: 0, width, height };
     const found = await fetchSkinImage(url).catch(() => null);
@@ -147,7 +151,7 @@ export function installSkinPaperController(
     return { resource: { url, type, width, height } };
   }
 
-  /** 换肤窗口列表项对应的背景资源（对照 app.bak 的 Vq）。 */
+  /** 换肤窗口列表项对应的背景资源。 */
   async function resolveItem(item: UnknownRecord): Promise<{ state: number; previewUrl: string; resource: BackgroundResource } | null> {
     const data = asRecord(item.skinData);
     const general = asRecord(item.paperGeneralInfo);
@@ -170,7 +174,7 @@ export function installSkinPaperController(
     return { state, previewUrl: bigUrl, resource: { url, type, width, height } };
   }
 
-  // ---------- 收藏（对照 app.bak 的 bb / Vs / Vl） ----------
+  // ---------- 收藏 ----------
 
   function skinIdOf(source: UnknownRecord | null): string {
     const value = source?.skinID ?? source?.SkinID ?? source?.ID ?? source?.id ?? source?.baseID;
@@ -229,7 +233,7 @@ export function installSkinPaperController(
     }
   }
 
-  // ---------- 皮肤详情窗口按钮（对照 app.bak 的 VZ） ----------
+  // ---------- 皮肤详情窗口按钮 ----------
 
   function isVideoDetail(win: UnknownRecord): boolean {
     return Number(win.isDynamicPlay) === 1 && Number(asRecord(asRecord(win.skinData)?.skinBaseVo)?.ResType) === 1;
@@ -342,7 +346,7 @@ export function installSkinPaperController(
     return applyBackground(resolved.resource, win);
   }
 
-  /** 同步“收藏背景”按钮文字（对照 app.bak VZ 内的 kU）。 */
+  /** 同步「收藏背景」按钮文字。 */
   function updateDetailFavoriteButton(win: UnknownRecord): void {
     const button = asRecord(win.myFuncBtn2);
     if (!button) return;
@@ -475,7 +479,7 @@ export function installSkinPaperController(
     });
   }
 
-  // ---------- 换肤窗口悬停图标（对照 app.bak 的 VO / VF / VH） ----------
+  // ---------- 换肤窗口悬停图标 ----------
 
   function drawIcon(icon: unknown, kind: IconKind, active = false, hovered = false): void {
     const graphics = asRecord(asRecord(icon)?.graphics);
@@ -530,7 +534,7 @@ export function installSkinPaperController(
     }
   }
 
-  /** 对照 app.bak 的 VY：换肤窗口里收藏或取消收藏。 */
+  /** 换肤窗口里收藏或取消收藏。 */
   async function toggleItemFavorite(item: UnknownRecord): Promise<boolean> {
     if (!isOn()) {
       showToast('请先打开皮肤做背景', 'warning', 4000);
@@ -716,7 +720,7 @@ export function installSkinPaperController(
 
   // ---------- 开关与场景 ----------
 
-  /** 对照 app.bak 的 V8。 */
+  /** 按开关和场景同步皮肤背景是否显示。 */
   function syncVisibility(): void {
     const show = shouldShow();
     skinTrace('paper-visibility', {
@@ -736,7 +740,7 @@ export function installSkinPaperController(
     refreshChangeSkinWindow();
   }
 
-  // ---------- 背景动作（对照 app.bak 的 bD） ----------
+  // ---------- 背景动作 ----------
 
   function filterMessage(payload: UnknownRecord, className: string): void {
     if (!isOn()) return;
@@ -765,7 +769,7 @@ export function installSkinPaperController(
   const menuExtension: WallpaperMenuExtension = {
     enabled: isOn,
     onOfficialWallpaperUsed() {
-      // 改用官方背景时清掉皮肤背景（对照 app.bak 的 bf）。
+      // 改用官方背景时清掉皮肤背景。
       if (renderer.hasBackground()) renderer.clearBackground(true);
       favoritesTab.refreshSelection();
     },

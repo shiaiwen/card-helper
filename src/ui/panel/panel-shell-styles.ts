@@ -1,3 +1,8 @@
+/**
+ * 面板壳 CSS 注入入口：installPanelShellStyles 写入 #xiaochao-vue-panel-shell-style。
+ * 样式需兼容偏旧 Chromium（避免 :is/:has 等导致整段失效）。
+ */
+
 export const PANEL_SHELL_STYLE_ID = 'xiaochao-vue-panel-shell-style';
 
 /**
@@ -294,7 +299,7 @@ const PANEL_SHELL_CSS_SOURCE = `
 }
 /*
  * 接缝：只用 grid gap 露一次底色，禁止每格四边 border（会双线）。
- * 等级辨识：左侧色条 + 同色浅底 + 文字色（对照 app.bak 1灰/2蓝/3紫/4橙）。
+ * 等级辨识：左侧色条 + 同色浅底 + 文字色（1 灰、2 蓝、3 紫、4 橙）。
  */
 #createIframe .xiaochao-rogue-shop-preview__list {
   display: grid;
@@ -906,6 +911,7 @@ export const PANEL_SHELL_CSS = PANEL_SHELL_CSS_SOURCE;
 const styleOwnerCounts = new WeakMap<Element, number>();
 
 /** 安装一次面板样式，并返回可供生命周期注册的清理函数。 */
+/** 将面板壳 CSS 注入 document；重复调用复用同一 style 节点。返回移除函数。 */
 export function installPanelShellStyles(documentObject: Document = document): () => void {
   let styleElement = documentObject.getElementById(PANEL_SHELL_STYLE_ID);
   if (!styleElement) {

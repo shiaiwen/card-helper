@@ -1,3 +1,8 @@
+/**
+ * 倒计时秒数显示：在游戏进度条旁叠加剩余秒数 Label，不改动游戏自带进度条。
+ * 受 display.countdownEnabled 控制；轮询时只绑定最接近舞台中心的活动实例以免闪烁。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store';
 
 interface CountdownTextNode {
@@ -136,6 +141,7 @@ function isVisiblyAttached(node: LayaDisplayNode, stage: LayaDisplayNode): boole
   return false;
 }
 
+/** 从候选中选出最接近舞台水平中心的活动倒计时。 */
 function selectPrimaryCountdown(
   candidates: readonly LayaDisplayNode[],
   stage: LayaDisplayNode
@@ -193,12 +199,14 @@ function readGlobalPosition(node: LayaDisplayNode): { x: number; y: number } {
   return { x, y };
 }
 
+/** 判断节点是否为带 RemainValue 的倒计时进度条。 */
 function isCountdownDisplay(node: LayaDisplayNode): boolean {
   return typeof node.RemainValue === 'number'
     && Number.isFinite(node.RemainValue)
     && typeof node.addChild === 'function';
 }
 
+/** 创建用于显示剩余秒数的 Label/Text 节点。 */
 function createSecondsText(globalObject: CountdownRuntimeWindow): CountdownTextNode | null {
   const laya = globalObject.Laya;
   const constructors = [
@@ -241,6 +249,7 @@ function removeDuplicateSecondsTexts(
   }
 }
 
+/** 根据 RemainValue 更新秒数文案与可见性。 */
 function updateSecondsText(textNode: CountdownTextNode, remainValue: number): void {
   const value = Math.max(0, remainValue).toFixed(0);
   textNode.visible = true;
@@ -259,6 +268,7 @@ function destroyTextNode(textNode: CountdownTextNode): void {
   }
 }
 
+/** 深度遍历 Laya 显示树。 */
 function visitDisplayTree(root: LayaDisplayNode, visitor: (node: LayaDisplayNode) => void): void {
   const pending = [root];
   const visited = new Set<LayaDisplayNode>();

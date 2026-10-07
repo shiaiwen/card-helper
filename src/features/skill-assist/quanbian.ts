@@ -1,6 +1,10 @@
+/**
+ * 权变花色序列：按本回合用牌累积花色与点数，供技能辅助面板展示。
+ */
+
 import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
 
-/** 权变花色序列：对照原版 VB(quanbian, VM[cardId].cn)，在此累积本回合花色点数。 */
+/** 权变花色序列：按本回合已用牌累积花色与点数。 */
 export function cardIdToSuitToken(
   cardId: number,
   gameCardCatalog: GameCardCatalog

@@ -1,4 +1,5 @@
 <script setup>
+/** 游戏辅助开关：进阶辅助、自动托管、自动换将、百胜、酒馆目标。 */
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import {
   AUTO_BOT_ENABLED_KEY,

@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * 面板标题栏：左侧插槽展示回合/出杀等状态，右侧折叠按钮。
+ * pointerdown 冒泡给父级启动拖拽；折叠按钮自身 stop 以免误拖。
+ */
 defineProps({
   collapsed: {
     type: Boolean,

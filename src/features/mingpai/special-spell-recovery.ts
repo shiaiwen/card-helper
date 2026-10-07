@@ -1,8 +1,12 @@
+/**
+ * 特殊技能看牌恢复：标准规则外的补充揭示逻辑。
+ */
+
 import type { GameEvent } from '../../runtime/game-event-bus.ts';
 import { DRAW_PILE_POSITION } from './rules/reveal-types.ts';
 
 /**
- * 个别技能的暗牌还原（对照 app.bak 的 spellSpace 线索）。
+ * 个别技能的暗牌还原。
  * 技能先在 UseSpell / SpellOptRep / 同区展示里亮出卡号，
  * 随后的 MoveCard 却把 CardIDs 藏成 0；这里记住线索并在移动时补回。
  *

@@ -1,3 +1,7 @@
+/**
+ * 自动换将总控：在适当时机触发重新选将流程，并改写相关协议。
+ */
+
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
 import {
   createLayaObjectLocator,

@@ -1,3 +1,7 @@
+/**
+ * 技能辅助控制器：订阅游戏事件写入 SkillAssistStore，驱动面板条文案。
+ */
+
 import type { GameEventBus } from '../../runtime/game-event-bus.ts';
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
 import { locateGameScene, type GameRuntimeWindow } from '../seat-display/game-scene-locator.ts';

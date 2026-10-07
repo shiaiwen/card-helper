@@ -1,3 +1,7 @@
+/**
+ * 自动任务总控：按日状态机驱动领取流程，协调 runner / claims / windows。
+ */
+
 import type { CardConfigSource } from '../../adapters/card-config-source.ts';
 import {
   createLayaObjectLocator,
@@ -62,7 +66,7 @@ const LAST_TASK_DATE_KEY = 'XC::lastTaskDate';
 
 /**
  * 自动领取：登录 / 局结束 / 开关 / 跨天后调度一轮任务、活动、邮件、福利等。
- * 对照 app.bak 的 YY / YW / Za.task。
+ * 调度登录、局结束和跨天任务。
  */
 export function installAutoTaskController(
   configStore: XiaochaoConfigStore,
@@ -254,7 +258,7 @@ export function installAutoTaskController(
     }
   }
 
-  // 登录：管理器就绪后触发（对照 app.bak 用户信息就绪后的 YY("login")）。
+  // 登录：管理器就绪后触发一轮领取。
   void tasks.poll(() => managersReady() || null, Infinity, 1000).then((ready) => {
     if (ready && configStore.get(AUTO_TASK_ENABLED_KEY)) schedule('login', true);
   });

@@ -1,3 +1,7 @@
+/**
+ * 已知牌登记：按座位维护已知手牌身份与标签。
+ */
+
 export interface KnownCardLocation {
   seatId: number;
   zone: number;

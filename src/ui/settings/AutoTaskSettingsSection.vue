@@ -1,4 +1,5 @@
 <script setup>
+/** 自动任务设置：总开关与各项跳过选项，可手动触发领取。 */
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import BaseDialog from '../dialog/BaseDialog.vue';
 import {

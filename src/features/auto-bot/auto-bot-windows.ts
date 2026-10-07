@@ -1,3 +1,7 @@
+/**
+ * 自动托管窗口处理：点将窗选将、结算/MVP 等干扰窗关闭、局内额外弹窗点击。
+ */
+
 import type { LayaObjectLocator, LayaRuntimeWindow } from '../../adapters/laya-object-locator.ts';
 import { clickLayaNode } from '../auto-hg/auto-hg-runtime.ts';
 import { firstSelectableGeneral } from './auto-bot-actions.ts';
@@ -25,10 +29,12 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
+/** 是否为各类选将窗口名。 */
 export function isGeneralSelectWindowName(name: string): boolean {
   return /^Select.*General.*Window$/.test(name);
 }
 
+/** 在选将窗点击第一个可选武将；已点过则跳过，必要时 500ms 后重试。 */
 export function clickFirstGeneral(windowInstance: UnknownRecord): 'picked' | 'skipped' | 'missing' {
   if (windowInstance.destroyed || windowInstance.visible === false) return 'skipped';
   const picked = firstSelectableGeneral(windowInstance.generalUis);
@@ -83,7 +89,7 @@ function collectNamedOptions(root: unknown, prefix: string, bucket: unknown[]): 
   }
 }
 
-/** 对照 app.bak：局内五谷 / 选牌窗口点第一项再确定。 */
+/** 局内五谷、选牌窗口点第一项再确定。 */
 export function handlePlayWindows(locator: LayaObjectLocator, globalObject: LayaRuntimeWindow): boolean {
   const names = ['WuGuFengDengWindow', 'SelectCardWindow'];
   let acted = false;

@@ -1,3 +1,10 @@
+/**
+ * 游戏业务事件总线与事件类型定义。
+ *
+ * 协议适配层把原始消息翻译成这里的命名事件；功能模块只订阅本总线，
+ * 不直接解析混淆的协议类名。publish 前会做字段规范化与冻结。
+ */
+
 export type GameEvent =
   | {
     type: 'game-started';
@@ -13,7 +20,7 @@ export type GameEvent =
   | {
     type: 'turn-started';
     seatId: number;
-    /** 协议 TurnCnt；用于按回合过滤本回合弃牌，与原版 nC.turn 对齐。 */
+    /** 协议 TurnCnt；牌局记录用它按回合过滤「本回合弃牌」。 */
     turnCount: number;
     round: number;
   }
