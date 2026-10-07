@@ -15,7 +15,8 @@ const snapshot = ref<UpdateNoticeSnapshot>(
     notes: '',
     pageUrl: XIAOCHAO_UPDATE_PAGE_URL,
     hasUpdate: false,
-    dialogOpen: false
+    dialogOpen: false,
+    failureMessage: ''
   }
 );
 
@@ -43,7 +44,7 @@ async function onVersionClick(): Promise<void> {
   try {
     const next = await props.updateNoticeController?.checkNow();
     if (!next || next.hasUpdate) return;
-    hint.value = next.latestVersion ? '已是最新' : '检查失败';
+    hint.value = next.latestVersion ? '已是最新' : (next.failureMessage || '检查失败');
   } finally {
     checking.value = false;
   }

@@ -15,7 +15,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const releaseZip = path.join(root, 'release', 'wd-xc.zip');
+const projectVersion = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+const releaseZip = path.join(root, 'release', `wd-xc-${projectVersion}.zip`);
 const defaultResources = process.env.SGSOL_RESOURCES
   || (process.platform === 'darwin'
     ? '/Applications/SGSOL.app/Contents/Resources'
@@ -193,7 +194,7 @@ async function main() {
   }
 
   if (!skipPack) {
-    log('先打包 release/wd-xc.zip…');
+    log(`先打包 release/wd-xc-${projectVersion}.zip…`);
     await run(process.execPath, [path.join(root, 'tools', 'pack-release.js')]);
   }
 

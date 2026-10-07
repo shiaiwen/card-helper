@@ -23,7 +23,9 @@ const stagingRoot = path.join(root, 'release', '.staging');
 const appDir = path.join(stagingRoot, 'app');
 const packDir = path.join(stagingRoot, 'pack');
 const builtScript = path.join(root, 'dist', 'electron', 'xiaochao.js');
-const RELEASE_ZIP_NAME = 'wd-xc.zip';
+function releaseZipName(version) {
+  return `wd-xc-${version}.zip`;
+}
 
 const RELEASE_ASSET_FILES = [
   'install.bat',
@@ -112,10 +114,10 @@ async function main() {
   }
 
   mkdirSync(path.join(root, 'release'), { recursive: true });
-  const releaseZipPath = path.join(root, 'release', RELEASE_ZIP_NAME);
+  const releaseZipPath = path.join(root, 'release', releaseZipName(scriptVersion));
   const releaseAppZipPath = path.join(root, 'release', 'app.zip');
   copyFileSync(appZipPath, releaseAppZipPath);
-  console.log(`[pack] 生成 ${RELEASE_ZIP_NAME}…`);
+  console.log(`[pack] 生成 ${releaseZipName(scriptVersion)}…`);
   await createZip(releaseZipPath, RELEASE_ASSET_FILES.concat('app.zip'), packDir);
 
   rmSync(stagingRoot, { recursive: true, force: true });
@@ -131,6 +133,11 @@ async function main() {
   };
   const manifestPath = path.join(root, 'release', 'xiaochao-manifest.json');
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const serverManifest = path.resolve(root, '..', 'sgs-xc-server', 'data', 'xiaochao-manifest.json');
+  if (existsSync(path.dirname(serverManifest))) {
+    copyFileSync(manifestPath, serverManifest);
+    console.log(`[pack] 版本清单已同步到 ${serverManifest}`);
+  }
   console.log(`[pack] 完成: ${releaseZipPath}`);
   console.log(`[pack] ${(zipSize / 1024).toFixed(1)} KB（脚本 v${scriptVersion}，微端壳 v${shellPackage.version}）`);
   console.log(`[pack] 清单: ${manifestPath}（copy:portal 会放到门户 /downloads/manifest.json）`);

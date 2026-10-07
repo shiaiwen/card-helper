@@ -20,6 +20,7 @@ export interface UpdateNoticeSnapshot {
   pageUrl: string;
   hasUpdate: boolean;
   dialogOpen: boolean;
+  failureMessage: string;
 }
 
 export interface UpdateNoticeController {
@@ -40,7 +41,6 @@ export interface UpdateNoticeControllerOptions {
 }
 
 const DISMISSED_VERSION_KEY = 'update.dismissedVersion' as const;
-const FETCH_TIMEOUT_MS = 8000;
 
 function createEmptySnapshot(currentVersion: string): UpdateNoticeSnapshot {
   return {
@@ -49,7 +49,8 @@ function createEmptySnapshot(currentVersion: string): UpdateNoticeSnapshot {
     notes: '',
     pageUrl: XIAOCHAO_UPDATE_PAGE_URL,
     hasUpdate: false,
-    dialogOpen: false
+    dialogOpen: false,
+    failureMessage: ''
   };
 }
 
@@ -65,7 +66,6 @@ export function createUpdateNoticeController(
   let snapshot = createEmptySnapshot(currentVersion);
   const listeners = new Set<(next: UpdateNoticeSnapshot) => void>();
   let disposed = false;
-  let abortController: AbortController | null = null;
 
   function emit(next: UpdateNoticeSnapshot): void {
     snapshot = next;
@@ -88,31 +88,43 @@ export function createUpdateNoticeController(
       notes: manifest.notes,
       pageUrl: manifest.pageUrl,
       hasUpdate,
-      dialogOpen: false
+      dialogOpen: false,
+      failureMessage: ''
     });
   }
 
-  /** 带超时拉取 manifest；失败静默忽略以免打扰对局。 */
+  /** 正式微端自己请求会被重置，优先让外壳用本机浏览器去取。 */
   async function checkRemote(): Promise<void> {
+    const invoke = window.electron && window.electron.invoke;
+    if (invoke) {
+      try {
+        const raw = await invoke('xiaochao-fetch-update-manifest');
+        if (disposed) return;
+        const manifest = parseUpdateManifest(raw);
+        if (manifest) applyManifest(manifest);
+        else emit({ ...snapshot, failureMessage: '检查失败' });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '检查失败';
+        emit({ ...snapshot, failureMessage: message || '检查失败' });
+      }
+      return;
+    }
     if (!fetchImpl) return;
-    abortController?.abort();
-    abortController = typeof AbortController === 'function' ? new AbortController() : null;
-    const timer = setTimeout(() => abortController?.abort(), FETCH_TIMEOUT_MS);
     try {
       const response = await fetchImpl(manifestUrl, {
         method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
         cache: 'no-store',
-        signal: abortController?.signal
+        referrerPolicy: 'no-referrer'
       });
       if (disposed || !response.ok) return;
       const raw = await response.json();
       if (disposed) return;
       const manifest = parseUpdateManifest(raw);
       if (manifest) applyManifest(manifest);
-    } catch {
-      // 网络失败、超时、跨域被拒都不打扰对局。
-    } finally {
-      clearTimeout(timer);
+    } catch (error) {
+      console.warn('[检查更新] 拉取失败:', error);
     }
   }
 
@@ -142,7 +154,6 @@ export function createUpdateNoticeController(
     },
     dispose() {
       disposed = true;
-      abortController?.abort();
       listeners.clear();
     }
   };

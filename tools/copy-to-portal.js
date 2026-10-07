@@ -1,19 +1,25 @@
 /**
- * 把 release/wd-xc.zip、app.zip 和 xiaochao-manifest.json 拷到 portal 的 public/downloads。
- * 网站上分别是 /downloads/wd-xc.zip、/downloads/app.zip 和 /downloads/manifest.json。
+ * 把 release/wd-xc-<版本>.zip、app.zip 和 xiaochao-manifest.json 拷到 portal 的 public/downloads。
+ * 网站上分别是 /downloads/wd-xc-<版本>.zip、/downloads/app.zip 和 /downloads/manifest.json。
  * 用法：
  *   npm run copy:portal
  *   npm run pack:portal   （先打包再拷贝）
  */
-import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const zipName = 'wd-xc.zip';
-const releaseZip = path.join(root, 'release', zipName);
 const releaseAppZip = path.join(root, 'release', 'app.zip');
 const releaseManifest = path.join(root, 'release', 'xiaochao-manifest.json');
+if (!existsSync(releaseManifest)) {
+  console.error(`[portal] 缺少 ${releaseManifest}`);
+  console.error('[portal] 请先执行 npm run pack，或直接 npm run pack:portal');
+  process.exit(1);
+}
+const manifest = JSON.parse(readFileSync(releaseManifest, 'utf8'));
+const zipName = `wd-xc-${String(manifest.version || '').trim()}.zip`;
+const releaseZip = path.join(root, 'release', zipName);
 const portalRoot = process.env.PORTAL_ROOT
   ? path.resolve(process.env.PORTAL_ROOT)
   : path.resolve(root, '..', 'sgs-xc-portal');

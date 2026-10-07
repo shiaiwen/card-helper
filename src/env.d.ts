@@ -9,7 +9,10 @@ declare module '*.vue' {
 }
 
 interface Window {
-  electron?: { openExternal?: (url: string) => Promise<unknown> };
+  electron?: {
+    openExternal?: (url: string) => Promise<unknown>;
+    invoke?: (channel: string, data?: unknown) => Promise<unknown>;
+  };
   xiaochaoStorage?: {
     saveCredentials?: (scope: 'official' | '4399', credentials: unknown[]) => unknown;
   };

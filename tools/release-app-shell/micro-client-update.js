@@ -3,10 +3,9 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { net } = require('electron');
 const { buildWindowsMicroClientUpdater } = require('./micro-client-updater');
 
-const MANIFEST_URL = 'https://xc.95chong.cn/downloads/manifest.json';
+const MANIFEST_URL = 'https://95chong.cn/api/xiaochao-version';
 const APP_URL = 'https://xc.95chong.cn/downloads/app.zip';
 
 function sha256File(filePath) {
@@ -24,30 +23,60 @@ function compareVersions(left, right) {
     return 0;
 }
 
-/** 用 Chromium 网络栈请求。Node 的 https 握手会被站点重置。 */
+const NO_BROWSER_MESSAGE = '未安装 Chrome 或 Edge';
+
+function browserExecutable() {
+    const candidates = [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
+    ];
+    for (let index = 0; index < candidates.length; index += 1) {
+        if (fs.existsSync(candidates[index])) return candidates[index];
+    }
+    return '';
+}
+
+/** 正式微端自己的加密握手会被重置，改由本机 Chrome 或 Edge 打开页面取回正文。 */
 function requestBuffer(url, maxBytes) {
+    const executable = browserExecutable();
+    if (!executable) return Promise.reject(new Error(NO_BROWSER_MESSAGE));
     return new Promise((resolve, reject) => {
-        const request = net.request({ method: 'GET', url });
-        request.setHeader('Cache-Control', 'no-cache');
-        request.on('response', (response) => {
-            const chunks = [];
-            let size = 0;
-            response.on('data', (chunk) => {
-                size += chunk.length;
-                if (maxBytes && size > maxBytes) {
-                    request.abort();
-                    reject(new Error('response is too large'));
-                    return;
-                }
-                chunks.push(chunk);
-            });
-            response.on('end', () => {
-                resolve({ statusCode: response.statusCode, body: Buffer.concat(chunks) });
-            });
-            response.on('error', reject);
+        const child = spawn(executable, [
+            '--headless=new',
+            '--disable-gpu',
+            '--no-first-run',
+            '--disable-extensions',
+            '--virtual-time-budget=15000',
+            '--dump-dom',
+            url
+        ], { windowsHide: true });
+        const chunks = [];
+        let settled = false;
+        const finish = (error, body) => {
+            if (settled) return;
+            settled = true;
+            if (error) reject(error);
+            else resolve({ statusCode: 200, body: body });
+        };
+        child.stdout.on('data', (chunk) => chunks.push(chunk));
+        child.on('error', (error) => finish(error));
+        child.on('close', () => {
+            const html = Buffer.concat(chunks).toString('utf8');
+            const matched = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+            const text = matched ? matched[1] : html;
+            const body = Buffer.from(text.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'), 'utf8');
+            if (!body.length) {
+                finish(new Error('浏览器没有返回内容'));
+                return;
+            }
+            if (maxBytes && body.length > maxBytes) {
+                finish(new Error('response is too large'));
+                return;
+            }
+            finish(null, body);
         });
-        request.on('error', reject);
-        request.end();
     });
 }
 
@@ -265,6 +294,7 @@ function scheduleMicroClientUpdate(deps) {
 
 module.exports = {
     scheduleMicroClientUpdate,
+    fetchJson,
     compareVersions,
     isValidManifest,
     readScriptVersion

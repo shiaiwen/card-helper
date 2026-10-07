@@ -13,7 +13,7 @@ const { createSharedStore, createJsonConfig, normalizeCredentials: normalizeShar
 const { selectInstanceProfile } = require('./instance-profile')
 const instanceProfile = selectInstanceProfile(app)
 const { createHtmlReportOpener } = require('./report-window')
-const { scheduleMicroClientUpdate } = require('./micro-client-update')
+const { scheduleMicroClientUpdate, fetchJson } = require('./micro-client-update')
 
 
 const steamAppID = 4209770;
@@ -395,6 +395,10 @@ ipcMain.handle('open-window', (event, request) => {
     const url = typeof request === 'string' ? request : request?.url;
     const sourceId = typeof request?.sourceId === 'string' ? request.sourceId : '';
     return openXcWindow(url, { sourceWebContents: event.sender, sourceId });
+});
+
+ipcMain.handle('xiaochao-fetch-update-manifest', () => {
+    return fetchJson('https://95chong.cn/api/xiaochao-version?t=' + Date.now());
 });
 
 ipcMain.handle('open-external', (event, url) => {

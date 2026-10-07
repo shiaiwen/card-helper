@@ -1,5 +1,5 @@
-/** 线上清单与下载页都在门户。游戏页跨域 GET 清单，门户需对这份 JSON 放开 Access-Control-Allow-Origin。 */
-export const XIAOCHAO_UPDATE_MANIFEST_URL = 'https://xc.95chong.cn/downloads/manifest.json';
+/** 版本清单由 95chong.cn 接口返回。游戏页直接 GET 这份 JSON。 */
+export const XIAOCHAO_UPDATE_MANIFEST_URL = 'https://95chong.cn/api/xiaochao-version';
 export const XIAOCHAO_UPDATE_PAGE_URL = 'https://xc.95chong.cn/downloads';
 
 export interface XiaochaoUpdateManifest {

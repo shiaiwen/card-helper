@@ -1,6 +1,6 @@
 /**
- * 身份演武里的身份自选：按房间座位顺序把身份显示到武将牌上。
- * 房间名包含「身份演武」，并且模式是身份自选，才会写入。
+ * 自选身份：按房间座位顺序把身份显示到座位上。
+ * 只看桌子设置里的自选身份开关，等待房间和牌局里都写。
  */
 
 import { createLayaObjectLocator } from '../../adapters/laya-object-locator.ts';
@@ -19,10 +19,10 @@ export function installChooseFigureController(
 
   function applyChooseFigures(): void {
     try {
+      const locator = createLayaObjectLocator(globalObject);
       const room = roomController(globalObject);
       const setting = asRecord(room?.TableSetting) ?? asRecord(room?.tableSetting);
-      const mode = readMode(globalObject, room, setting);
-      if (!shouldRevealIdentityFigures(mode)) return;
+      if (!isChooseFigure(setting)) return;
       const clientIds = readClientIds(
         asRecord(room?.TabbleSeatInfos)
         ?? asRecord(room?.tabbleSeatInfos)
@@ -30,8 +30,7 @@ export function installChooseFigureController(
         ?? asRecord(room?.tableSeatInfos)
       );
       if (clientIds.length !== 8) return;
-      const scene = asRecord(locateGameScene(globalObject));
-      const seatUis = readSeatUis(scene);
+      const seatUis = readSeatUis(seatScene(globalObject, locator));
       for (const seatUi of seatUis) {
         const clientId = readSeatClientId(asRecord(seatUi.seat));
         const figure = figureByClientOrder(clientIds, clientId);
@@ -43,63 +42,8 @@ export function installChooseFigureController(
   }
 }
 
-/** 身份演武（含模式号 74、84）并且是自选身份时才透视。 */
-export function shouldRevealIdentityFigures(input: {
-  modeText: string;
-  modeType?: number;
-  chooseFigure: boolean;
-}): boolean {
-  const drill = input.modeText.includes('身份演武')
-    || input.modeType === 74
-    || input.modeType === 84;
-  const custom = input.chooseFigure
-    || input.modeText.includes('自选身份')
-    || input.modeText.includes('身份自选');
-  return drill && custom;
-}
-
-/** 拼房间名、模式名和桌子设置里的中文，供上面的条件判断。 */
-function readMode(globalObject: GameRuntimeWindow, room: UnknownRecord | null, setting: UnknownRecord | null): {
-  modeText: string;
-  modeType: number;
-  chooseFigure: boolean;
-} {
-  const scene = asRecord(locateGameScene(globalObject));
-  const topMenu = asRecord(scene?.topMenu);
-  const area = asRecord(topMenu?.areaServerLabel);
-  const parts: unknown[] = [area?.text, scene?.modeName, scene?.ModeName];
-  const context = createLayaObjectLocator(globalObject).gameContext()
-    ?? asRecord((globalObject as UnknownRecord).GameContext);
-  let modeType = 0;
-  try {
-    const vo = typeof context?.GetModeVO === 'function' ? asRecord(context.GetModeVO()) : null;
-    modeType = Number(vo?.ModeType ?? vo?.modeType ?? context?.GetModeType?.() ?? 0) || 0;
-    parts.push(
-      vo?.ModeName, vo?.modeName, vo?.Name, vo?.name,
-      vo?.SectionName, vo?.sectionName, vo?.ModelName, vo?.modelName,
-      vo?.SectionDesc, vo?.Desc, vo?.desc
-    );
-  } catch {
-    // 模式名读失败时继续看房间设置里的文字。
-  }
-  collectChinese(setting, parts);
-  collectChinese(room, parts);
-  return {
-    modeText: parts.filter((part) => typeof part === 'string').join(' '),
-    modeType,
-    chooseFigure: isChooseFigure(setting)
-  };
-}
-
-function collectChinese(record: UnknownRecord | null, parts: unknown[]): void {
-  if (!record) return;
-  for (const value of Object.values(record)) {
-    if (typeof value === 'string' && /[\u4e00-\u9fff]/.test(value)) parts.push(value);
-  }
-}
-
 /** 自选身份开关。桌子上可能是布尔，也可能是 1。 */
-function isChooseFigure(setting: UnknownRecord | null): boolean {
+export function isChooseFigure(setting: UnknownRecord | null): boolean {
   if (!setting) return false;
   const value = setting.IsChooseFigure ?? setting.isChooseFigure ?? setting.ChooseFigure ?? setting.chooseFigure;
   return value === true || value === 1 || value === '1';
@@ -112,6 +56,7 @@ function roomController(globalObject: GameRuntimeWindow): UnknownRecord | null {
   const windowManager = locator.manager('WindowManager');
   const managerList = asRecord(windowManager?.constructor)?.managerList;
   const named = [
+    roomFromReady(locator),
     firstRoom(Array.isArray(managerList) ? managerList : []),
     lookupNamed(globals, 'RoomControler'),
     asRecord(asRecord(globals.GameContext)?.RoomControler),
@@ -131,6 +76,30 @@ function roomController(globalObject: GameRuntimeWindow): UnknownRecord | null {
       if (hasTableSetting(caller)) return caller;
     }
   }
+  return null;
+}
+
+/** 进房应答的监听者就是房间对象。 */
+function roomFromReady(locator: ReturnType<typeof createLayaObjectLocator>): UnknownRecord | null {
+  const events = asRecord(locator.manager('ServerProxy')?._events);
+  const listeners = events?.GsCReadyResp;
+  const list = Array.isArray(listeners) ? listeners : [listeners];
+  for (const listener of list) {
+    const caller = asRecord(asRecord(listener)?.caller);
+    if (hasTableSetting(caller)) return caller;
+  }
+  return null;
+}
+
+/** 牌局优先；人还在等待房间时用当前场景上的座位。 */
+function seatScene(
+  globalObject: GameRuntimeWindow,
+  locator: ReturnType<typeof createLayaObjectLocator>
+): UnknownRecord | null {
+  const game = asRecord(locateGameScene(globalObject));
+  if (readSeatUis(game).length > 0) return game;
+  const current = asRecord(locator.scene());
+  if (readSeatUis(current).length > 0) return current;
   return null;
 }
 
