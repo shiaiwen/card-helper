@@ -29,6 +29,7 @@ export interface AutoBotHelpRequest {
   actionable: boolean;
 }
 
+/** 新建一次出牌决策的计时状态。 */
 export function emptyDecisionState(key: string, now: number): AutoBotDecisionState {
   return {
     key,
@@ -41,6 +42,7 @@ export function emptyDecisionState(key: string, now: number): AutoBotDecisionSta
   };
 }
 
+/** 局面没变就沿用旧计时，局面变了就重新计时。 */
 export function refreshDecisionState(
   previous: AutoBotDecisionState | null,
   key: string,
@@ -74,6 +76,7 @@ export function advanceFallback(
   return state;
 }
 
+/** 本家回合、回退已经两档、且冷却结束时才请求托管。 */
 export function canRequestTrustee(state: AutoBotDecisionState, now: number, isSelfTurn: boolean): boolean {
   if (!isSelfTurn) return false;
   if (state.fallbackLevel < 2) return false;
@@ -82,6 +85,7 @@ export function canRequestTrustee(state: AutoBotDecisionState, now: number, isSe
   return true;
 }
 
+/** 判断当前模式能否使用官方托管。 */
 export function officialAiAllowed(input: {
   enabled: boolean;
   modeType?: number;
@@ -96,6 +100,7 @@ export function officialAiAllowed(input: {
   return input.trusteeAiManual !== false;
 }
 
+/** 把多组输入收成非 0 的数字列表。 */
 export function collectNumberList(...groups: unknown[]): number[] {
   const result: number[] = [];
   for (const group of groups) {
@@ -109,6 +114,7 @@ export function collectNumberList(...groups: unknown[]): number[] {
   return result;
 }
 
+/** 把一次求助请求收成指纹，用来判断是不是同一次操作。 */
 export function helpFingerprint(help: AutoBotHelpRequest, extras = ''): string {
   return [
     help.skillId || 0,
@@ -121,6 +127,7 @@ export function helpFingerprint(help: AutoBotHelpRequest, extras = ''): string {
   ].join('|');
 }
 
+/** 选将列表里取第一张还能选的武将。 */
 export function firstSelectableGeneral(generalUis: unknown): unknown | null {
   if (!Array.isArray(generalUis) || !generalUis.length) return null;
   return generalUis.find((item) => {
@@ -130,6 +137,7 @@ export function firstSelectableGeneral(generalUis: unknown): unknown | null {
   }) ?? generalUis[0];
 }
 
+/** 按牌名决定确认按钮的点击顺序。 */
 export function buttonOrderForCard(name: string, dyingAlly: boolean, vsWeakAi: boolean): number[] {
   if (['铁索'].includes(name)) return [0];
   if (['无懈', '国无'].includes(name) && vsWeakAi) return [3, 1, 0, 2];

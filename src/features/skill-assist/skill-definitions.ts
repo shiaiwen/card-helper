@@ -139,7 +139,3 @@ export const SKILL_ASSIST_DEFINITIONS: readonly SkillAssistDefinition[] = Object
     showResult: true
   }
 ]);
-
-export function getSkillAssistDefinition(id: string): SkillAssistDefinition | null {
-  return SKILL_ASSIST_DEFINITIONS.find((definition) => definition.id === id) ?? null;
-}

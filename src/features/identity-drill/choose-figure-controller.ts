@@ -9,6 +9,7 @@ import { figureByClientOrder } from './choose-figure.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
+/** 挂上轮询：进局后反复尝试，直到房间座位和武将牌都就绪。 */
 export function installChooseFigureController(
   globalObject: GameRuntimeWindow = window
 ): () => void {
@@ -42,6 +43,7 @@ export function installChooseFigureController(
   }
 }
 
+/** 身份演武（含模式号 74、84）并且是自选身份时才透视。 */
 export function shouldRevealIdentityFigures(input: {
   modeText: string;
   modeType?: number;
@@ -56,6 +58,7 @@ export function shouldRevealIdentityFigures(input: {
   return drill && custom;
 }
 
+/** 拼房间名、模式名和桌子设置里的中文，供上面的条件判断。 */
 function readMode(globalObject: GameRuntimeWindow, room: UnknownRecord | null, setting: UnknownRecord | null): {
   modeText: string;
   modeType: number;
@@ -95,12 +98,14 @@ function collectChinese(record: UnknownRecord | null, parts: unknown[]): void {
   }
 }
 
+/** 自选身份开关。桌子上可能是布尔，也可能是 1。 */
 function isChooseFigure(setting: UnknownRecord | null): boolean {
   if (!setting) return false;
   const value = setting.IsChooseFigure ?? setting.isChooseFigure ?? setting.ChooseFigure ?? setting.chooseFigure;
   return value === true || value === 1 || value === '1';
 }
 
+/** 房间单例没有固定入口，按管理器列表、类名和事件监听者依次找。 */
 function roomController(globalObject: GameRuntimeWindow): UnknownRecord | null {
   const globals = globalObject as UnknownRecord;
   const locator = createLayaObjectLocator(globalObject);
@@ -178,6 +183,7 @@ function hasTableSetting(value: UnknownRecord | null): boolean {
   return !!(value && (value.TableSetting || value.tableSetting || value.TabbleSeatInfos || value.tabbleSeatInfos || value.TableSeatInfos));
 }
 
+/** 只接受正好 8 个座位的账号表，空位保留位置，不能滤掉后错位。 */
 function readClientIds(seats: UnknownRecord | null): string[] {
   if (!seats) return [];
   const raw = seats.datum ?? seats.Datum ?? seats.list ?? seats.objs ?? seats;
@@ -194,6 +200,7 @@ function asList(value: unknown): unknown[] {
   return [];
 }
 
+/** 身份还没写成目标值时才调用 SetFigure，避免每轮轮询重绘。 */
 function revealFigure(manager: UnknownRecord | null, figure: number): void {
   if (!manager || figure <= 0 || Number(manager.Figure) === figure) return;
   if (typeof manager.SetFigure === 'function') {

@@ -44,6 +44,7 @@ export interface SkinBackgroundStore {
   onFavoritesChange(listener: () => void): () => void;
 }
 
+/** 把收藏记录收成统一字段。 */
 export function normalizeFavorite(value: unknown): BackgroundFavorite | null {
   const record = value && typeof value === 'object' ? value as Record<string, unknown> : null;
   const resource = record?.resource && typeof record.resource === 'object' ? record.resource as Record<string, unknown> : null;
@@ -65,6 +66,7 @@ export function normalizeFavorite(value: unknown): BackgroundFavorite | null {
   };
 }
 
+/** 创建皮肤背景收藏仓库。 */
 export function createSkinBackgroundStore(storage: BackgroundStorage | undefined): SkinBackgroundStore {
   const resourceKey = () => `${accountStorageKey(storage)}${RESOURCE_SUFFIX}`;
   const favoritesKey = () => `${accountStorageKey(storage)}${FAVORITES_SUFFIX}`;

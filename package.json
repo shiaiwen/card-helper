@@ -1,6 +1,6 @@
 {
   "name": "SGSOL",
-  "version": "1.1.48",
+  "version": "1.0.0",
   "packageId": 1,
   "IsTest": false,
   "IsDebug": true,
@@ -9,7 +9,21 @@
   "platform": 0,
   "LoginURL": [
     "https://web.sanguosha.com/login/air/client/h5/index",
-    "https://web.sanguosha.com/login/air/client/h5/index"
+    "https://web.sanguosha.com/login/air/client/h5/index",
+    "https://my.4399.com/yxsgs/wd-home",
+    "https://my.4399.com/yxsgs/wd-home",
+    "http://web.kuaiwan.com/kwsgsn/index.html",
+    "http://web.kuaiwan.com/kwsgsn/index.html",
+    "https://web.sanguosha.com/login/air/feihuo/client/index",
+    "https://web.sanguosha.com/login/air/feihuo/client/index",
+    "https://wan.baidu.com/microend?gameId=19793595",
+    "https://wan.baidu.com/microend?gameId=19793595",
+    "https://web.sanguosha.com/login/air/client/h5/index?olCId=120128",
+    "https://web.sanguosha.com/login/air/client/h5/index?olCId=120128",
+    "https://web.sanguosha.com/login/air/client/h5/index?olCId=120130",
+    "https://web.sanguosha.com/login/air/client/h5/index?olCId=120130",
+    "https://web.sanguosha.com/login/air/client/h5/index?olCId=110137",
+    "https://web.sanguosha.com/login/air/client/h5/index?olCId=110137"
   ],
   "ADLoginURL": [
     "https://preview-login.sanguosha.com/"

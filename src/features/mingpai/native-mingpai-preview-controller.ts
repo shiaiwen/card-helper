@@ -1,5 +1,9 @@
 /**
- * 原生明牌预览：在游戏 UI 上展示已鉴定牌面（受显示设置控制）。
+ * 原生明牌预览。
+ *
+ * 其他座位武将牌下方画小牌条：确定牌一排，可能牌半透明并带问号。
+ * 悬停或点击弹出官方牌面。队友标记和心幽标签也从这里刷回游戏牌面。
+ * 显示总开关关掉或不在局内时拆掉全部节点。
  */
 
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
@@ -473,6 +477,10 @@ export function installNativeMingpaiPreviewController(
     call(popup, 'pos', x, y);
   }
 
+  /**
+   * 按座位快照重画小牌条。装备上的炁每秒刷一次并在绘制后还原，避免改掉游戏自己的标签。
+   * 手牌上的心幽每次同步都写死在牌上，出牌重绘也不会闪掉。
+   */
   function syncNow(): void {
     if (stopped) return;
     if (!configStore.get('display.seatUiEnabled')) {
@@ -595,6 +603,10 @@ export function installNativeMingpaiPreviewController(
     markTimers.set(entry.seatId, timer);
   }
 
+  /**
+   * 游戏重绘手牌时会清空 tagArr1 再调 UpdateTag。
+   * 在绘制前把心幽写回去，标签就不会先消失再出现。
+   */
   function installXinyouTagHook(rawUi: unknown): void {
     const cardUi = asRecord(rawUi);
     if (!cardUi) return;
@@ -618,6 +630,7 @@ export function installNativeMingpaiPreviewController(
     }
   }
 
+  /** 这张牌仍带着心幽时，把标签放进游戏绘制用的数组。 */
   function stampXinyouTag(cardUi: UnknownRecord): void {
     if (!configStore.get('display.cardLabelsEnabled')) return;
     const card = asRecord(cardUi.Card) ?? asRecord(cardUi.card);

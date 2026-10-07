@@ -52,6 +52,7 @@ export function isConfigEntryActive(entry: unknown, today: string): boolean {
   return withinRange(start, end, today) && withinDuration(duration, today);
 }
 
+/** 把任务配置文件收成当日可领取的任务数据。 */
 export function buildAutoTaskConfigData(
   files: Partial<Record<AutoTaskConfigFileName, unknown>>,
   today: string

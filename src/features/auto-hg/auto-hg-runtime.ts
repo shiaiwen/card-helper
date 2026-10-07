@@ -159,6 +159,7 @@ export function locateTableScene(globalObject?: LayaRuntimeWindow): UnknownRecor
   return asRecord(manager.CurrentScene);
 }
 
+/** 读取本家账号编号。 */
 export function readSelfUserId(locator: LayaObjectLocator, globalObject?: LayaRuntimeWindow): number {
   const user = locator.manager('UserInfoManger');
   const context = locator.gameContext() ?? asRecord((globalObject ?? {}) as UnknownRecord)?.GameContext;
@@ -270,6 +271,7 @@ export function runKurouTick(
   return action;
 }
 
+/** 提示框标题匹配时点指定按钮。 */
 export function confirmNamedPrompt(
   locator: LayaObjectLocator,
   title: string,
@@ -304,6 +306,7 @@ function openDianjiang(scene: UnknownRecord): void {
   }
 }
 
+/** 在桌子上准备、补人机或等待开局。 */
 export function runTableAssist(
   locator: LayaObjectLocator,
   globalObject: LayaRuntimeWindow,

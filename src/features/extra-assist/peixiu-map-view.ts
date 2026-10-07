@@ -1,5 +1,7 @@
 /**
- * 裴秀地图视图：在游戏场景上绘制路线/格子提示，随路线 store 更新。
+ * 裴秀地图上的路线层。
+ * 路线、剩余花色、技能气泡都画在游戏棋盘节点上，不走 DOM。
+ * 多条路线用不同颜色并错开箭头，避免叠在同一条线上。
  */
 
 import { PEIXIU_SUIT_META, PEIXIU_SUITS } from './peixiu-map-model.ts';
@@ -59,6 +61,7 @@ function layaPoint(globalObject: PeixiuLayaWindow, x: number, y: number): { x: n
   return Point ? new Point(x, y) : { x, y };
 }
 
+/** 棋盘节点在父节点里的矩形，用来把格子坐标换成绘制坐标。 */
 function boardRectIn(
   board: UnknownRecord,
   target: UnknownRecord,
@@ -124,6 +127,7 @@ function boardSize(host: PeixiuOverlayHost): { width: number; height: number } {
   return { width, height };
 }
 
+/** 路线层挂在棋盘上，已有层就复用，避免每次重画都新建节点。 */
 function ensureLayer(host: PeixiuOverlayHost, globalObject: PeixiuLayaWindow): UnknownRecord | null {
   const existing = asRecord(host.__xcPeiXiuRouteLayer);
   if (existing?.parent) return existing;
@@ -172,6 +176,7 @@ function ensureControlRoot(host: PeixiuOverlayHost, size: { width: number; heigh
   return root;
 }
 
+/** 箭头画在路线层上。多条路线按序号错开，颜色从起点到终点渐变。 */
 function drawArrow(
   graphics: UnknownRecord,
   from: { x: number; y: number },
@@ -257,6 +262,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** 剩余花色张数画在棋盘一侧，打出后会变少。 */
 function renderRemainingSuits(host: PeixiuOverlayHost, size: { width: number; height: number }, counts: number[], globalObject: PeixiuLayaWindow): void {
   const root = ensureControlRoot(host, size, globalObject);
   const Text = globalObject.Laya?.Text;
@@ -336,6 +342,7 @@ function renderRemainingSuits(host: PeixiuOverlayHost, size: { width: number; he
   panel.visible = true;
 }
 
+/** 多条候选路线用滑条切换，当前条高亮。 */
 function renderSlider(
   host: PeixiuOverlayHost,
   size: { width: number; height: number },
@@ -448,6 +455,7 @@ function renderSlider(
   hostLayer.sortChildren?.();
 }
 
+/** 把当前路线的出牌顺序画成一行花色。 */
 function renderSequence(
   host: PeixiuOverlayHost,
   size: { width: number; height: number },
@@ -541,6 +549,7 @@ function hideSkillBubble(host: PeixiuOverlayHost, delay: number, globalObject: P
   }, Math.max(0, delay));
 }
 
+/** 技能说明挂在对应格子旁，移开后延迟收起，避免鼠标经过缝隙时闪掉。 */
 function showSkillBubble(host: PeixiuOverlayHost, text: string, anchor: UnknownRecord, globalObject: PeixiuLayaWindow): void {
   const Sprite = globalObject.Laya?.Sprite;
   const Text = globalObject.Laya?.Text;
@@ -584,6 +593,7 @@ function showSkillBubble(host: PeixiuOverlayHost, text: string, anchor: UnknownR
   bubble.visible = true;
 }
 
+/** 棋盘上的技能格画成可悬停的标记。 */
 function renderSkills(
   host: PeixiuOverlayHost,
   size: { width: number; height: number },
@@ -664,6 +674,7 @@ function renderSkills(
   layer.sortChildren?.();
 }
 
+/** 隐藏裴秀路线覆盖层。 */
 export function hidePeixiuOverlay(host: PeixiuOverlayHost | null | undefined): void {
   if (!host) return;
   asRecord(host.__xcPeiXiuRouteLayer)?.graphics?.clear?.();
@@ -682,6 +693,7 @@ export function hidePeixiuOverlay(host: PeixiuOverlayHost | null | undefined): v
   host.__xcPeiXiuRouteRenderSignature = '';
 }
 
+/** 销毁裴秀路线覆盖层。 */
 export function destroyPeixiuOverlay(host: PeixiuOverlayHost | null | undefined, globalObject?: PeixiuLayaWindow): void {
   if (!host) return;
   if (host.__xcPeiXiuSkillBubbleHideTimer && globalObject?.clearTimeout) {
@@ -718,6 +730,7 @@ export function destroyPeixiuOverlay(host: PeixiuOverlayHost | null | undefined,
   host.__xcPeiXiuRouteVariant = 0;
 }
 
+/** 把算出的路线画到裴秀地图上。 */
 export function renderPeixiuRoute(options: {
   host: PeixiuOverlayHost;
   planned: PeixiuPlannedRoute | null;

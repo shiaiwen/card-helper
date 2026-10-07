@@ -74,6 +74,7 @@ export function resolveSkillIds(
   return [...new Set([...definition.skillIds, ...fromNames].filter((id) => Number.isInteger(id) && id > 0))];
 }
 
+/** 当前局面是否应该显示该技能辅助。 */
 export function isSkillAssistVisible(
   definition: SkillAssistDefinition,
   scene: GameSceneSeatSource | null,

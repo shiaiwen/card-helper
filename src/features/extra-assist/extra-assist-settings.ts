@@ -28,13 +28,6 @@ export const AUTO_BOT_TOOLTIP = [
   '自动化操作存在账号风险，请自行斟酌'
 ].join('\n');
 
-export const BAI_SHENG_TOOLTIP = [
-  '配合小号盖主速刷持续完成百胜战功',
-  '每局尽量点将未完成百胜的武将',
-  '自动跳过无法在一回合速刷中计入胜场的隐匿武将',
-  '自动化操作存在账号风险，请自行斟酌'
-].join('\n');
-
 export const AUTO_HG_TOOLTIP = [
   '主公点将黄盖苦肉自杀速刷',
   '可用来刷武将百胜战功和官阶任务',

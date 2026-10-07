@@ -54,6 +54,7 @@ export interface SeatTipStyle {
   place?: (avatar: UnknownRecord) => { x: number; y: number; width: number; height: number };
 }
 
+/** 在武将牌上挂或更新一条文字提示。 */
 export function applySeatGeneralTip(options: {
   key: string;
   targets: readonly SeatTipTarget[];
@@ -111,6 +112,7 @@ export function clearSeatGeneralTips(
   }
 }
 
+/** 从座位界面收集可以挂提示的武将牌。 */
 export function collectSeatTipTargets(seatUIs: unknown): SeatTipTarget[] {
   if (!Array.isArray(seatUIs)) return [];
   return seatUIs.map((raw) => {

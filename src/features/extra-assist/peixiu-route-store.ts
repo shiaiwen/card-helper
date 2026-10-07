@@ -55,6 +55,7 @@ const EMPTY_SNAPSHOT: Readonly<PeixiuRouteSnapshot> = Object.freeze({
 
 const VARIANT_LABELS = ['最佳', '备选一', '备选二'];
 
+/** 保存当前裴秀路线，配置或手牌变化时更新。 */
 export function createPeixiuRouteStore(): PeixiuRouteStore {
   let snapshot = EMPTY_SNAPSHOT;
   let signature = '';

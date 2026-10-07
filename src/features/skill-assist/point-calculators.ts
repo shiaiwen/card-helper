@@ -13,10 +13,12 @@ export interface YanjiaoSplit {
   rest: number[];
 }
 
+/** 格式化单张牌的点数。 */
 export function formatRank(rank: number): string {
   return ({ 11: 'J', 12: 'Q', 13: 'K' } as Record<number, string>)[rank] ?? String(rank);
 }
 
+/** 格式化一组牌的点数。 */
 export function formatRanks(ranks: readonly number[]): string {
   return ranks.map(formatRank).join('+');
 }
@@ -173,6 +175,7 @@ export interface RankComparison {
   equal: number;
 }
 
+/** 比较两张牌的点数大小。 */
 export function compareRanks(ranks: readonly number[], pivot: number): RankComparison {
   return validRanks(ranks).reduce((result, rank) => {
     if (rank > pivot) result.greater += 1;

@@ -1,5 +1,9 @@
 /**
- * 自动任务执行器：打开任务/福利窗口并点击领取、签到、邮件等具体操作。
+ * 自动领取。
+ *
+ * 按固定顺序处理任务、活动、邮件、福利和签到。
+ * 每项都先看设置里的跳过开关，再看奖励是不是抵价券或欢乐豆。
+ * 同一领取用 claims 限流，避免窗口没关时重复请求。
  */
 
 import type { LayaObjectLocator } from '../../adapters/laya-object-locator.ts';
@@ -94,6 +98,7 @@ const ACCUMULATED_REWARD_METHODS = [
   'SendAccumSignGetRewardReq'
 ];
 
+/** 创建自动领取执行器，串起窗口、任务和领取记录。 */
 export function createAutoTaskRunner(deps: AutoTaskRunnerDeps): AutoTaskRunner {
   const { locator, windows, claims, tasks } = deps;
   const newJunDianRuns = new WeakMap<object, Promise<boolean>>();
@@ -1045,6 +1050,7 @@ function awardListOf(item: unknown): unknown[] {
     record?.RewardList, record?.rewards, record?.Rewards].find(Array.isArray) as unknown[] | undefined) ?? [];
 }
 
+/** 从累计奖励对象上取天数，缺字段时用调用方给的序号。 */
 function accumulatedAwardDay(award: unknown, fallback: number): number {
   const record = asRecord(award);
   const day = Number(record?.day ?? record?.Day ?? record?.days ?? record?.Days ?? record?.loginDay ?? record?.LoginDay
@@ -1053,6 +1059,7 @@ function accumulatedAwardDay(award: unknown, fallback: number): number {
   return Number.isFinite(day) ? day : fallback;
 }
 
+/** 累计签到已经走到第几天。 */
 function accumulatedProgress(data: unknown): number {
   if (typeof data === 'number') return Number.isFinite(data) ? data : 0;
   const record = asRecord(data);
@@ -1061,6 +1068,7 @@ function accumulatedProgress(data: unknown): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+/** 已经领过的累计天数，用来跳过重复领取。 */
 function accumulatedClaimedDays(data: unknown): Set<number> {
   const record = asRecord(data);
   const list = ([record?.claimedDays, record?.ClaimedDays, record?.claimedRewardDays, record?.ClaimedRewardDays,
@@ -1068,6 +1076,7 @@ function accumulatedClaimedDays(data: unknown): Set<number> {
   return new Set(list.map(Number).filter((day) => Number.isFinite(day) && day > 0));
 }
 
+/** 背包条目可能是数组，也可能包在 list / objs 里。 */
 function bagEntries(value: unknown): UnknownRecord[] {
   const record = asRecord(value);
   if (!value) return [];

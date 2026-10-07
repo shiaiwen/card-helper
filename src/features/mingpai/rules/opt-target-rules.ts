@@ -93,10 +93,12 @@ register([7010, 7011], selfOnly((ctx) => (
   ctx.targetSeatId === DRAW_PILE_OWNER ? deckReveal([...ctx.params], 'top', true) : []
 )));
 
+/** 把看牌操作协议解释成应公开的牌。 */
 export function resolveOptTargetReveals(ctx: Readonly<OptTargetContext>): CardReveal[] {
   return RULES.get(ctx.spellId)?.(ctx) ?? [];
 }
 
+/** 该技能有没有看牌解释规则。 */
 export function hasOptTargetRule(spellId: number): boolean {
   return RULES.has(spellId);
 }

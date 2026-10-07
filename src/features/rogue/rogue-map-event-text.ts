@@ -23,6 +23,7 @@ function asRecord(value: unknown): UnknownRecord | null {
     : null;
 }
 
+/** 把地图事件收成面板标题。 */
 export function resolveEventTitle(config: RogueMapConfigData, event: string | number): string {
   const adventure = config.Radventure[String(event)];
   if (adventure) return String(adventure);
@@ -164,6 +165,7 @@ export function buildEventLines(
   return lines;
 }
 
+/** 按当前城池生成地图面板草稿。 */
 export function buildPanelDrafts(
   config: RogueMapConfigData,
   cities: readonly RogueCitySpot[],

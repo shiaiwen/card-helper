@@ -30,6 +30,7 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
+/** 把配置值收成酒馆目标，无法识别时当作未设置。 */
 export function parseTavernTarget(value: unknown): AutoBotTavernTarget {
   if (value === 'dailyGame' || value === 'dailyWin' || value === 'weeklyWin' || value === 'none') {
     return value;
@@ -37,6 +38,7 @@ export function parseTavernTarget(value: unknown): AutoBotTavernTarget {
   return 'none';
 }
 
+/** 把秒数格式化成分秒文案。 */
 export function formatTavernSeconds(seconds: number): string {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
   const minutes = Math.floor(total / 60);
@@ -58,6 +60,7 @@ function callTask(locator: LayaObjectLocator, method: string, ...args: unknown[]
   }
 }
 
+/** 向任务管理器请求酒馆任务进度。 */
 export function requestTavernProgress(locator: LayaObjectLocator): boolean {
   const manager = locator.manager('TaskManager');
   if (!manager) return false;
@@ -71,6 +74,7 @@ export function requestTavernProgress(locator: LayaObjectLocator): boolean {
   }
 }
 
+/** 读取当前酒馆目标的完成进度。 */
 export function readTavernProgress(
   locator: LayaObjectLocator,
   target: AutoBotTavernTarget
@@ -109,6 +113,7 @@ export function readTavernProgress(
   };
 }
 
+/** 把酒馆进度收成设置页上的一行状态。 */
 export function tavernStatusText(progress: TavernProgress | null, target: AutoBotTavernTarget): string {
   if (target === 'none') return '未设置';
   if (!progress || !progress.available) return '等待酒馆任务数据';

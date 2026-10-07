@@ -477,6 +477,7 @@ export function installOfficialBackgroundController(
   };
 }
 
+/** 这条上报是不是背景设置结果。 */
 export function isBackgroundReport(url: string, body: unknown): boolean {
   if (!BACKGROUND_REQUEST_URL.test(url)) return false;
   let text = String(body ?? '');

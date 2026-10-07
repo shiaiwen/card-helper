@@ -1,3 +1,4 @@
+/** 组装发布目录并计算校验。 */
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import {

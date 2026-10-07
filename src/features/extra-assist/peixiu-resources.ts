@@ -208,18 +208,6 @@ export function readCurrentSeatId(globalObject?: LayaRuntimeWindow, gameContext?
   return id == null ? '' : String(id);
 }
 
-/** 当前是否轮到本家行动。 */
-export function isLocalPlayerTurn(
-  globalObject?: LayaRuntimeWindow,
-  ownerSeatId?: string,
-  gameContext?: unknown
-): boolean {
-  const current = readCurrentSeatId(globalObject, gameContext);
-  const self = readSelfSeatId(globalObject, gameContext);
-  if (!current || !self || current !== self) return false;
-  return !ownerSeatId || ownerSeatId === current;
-}
-
 /** 收集本家已拥有技能 ID 列表。 */
 export function collectOwnedSkills(
   map: { rewards?: Array<{ cell?: number; rawCell?: number; rewardId?: number; type?: unknown }> } | null | undefined,

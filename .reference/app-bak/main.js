@@ -917,25 +917,7 @@ function changeChannel(window, isSave = false) {
     changePackage(window, isSave);
 }
 
-function resize(window) {
-    dialog.showMessageBox(window, {
-        type: 'warning',
-        title: '提示',
-        message: '修改分辨率，并默认下次打开微端时使用该分辨率',
-        buttons: ['1500*820', '1340*700', '1400*820', 'cancel']
-    }).then((data) => {
-        const sizes = [
-            { width: 1500, height: 820 },
-            { width: 1340, height: 700 },
-            { width: 1400, height: 820 }
-        ];
-        const size = sizes[data.response];
-        if (!size) return;
-        config.set('width', size.width);
-        config.set('height', size.height);
-        window.setBounds(size);
-    });
-}
+
 
 function firstTimeAnnouncement(window, manual = false) {
     if (!window) return;
@@ -965,7 +947,6 @@ function createContextMenu() {
     return Menu.buildFromTemplate([
         { label: '切换游戏大区', click: () => changeChannel(mainWindow, false) },
         { label: '选择默认游戏大区', click: () => changePackage(mainWindow, true) },
-        { label: '修改分辨率', click: () => resize(mainWindow) },
         { label: '查看微端说明', click: () => firstTimeAnnouncement(mainWindow, true) },
         { type: 'separator' },
         { label: `微端版本 ${package.version}`, enabled: false },

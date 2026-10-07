@@ -67,6 +67,7 @@ const COLOR_BLACK = 2;
 /** 780：当前回合角色交出的一张牌，被对方放回牌堆。 */
 const SPELL_780 = 780;
 
+/** 记下特定技能刚亮出的牌，供下一步暗置移动对上牌号。 */
 export function createSpecialSpellRecovery(ctx: SpecialSpellRecoveryContext): SpecialSpellRecovery {
   let currentSeatId: number | null = null;
   let xiashu: { casterSeatId: number; targetSeatId: number; shown: number[]; choice: number } | null = null;

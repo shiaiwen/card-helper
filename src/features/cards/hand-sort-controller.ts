@@ -1,5 +1,8 @@
 /**
- * 手牌排序控制器：在手牌区挂载排序按钮，按类型/花色/点数重排，并持久化位置与锁定模式。
+ * 手牌排序。
+ *
+ * 原生整理按钮被换成类型、花色、点数三段。单击立刻排序，双击锁定。
+ * 锁定后手牌张数变化会自动再排一次。位置和锁定方式写在配置里。
  */
 
 import { locateGameScene } from '../seat-display/game-scene-locator.ts';
@@ -88,11 +91,13 @@ function layaEvent(laya: Node | undefined, name: string, fallback: string): stri
   return String(laya?.Event?.[name] ?? fallback);
 }
 
+/** 手牌区节点上的牌列表。游戏里字段名有 cardUis 和 cardUIs 两种写法。 */
 function cardList(container: Node | null | undefined): Node[] {
   const cards = container?.cardUis ?? container?.cardUIs;
   return Array.isArray(cards) ? cards : [];
 }
 
+/** 用手牌编号排序后的字符串判断手牌有没有变化。顺序变化不算新手牌。 */
 function handSignature(container: Node | null | undefined): string {
   return cardList(container)
     .map((item) => Number(item?.Card?.CardId ?? item?.Card?.CardID ?? 0) || 0)
@@ -100,11 +105,13 @@ function handSignature(container: Node | null | undefined): string {
     .join(',');
 }
 
+/** 花色按黑桃、红桃、梅花、方块固定，未知花色排到最后。 */
 function flowerRank(value: unknown): number {
   const index = FLOWER_ORDER.indexOf(Number(value));
   return index >= 0 ? index : FLOWER_ORDER.length + Math.max(0, Number(value) || 0);
 }
 
+/** 类型交给游戏自己的比较；花色先比花色再比点数，点数则先比点数再比花色。 */
 function compareCards(left: Node, right: Node, mode: SortMode): number {
   const leftCard = left?.Card;
   const rightCard = right?.Card;
@@ -117,6 +124,7 @@ function compareCards(left: Node, right: Node, mode: SortMode): number {
   return 0;
 }
 
+/** 某些技能会自己管手牌顺序，锁定整理时跳过，避免和技能抢顺序。 */
 function hasSkipSkill(selfSeatUi: Node | null | undefined): boolean {
   try {
     return !!selfSeatUi?.seat?.HasSkill?.(SKIP_AUTO_SKILL_ID);
@@ -125,6 +133,7 @@ function hasSkipSkill(selfSeatUi: Node | null | undefined): boolean {
   }
 }
 
+/** 原生整理按钮当前能点，才允许自动整理。 */
 function buttonUsable(control: HandSortControl | null | undefined): boolean {
   const host = control?.host;
   return !!host
@@ -339,6 +348,7 @@ function destroyControl(control: HandSortControl, laya: Node | undefined): void 
   }
 }
 
+/** 手牌集合变化且处于锁定模式时，等按钮可用再按锁定方式重排。整理过程中不再递归触发。 */
 function syncAutoSort(control: HandSortControl | null | undefined): boolean {
   if (!control || control.destroyed) return false;
   paintSegments(control);
@@ -371,6 +381,10 @@ function syncAutoSort(control: HandSortControl | null | undefined): boolean {
   }
 }
 
+/**
+ * 把原生整理按钮换成三段点击区。单击按该段排序；短时间内再点同一段则锁定，之后手牌变化自动沿用。
+ * 拖动时记下位置，写进配置，下次进局还在原处。
+ */
 function attachControl(
   selfSeatUi: Node,
   store: XiaochaoConfigStore,
@@ -584,6 +598,7 @@ function attachControl(
   return control;
 }
 
+/** 游戏刷新整理按钮后重新挂上三段控件，避免被原生显示逻辑盖掉。 */
 function patchSeatPrototype(selfSeatUi: Node, patcher: ReturnType<typeof createMethodPatcher>,
   store: XiaochaoConfigStore, runtime: Window): Node | null {
   const proto = asRecord(Object.getPrototypeOf(selfSeatUi));

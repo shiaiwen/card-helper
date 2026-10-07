@@ -1,3 +1,4 @@
+/** 多开时给每个实例分配独立的用户数据目录。 */
 const fs = require('fs');
 const path = require('path');
 

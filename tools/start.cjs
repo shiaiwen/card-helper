@@ -1,3 +1,4 @@
+/** 用 Electron 拉起当前目录，避免被当成 Node 进程。 */
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const env = { ...process.env };

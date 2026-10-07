@@ -12,10 +12,12 @@ const HEZHONG_PRIMARY = ['无中', '洞烛', '顺手', '过拆', '过河', '逐�
 const HEZHONG_SECONDARY = ['五谷', '桃园', '火攻', '借刀', '撒豆'];
 const RANK_BY_LABEL: Record<string, number> = { A: 1, J: 11, Q: 12, K: 13 };
 
+/** 把牌点收成可比较的数字。 */
 export function rankNumber(card: Pick<GameCardMetadata, 'rank'>): number {
   return RANK_BY_LABEL[card.rank] ?? (Number.parseInt(card.rank, 10) || 0);
 }
 
+/** 生成双雄辅助文案。 */
 export function formatShuangxiong(cards: readonly CardFace[]): string {
   const red = cards.filter((card) => card.suit === 'heart' || card.suit === 'diamond').length;
   const black = cards.filter((card) => card.suit === 'spade' || card.suit === 'club').length;
@@ -23,11 +25,13 @@ export function formatShuangxiong(cards: readonly CardFace[]): string {
   return `【双雄】${advice}\n${red}红 ${black}黑`;
 }
 
+/** 生成击战辅助文案。 */
 export function formatJizhan(pivot: number, poolCards: readonly CardFace[]): string {
   const { greater, less, equal } = compareRanks(poolCards.map(rankNumber), pivot);
   return `【吉占】猜${greater > less ? '大' : '小'}\n跟${pivot}比，${greater}张大 ${less}张小 ${equal}平`;
 }
 
+/** 生成合纵辅助文案。 */
 export function formatHezhong(pivot: number, poolCards: readonly CardFace[]): string {
   const primary = compareByNames(poolCards, HEZHONG_PRIMARY, pivot);
   const secondary = compareByNames(poolCards, HEZHONG_SECONDARY, pivot);
@@ -39,6 +43,7 @@ export function formatHezhong(pivot: number, poolCards: readonly CardFace[]): st
   return `【和衷】${advice}\n${primary.greater}.${secondary.greater}大 ${primary.less}.${secondary.less}小`;
 }
 
+/** 生成权道辅助文案。 */
 export function formatQuandao(handCards: readonly CardFace[]): string {
   const sha = handCards.filter((card) => SHA_NAMES.has(card.name)).length;
   const tricks = handCards.filter((card) =>

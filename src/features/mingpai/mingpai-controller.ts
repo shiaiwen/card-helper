@@ -218,18 +218,21 @@ export function installMingpaiController(
     }
   });
 
+  /** 这张牌被使用或打出后去掉心幽，不计入手牌上限的效果到此结束。 */
   function clearXinyouTag(cardId: number): void {
     if (!engine.getPersistentTags(cardId).includes(XINYOU_TAG)) return;
     engine.forgetPersistentCardTag(cardId, XINYOU_TAG);
     seatStateStore.setPersistentKnownCardTags(cardId, engine.getPersistentTags(cardId));
   }
 
+  /** 弃牌阶段结束后，本回合所有心幽牌都恢复计入手牌上限。 */
   function clearAllXinyouTags(): void {
     engine.getSnapshot().records.forEach((record) => {
       if (record.persistentTags.includes(XINYOU_TAG)) clearXinyouTag(record.cardId);
     });
   }
 
+  /** 断线或局面不可信时丢掉牌堆顺序和临时区，避免用旧顺序猜牌。 */
   function dropUntrustedOrder(): void {
     temporaryCardZones.clear();
     temporaryZoneSequence = 0;
@@ -239,6 +242,7 @@ export function installMingpaiController(
     engine.clearKnownDrawPileOrder();
   }
 
+  /** 用场景里看得见的手牌和装备，把明牌引擎里已经不在手里的牌清掉。 */
   function reconcileHandsFromScene(): void {
     const snapshot = seatStateStore.getSnapshot();
     if (!snapshot.inGame) return;
@@ -284,6 +288,10 @@ export function installMingpaiController(
     return false;
   }
 
+  /**
+   * 一次移牌。先丢掉半透明占位号，再按国战规则改牌堆顶底。
+   * 同区展示不换主人。其余移动先对技能线索，再记进临时区，最后能确定的牌写入引擎。
+   */
   function handleCardsMoved(rawEvent: MoveCardEvent): void {
     // 明牌专用纠偏：半透明卡号清空 + 牌堆顶/底纠偏。只影响明牌，不改总线原事件。
     if (isIgnoredMove(rawEvent)) return;
@@ -647,6 +655,10 @@ function recoverWholeHandMovement(
   return [...knownIds, ...Array.from({ length: movement.cardCount - knownIds.length }, () => 0)];
 }
 
+/**
+ * 暗牌离开临时区时，用之前记在该区的牌号补上。
+ * 协议里没有牌号，只能按进入顺序从顶或从底取。
+ */
 function recoverCardsFromTemporaryZone(
   movement: TemporaryZoneMovement,
   temporaryCardZones: Map<string, TemporaryCardZone>
@@ -679,6 +691,7 @@ function recoverCardsFromTemporaryZone(
     : [...movement.cardIds];
 }
 
+/** 技能 3208 从底部取，其余从顶部取，取出后临时区里的顺序跟着缩短。 */
 function selectDepartingTemporaryCards(
   zone: TemporaryCardZone,
   movement: TemporaryZoneMovement
@@ -691,6 +704,7 @@ function selectDepartingTemporaryCards(
     : zone.logicalCardIds.slice(0, count);
 }
 
+/** 牌进入临时区时按位置记下顺序，离开时从对应区删掉，供下一次暗牌移动对上牌号。 */
 function trackTemporaryZoneMovement(
   movement: TemporaryZoneMovement,
   effectiveCardIds: readonly number[],

@@ -1,3 +1,4 @@
+/** 报告窗口预加载：只向页面暴露操作消息。 */
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');

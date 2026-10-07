@@ -399,10 +399,12 @@ export function createMingpaiEngine(
   };
 }
 
+/** 把座位和区域收成明牌分区编号。 */
 export function formatZoneId(ownerId: number, zone: number): string {
   return `${zone}-${ownerId}`;
 }
 
+/** 把明牌分区编号拆回座位和区域。 */
 export function parseZoneId(zoneId: string): MingpaiZoneRef | null {
   if (zoneId === MINGPAI_ZONE.UNKNOWN || zoneId === '?') return null;
   const match = /^(\d+)-(\d+)$/.exec(zoneId);

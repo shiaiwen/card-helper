@@ -36,6 +36,7 @@ export interface AutoTaskClaims {
   acquire(key: string): boolean;
 }
 
+/** 记录领取尝试，避免同一任务短时间重复请求。 */
 export function createAutoTaskClaims(
   storage: ClaimStorage | undefined,
   account: () => string,

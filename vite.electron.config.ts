@@ -1,3 +1,4 @@
+/** Electron 壳的 Vite 构建配置。 */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';

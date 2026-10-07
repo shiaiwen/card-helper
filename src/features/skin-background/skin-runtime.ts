@@ -7,18 +7,21 @@ import type { MethodPatcher } from '../../runtime/method-patch.ts';
 
 export type UnknownRecord = Record<string, unknown>;
 
+/** 把未知值收成对象，不是对象时返回空。 */
 export function asRecord(value: unknown): UnknownRecord | null {
   return value !== null && (typeof value === 'object' || typeof value === 'function')
     ? value as UnknownRecord
     : null;
 }
 
+/** 安全调用对象上的方法。 */
 export function callMethod(target: unknown, name: string, ...args: unknown[]): unknown {
   const record = asRecord(target);
   const method = record?.[name];
   return typeof method === 'function' ? method.apply(record, args) : undefined;
 }
 
+/** 读取对象原型。 */
 export function prototypeOf(target: unknown): UnknownRecord | null {
   const record = asRecord(target);
   return asRecord(record ? Object.getPrototypeOf(record) : null)
@@ -40,6 +43,7 @@ export function skinTrace(kind: string, detail: Record<string, unknown> = {}): v
   }
 }
 
+/** 从存储里读 JSON，失败时返回空。 */
 export function readJson<T>(storage: Pick<Storage, 'getItem'> | undefined, key: string, fallback: T): T {
   try {
     const raw = storage?.getItem(key);
@@ -49,6 +53,7 @@ export function readJson<T>(storage: Pick<Storage, 'getItem'> | undefined, key: 
   }
 }
 
+/** 把数据写成 JSON 存起来。 */
 export function writeJson(storage: Pick<Storage, 'setItem'> | undefined, key: string, value: unknown): void {
   try {
     storage?.setItem(key, JSON.stringify(value));
@@ -73,6 +78,7 @@ export interface TaskScope {
   dispose(): void;
 }
 
+/** 创建可取消的延时任务范围。 */
 export function createTaskScope(): TaskScope {
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let disposed = false;
@@ -183,6 +189,7 @@ export interface SeatGeneralInfo {
   skinType: number;
 }
 
+/** 读取座位上的武将对象。 */
 export function seatGeneral(seat: unknown, isZhu = true): SeatGeneralInfo | null {
   const record = asRecord(seat);
   if (!record) return null;

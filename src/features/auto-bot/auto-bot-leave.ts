@@ -13,6 +13,7 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
+/** 自己阵亡且其余座位都是人机时才退出。 */
 export function shouldLeaveAfterDeath(input: {
   deadSeatId: number;
   selfSeatId: number;
@@ -22,12 +23,14 @@ export function shouldLeaveAfterDeath(input: {
   return allOthersAreAi(input.seats.slice(1), -1);
 }
 
+/** 读取本家座位号。 */
 export function readSelfSeatId(locator: LayaObjectLocator, globalObject: LayaRuntimeWindow): number {
   const scene = asRecord(locateGameScene(globalObject));
   const seat = asRecord(asRecord(scene?.SelfSeatUi)?.seat);
   return Number(seat?.SeatID ?? seat?.seatID ?? seat?.index ?? -1);
 }
 
+/** 读取各座位是否人机。 */
 export function readSeatAiFlags(globalObject: LayaRuntimeWindow): Array<{ ai?: unknown }> {
   const scene = asRecord(locateGameScene(globalObject));
   const seats = (asRecord(scene?.seatContainer)?.seatUIs as unknown[]) || [];

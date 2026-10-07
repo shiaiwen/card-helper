@@ -160,6 +160,10 @@ function readHelp(self: UnknownRecord, seatUis: unknown[], buttons: unknown[], s
   return { skillId, cardIds, seatIds, buttonName, optionIndex, actionable };
 }
 
+/**
+ * 执行官方小杀给出的一步。目标可能是选项、按钮、牌或座位。
+ * 目标还在但当前不能点时返回 invalid，调用方会等待，不会改走本地出牌。
+ */
 function executeOfficial(help: AutoBotHelpRequest, self: UnknownRecord, seatUis: unknown[], buttons: unknown[], skills: unknown[], select: UnknownRecord | null, globalObject?: LayaRuntimeWindow): 'acted' | 'waiting' | 'invalid' | 'absent' {
   if (!help.actionable) return 'absent';
   const data = asRecord(self.CurStepHelpData) ?? asRecord(self.curStepHelpData);
@@ -236,6 +240,7 @@ function executeOfficial(help: AutoBotHelpRequest, self: UnknownRecord, seatUis:
   return 'absent';
 }
 
+/** 官方没有给出可执行目标时，按本地规则点一张牌或一个按钮。 */
 function executeLocal(self: UnknownRecord, seatUis: unknown[], buttons: unknown[], skills: unknown[], globalObject?: LayaRuntimeWindow): boolean {
   const container = asRecord(self.cardContainer);
   const context = asRecord(container?.SelectContext) ?? asRecord(container?.selectCardContext);

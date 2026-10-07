@@ -1,3 +1,4 @@
+/** 主进程侧的本地存储，转给战绩和原生游戏数据。 */
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');

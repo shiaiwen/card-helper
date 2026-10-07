@@ -1,3 +1,4 @@
+/** 从可读脚本里抽出启动段，补进当前壳。 */
 const fs = require('node:fs');
 const path = require('node:path');
 const { waitForRuntime } = require('../script/runtime-startup.cjs');

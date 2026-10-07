@@ -1,3 +1,4 @@
+/** 拦截游戏资源请求，替换背景和注入脚本。 */
 const {protocol} = require('electron');
 const path = require('path');
 const fs = require('fs');

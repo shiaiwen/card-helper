@@ -93,6 +93,7 @@ export function hasRogueShopSyncFlag(payload: UnknownRecord): boolean {
   return ((mark >> 4) & 1) === 1;
 }
 
+/** 读取当前山河图商店数据。 */
 export function readShopData(payload: UnknownRecord): UnknownRecord | null {
   const body = resolveRogueLikeSyncBody(payload);
   const direct = asRecord(body.shopData) ?? asRecord(body.ShopData)

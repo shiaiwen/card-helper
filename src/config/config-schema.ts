@@ -222,6 +222,7 @@ export const CONFIG_SCHEMA: {
   }
 };
 
+/** 按 schema 生成一份默认配置。 */
 export function getDefaultConfig(): XiaochaoConfig {
   return Object.fromEntries(
     Object.entries(CONFIG_SCHEMA).map(([key, definition]) => [key, definition.defaultValue])

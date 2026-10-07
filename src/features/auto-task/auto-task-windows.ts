@@ -23,6 +23,7 @@ export interface AutoTaskWindows {
   dispose(): void;
 }
 
+/** 按窗口名取游戏弹窗，用完后释放，避免实例堆着不关。 */
 export function createAutoTaskWindows(
   globalObject: LayaRuntimeWindow,
   locator: LayaObjectLocator,

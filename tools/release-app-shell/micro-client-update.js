@@ -1,3 +1,4 @@
+/** 微端更新：下载、校验并替换客户端文件。 */
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');

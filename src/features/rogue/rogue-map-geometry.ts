@@ -24,15 +24,18 @@ function isVisible(node: unknown): boolean {
   return record.visible !== false;
 }
 
+/** 该城是否还要画突袭关卡。 */
 export function needsRaidGate(difficulty: number): boolean {
   return (Number(difficulty) || 0) <= ROGUE_MAP_STYLE.difficultyRaidGate;
 }
 
+/** 读取突袭关卡条目。 */
 export function readRaidItem(cityView: UnknownRecord | null): UnknownRecord | null {
   const item = asRecord(cityView?.raidItem);
   return item && isVisible(item) ? item : null;
 }
 
+/** 读取突袭障碍。 */
 export function readRaidObstacle(cityView: UnknownRecord | null): RogueRect | null {
   const item = readRaidItem(cityView);
   if (!item || item.open !== true) return null;
@@ -85,59 +88,6 @@ export function readMapViewport(
 
   if (!(bottom > top) || !(right > left)) return null;
   return { left: left + pad, top: top + pad, right: right - pad, bottom: bottom - pad };
-}
-
-export interface RogueViewportBounds {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-/**
- * 面板必须落在 topProcesserView 下方、bottomView 上方，
- * 避免盖住顶栏头像/进度条和底栏。
- */
-export function readMapViewportBounds(
-  cityView: UnknownRecord | null,
-  scene: UnknownRecord | null
-): RogueViewportBounds | null {
-  if (!cityView) return null;
-  const viewX = Number(cityView.x) || 0;
-  const viewY = Number(cityView.y) || 0;
-  if (!(viewX > 0) || !(viewY > 0)) return null;
-
-  const bounds: RogueViewportBounds = {
-    left: -viewX,
-    top: -viewY,
-    right: viewX,
-    bottom: viewY
-  };
-  const pad = ROGUE_MAP_STYLE.viewportPad;
-
-  const topView = asRecord(scene?.topProcesserView);
-  const topBounds = projectNodeBounds(cityView, topView, true);
-  if (topBounds) {
-    bounds.top = Math.max(bounds.top, topBounds.bottom + pad);
-  }
-
-  const bottomView = asRecord(scene?.bottomView);
-  const bottomBounds = projectNodeBounds(cityView, bottomView, true)
-    ?? projectSelfSeatBounds(cityView, bottomView);
-  if (bottomBounds) {
-    bounds.bottom = Math.min(bounds.bottom, bottomBounds.top - pad);
-  }
-
-  if (!(bounds.bottom > bounds.top) || !(bounds.right > bounds.left)) return null;
-  return bounds;
-}
-
-function projectSelfSeatBounds(
-  cityView: UnknownRecord | null,
-  bottomView: UnknownRecord | null
-): Bounds | null {
-  const selfSeat = asRecord(bottomView?.selfSeatUi);
-  return projectNodeBounds(cityView, selfSeat, true);
 }
 
 interface Bounds {
@@ -300,6 +250,7 @@ export function resolveCityGeometry(
   return { ...box, visualArea: box };
 }
 
+/** 城池图是否已经能显示。 */
 export function cityImageReady(cityView: UnknownRecord | null, cityId: string | number): boolean {
   const getter = cityView?.GetCityItemById;
   if (typeof getter !== 'function') return true;
@@ -313,6 +264,7 @@ export function cityImageReady(cityView: UnknownRecord | null, cityId: string | 
   return tw > 0 && th > 0 && w === tw && h === th;
 }
 
+/** 给城池列表做指纹，没变化就不重画。 */
 export function fingerprintCities(
   cityView: UnknownRecord | null,
   cities: readonly { id: string | number; event?: string | number }[]

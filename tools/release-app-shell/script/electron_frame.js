@@ -1,5 +1,6 @@
 
 
+/** 游戏外框页：窗口按钮、多开和与主进程的消息。 */
 const electron = require('electron');
 const { ipcRenderer } = electron;
 const nativeRemote = electron.remote;

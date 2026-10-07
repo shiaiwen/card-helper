@@ -1,3 +1,4 @@
+/** 启动开发用的 Electron 和页面热更新。 */
 import { spawn, spawnSync } from 'node:child_process';
 import { isUtf8 } from 'node:buffer';
 import { existsSync, readdirSync, unlinkSync } from 'node:fs';

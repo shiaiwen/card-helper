@@ -56,6 +56,7 @@ export function locateSceneManager(globalObject: GameRuntimeWindow): UnknownReco
   return null;
 }
 
+/** 从弹窗原型上找到游戏事件分发器。 */
 export function locateGameEventDispatcher(globalObject: GameRuntimeWindow): UnknownRecord | null {
   if (!cachedDispatcher && Date.now() >= nextDispatcherLookupAt) {
     const dispatcher = readGameEventDispatcher(globalObject);
@@ -92,27 +93,7 @@ function readGameEventDispatcher(globalObject: GameRuntimeWindow): unknown {
   }
 }
 
-/** 实机排查用：说明场景查找停在哪一步，只读取键名不读取游戏对象内容。 */
-export function describeGameSceneLookup(globalObject: GameRuntimeWindow): Record<string, unknown> {
-  const classUtils = globalObject.Laya?.ClassUtils;
-  const sceneManager = locateSceneManager(globalObject);
-  const currentScene = sceneManager?.CurrentScene;
-  return {
-    hasLaya: Boolean(globalObject.Laya),
-    hasGetClass: typeof classUtils?.getClass === 'function',
-    hasPopUpWindowClass: Boolean(classUtils?.getClass?.('PopUpWindow')),
-    dispatcherFound: Boolean(cachedDispatcher),
-    switchSceneListenerCount: (() => {
-      const listeners = isRecord(cachedDispatcher?._events) ? cachedDispatcher._events.SWITCH_SCENE : null;
-      return Array.isArray(listeners) ? listeners.length : listeners ? 1 : 0;
-    })(),
-    sceneManagerFound: Boolean(sceneManager),
-    isGameScene: sceneManager ? Boolean(sceneManager.IsGameScene) : null,
-    currentSceneKeys: isRecord(currentScene) ? Object.keys(currentScene).slice(0, 40) : null,
-    sceneFound: Boolean(locateGameScene(globalObject))
-  };
-}
-
+/** 在场景管理器附近几层对象里找牌局场景。 */
 export function findGameSceneNear(candidate: unknown, remainingDepth = 2): GameSceneSeatSource | null {
   if (isGameScene(candidate)) return candidate;
   if (remainingDepth <= 0 || !isRecord(candidate)) return null;

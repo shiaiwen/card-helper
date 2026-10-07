@@ -67,6 +67,7 @@ export function partitionCandidatesByKnownFaces(input: {
   return { handCardIds, deckCardIds };
 }
 
+/** 收集手牌和牌堆里已经知道牌面的牌。 */
 export function collectHandAndDeckFaces(engine: MingpaiEngine): {
   handCardIds: number[];
   deckCardIds: number[];

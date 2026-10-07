@@ -10,6 +10,7 @@ let localScriptResponseCache = null;
 let localScriptInjectCache = null;
 let developmentReloadInProgress = false;
 let developmentReloadQueued = false;
+let developmentWebviewReady = false;
 
 ipcRenderer.on('xiaochao-dev-script-changed', () => {
     localScriptResponseCache = null;
@@ -17,13 +18,43 @@ ipcRenderer.on('xiaochao-dev-script-changed', () => {
     requestDevelopmentWebviewReload();
 });
 
+/** WebView 挂进页面并完成一次 dom-ready 之后，reload 才可用。 */
+function whenDevelopmentWebviewReady(webview) {
+    if (developmentWebviewReady || webview.__xcDevReloadReadyBound) return;
+    webview.__xcDevReloadReadyBound = true;
+    webview.addEventListener('dom-ready', () => {
+        webview.__xcDevReloadReadyBound = false;
+        developmentWebviewReady = true;
+        // 第一次就绪时 loadScript 会读取刚清掉缓存的脚本，这时 reload 会把登录页刷成空白。
+        developmentReloadQueued = false;
+    }, { once: true });
+}
+
+function webviewHasLoadedPage(webview) {
+    if (!developmentWebviewReady) return false;
+    try {
+        return /^https?:/i.test(String(webview.getURL() || ''));
+    } catch {
+        return false;
+    }
+}
+
 /**
  * 构建器可能在一次页面加载期间连续产出多个变更。只允许一个 reload 在途，
  * 其余变更合并为下一次 reload，避免 Electron 为同一 WebContents 堆积加载监听器。
+ * 元素还没挂上、或第一次 dom-ready 还没到时只排队，不调用 reload。
  */
 function requestDevelopmentWebviewReload() {
     const webview = document.getElementById('wb');
-    if (!webview || typeof webview.reload !== 'function') return;
+    if (!webview || typeof webview.reload !== 'function' || !webview.isConnected) {
+        developmentReloadQueued = true;
+        return;
+    }
+    if (!developmentWebviewReady || !webviewHasLoadedPage(webview)) {
+        developmentReloadQueued = true;
+        whenDevelopmentWebviewReady(webview);
+        return;
+    }
     if (developmentReloadInProgress) {
         developmentReloadQueued = true;
         return;
@@ -38,7 +69,16 @@ function requestDevelopmentWebviewReload() {
     };
     webview.addEventListener('did-stop-loading', handleReloadFinished, { once: true });
     console.info('[xiaochao-dev] source changed, reloading game webview');
-    webview.reload();
+    try {
+        webview.reload();
+    } catch (error) {
+        developmentReloadInProgress = false;
+        developmentWebviewReady = false;
+        developmentReloadQueued = true;
+        webview.__xcDevReloadReadyBound = false;
+        whenDevelopmentWebviewReady(webview);
+        console.warn('[xiaochao-dev] webview 尚未就绪，已推迟重载', error);
+    }
 }
 
 function getReportWindowPageBridgeScript() {
@@ -493,6 +533,7 @@ function initElectronFrame() {
         }
     } else {
         let src = Array.isArray(loginURL) ? loginURL[loginForm - 1] : loginURL;
+        if (!src && Array.isArray(loginURL)) src = loginURL[0];
         if (src) {
             src += src.indexOf('?') !== -1 ? '&t=' + Math.floor(Date.now()) : '?t=' + Math.floor(Date.now());
             webview.src = src;
@@ -501,8 +542,20 @@ function initElectronFrame() {
     //webview.src = 'http://10.225.11.80:8080'
     const msgList = {
         channel(packageId) {
-            const url = Array.isArray(loginURL) ? loginURL[packageId - 1] : loginURL;
-            if (url) webview.loadURL(url)
+            const list = Array.isArray(loginURL) ? loginURL : [];
+            const index = Number(packageId) - 1;
+            let url = list[index] || list[0];
+            if (!url) return;
+            url += url.indexOf('?') !== -1 ? '&t=' + Date.now() : '?t=' + Date.now();
+            try {
+                if (developmentWebviewReady) {
+                    webview.loadURL(url);
+                    return;
+                }
+            } catch (error) {
+                console.warn('切换大区时 loadURL 失败，改为设置 src', error);
+            }
+            webview.src = url;
         },
         executeJS(str) {
             webview.executeJavaScript(str)
@@ -533,11 +586,21 @@ function initElectronFrame() {
     webview.setAttribute("IsDebug", isDeBug)
     if (!webview.__sgsolF6Bound) {
         webview.__sgsolF6Bound = true;
-        ipcRenderer.on('onF6', (e, msg) => {
-            webview.openDevTools({ mode: 'detach' })
-        })
+        ipcRenderer.on('onF6', () => {
+            const openTools = () => {
+                try {
+                    webview.openDevTools({ mode: 'detach' });
+                } catch (error) {
+                    console.warn('[xiaochao-dev] 开发者工具要等游戏页就绪后再打开', error);
+                }
+            };
+            if (developmentWebviewReady) openTools();
+            else webview.addEventListener('dom-ready', openTools, { once: true });
+        });
     }
     webview.addEventListener("dom-ready", function () {
+        developmentWebviewReady = true;
+        developmentReloadQueued = false;
         installReportWindowPageBridge(webview);
         loadScript(webview);
         execute(webview);

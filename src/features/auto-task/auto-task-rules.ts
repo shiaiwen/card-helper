@@ -36,12 +36,14 @@ export interface TaskManagerAccess {
   call(method: string, ...args: unknown[]): unknown;
 }
 
+/** 从任务对象上读取任务编号。 */
 export function taskIdOf(task: unknown): unknown {
   const record = asRecord(task);
   const base = asRecord(record?.baseVo);
   return record?._id ?? record?.id ?? record?.taskId ?? base?._id ?? base?.id;
 }
 
+/** 读取任务奖励列表。 */
 export function taskRewards(task: unknown): unknown[] {
   const record = asRecord(task);
   const base = asRecord(record?.baseVo);
@@ -49,6 +51,7 @@ export function taskRewards(task: unknown): unknown[] {
   return Array.isArray(rewards) ? rewards : [];
 }
 
+/** 读取一条奖励的道具编号。 */
 export function rewardItemId(item: unknown): unknown {
   const record = asRecord(item);
   return record?.ItemID ?? record?.itemID ?? record?.itemId ?? record?.id ?? record?.ID
@@ -73,14 +76,17 @@ function someReward(
   return list.some((item) => predicate(rewardItemId(item), rewardItemName(item, context)));
 }
 
+/** 奖励里是否包含抵价券。 */
 export function rewardsContainDiJiaQuan(rewards: unknown, context: RewardFilterContext): boolean {
   return someReward(rewards, context, (_, name) => name.includes('抵价券'));
 }
 
+/** 道具编号是不是欢乐豆。 */
 export function isHuanLeDouItem(itemId: unknown): boolean {
   return HUAN_LE_DOU_ITEM_IDS.has(String(itemId));
 }
 
+/** 奖励里是否包含欢乐豆。 */
 export function rewardsContainHuanLeDou(rewards: unknown, context: RewardFilterContext): boolean {
   return someReward(rewards, context, (itemId, name) => name.includes('欢乐豆') || isHuanLeDouItem(itemId));
 }

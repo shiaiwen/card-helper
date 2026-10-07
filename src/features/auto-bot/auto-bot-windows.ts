@@ -29,11 +29,6 @@ function asRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === 'object' ? value as UnknownRecord : null;
 }
 
-/** 是否为各类选将窗口名。 */
-export function isGeneralSelectWindowName(name: string): boolean {
-  return /^Select.*General.*Window$/.test(name);
-}
-
 /** 在选将窗点击第一个可选武将；已点过则跳过，必要时 500ms 后重试。 */
 export function clickFirstGeneral(windowInstance: UnknownRecord): 'picked' | 'skipped' | 'missing' {
   if (windowInstance.destroyed || windowInstance.visible === false) return 'skipped';
@@ -107,6 +102,7 @@ export function handlePlayWindows(locator: LayaObjectLocator, globalObject: Laya
   return acted;
 }
 
+/** 关掉结算一类会挡住托管的窗口。 */
 export function handleResultWindows(locator: LayaObjectLocator): boolean {
   let acted = false;
   for (const name of CLOSE_WINDOW_NAMES) {
@@ -117,6 +113,7 @@ export function handleResultWindows(locator: LayaObjectLocator): boolean {
   return acted;
 }
 
+/** 金兰窗口出现时自动选一项并确认。 */
 export function handleJinLanWindow(locator: LayaObjectLocator, globalObject: LayaRuntimeWindow): boolean {
   const win = locator.window('JinLan2025Window') ?? locator.findWindows('JinLan2025Window')[0];
   if (!win || win.destroyed || win.visible === false || win.isPlayingSelectClose) return false;
@@ -126,6 +123,7 @@ export function handleJinLanWindow(locator: LayaObjectLocator, globalObject: Lay
   return first ? clickLayaNode(first, globalObject) : false;
 }
 
+/** 处理山河图 1v1 的对话和确认窗。 */
 export function handleRogue1v1Windows(locator: LayaObjectLocator, globalObject: LayaRuntimeWindow): boolean {
   let acted = false;
   const say = locator.window('SayRogueLike1V1Window') ?? locator.findWindows('SayRogueLike1V1Window')[0];
@@ -144,6 +142,7 @@ export function handleRogue1v1Windows(locator: LayaObjectLocator, globalObject: 
   return acted;
 }
 
+/** 托管过程中顺手处理结算、金兰和山河图窗口。 */
 export function handleExtraBotWindows(
   locator: LayaObjectLocator,
   globalObject: LayaRuntimeWindow,
@@ -155,6 +154,7 @@ export function handleExtraBotWindows(
   return acted;
 }
 
+/** 找出当前打开的选将窗口。 */
 export function findGeneralWindows(locator: LayaObjectLocator): UnknownRecord[] {
   const found: UnknownRecord[] = [];
   const seen = new Set<UnknownRecord>();

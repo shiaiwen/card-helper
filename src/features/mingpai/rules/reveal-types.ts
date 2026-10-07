@@ -54,19 +54,23 @@ export interface SpellOptRepContext {
 export type OptTargetRule = (ctx: Readonly<OptTargetContext>) => CardReveal[];
 export type SpellOptRepRule = (ctx: Readonly<SpellOptRepContext>) => CardReveal[];
 
+/** 留下大于 0 的牌号。 */
 export function positiveIds(values: readonly number[]): number[] {
   return values.filter((value) => Number.isInteger(value) && value > 0);
 }
 
+/** 编号是不是有效座位。 */
 export function isSeat(seatId: number | null | undefined): seatId is number {
   return typeof seatId === 'number' && Number.isInteger(seatId) && seatId >= 0 && seatId < 0xff;
 }
 
+/** 组装一次手牌公开结果。 */
 export function handReveal(ownerId: number, cardIds: number[], partial: boolean): CardReveal[] {
   const ids = positiveIds(cardIds);
   return ids.length ? [{ zone: 'hand', ownerId, cardIds: ids, position: 'unspecified', partial }] : [];
 }
 
+/** 组装一次牌堆公开结果。 */
 export function deckReveal(
   cardIds: number[],
   position: RevealPosition,

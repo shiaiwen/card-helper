@@ -48,6 +48,7 @@ function asRecord(value: unknown): UnknownRecord | null {
     : null;
 }
 
+/** 当前背景是不是裴秀辅助用的那张。 */
 export function isPeixiuBackground(node: unknown): node is PeixiuOverlayHost {
   const record = asRecord(node);
   const constructorName = String(asRecord(record?.constructor)?.name || '');

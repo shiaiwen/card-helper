@@ -1,3 +1,4 @@
+/** 打包并发布当前版本。 */
 import { spawn, spawnSync } from 'node:child_process';
 import {
   copyFileSync,

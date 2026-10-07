@@ -9,6 +9,7 @@ import { isAiClientId, isAiTipModeLabel } from './ai-client.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
+/** 安装人机提示。同一局只提示一次，开新局后允许再提示。 */
 export function installAiPlayerTipController(
   gameEvents: GameEventBus,
   globalObject: GameRuntimeWindow = window
@@ -35,6 +36,7 @@ export function installAiPlayerTipController(
     }
   }
 
+  /** 排位或斗地主里，除自己以外有人机就提示。用对手账号拼成钥匙，避免重复弹。 */
   function scanRankedOpponents(): void {
     const scene = asRecord(locateGameScene(globalObject));
     if (!scene) {
@@ -56,6 +58,7 @@ export function installAiPlayerTipController(
     showToast('对战AI小杀！', 'warning', 4000);
   }
 
+  /** 资料页打开且该账号是人机时提示。关掉资料页后允许下一次再提示。 */
   function scanProfile(): void {
     const view = findUserInfoView(globalObject);
     if (!view || view.visible === false || view.destroyed === true) {
@@ -74,6 +77,7 @@ export function installAiPlayerTipController(
   }
 }
 
+/** 在显示树里找已经打开的资料页，不主动创建窗口。 */
 function findUserInfoView(globalObject: GameRuntimeWindow): UnknownRecord | null {
   const stage = asRecord(asRecord(globalObject.Laya)?.stage);
   return stage ? findNamedView(stage, 'UserInfoView', 0) : null;

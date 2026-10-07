@@ -271,6 +271,7 @@ function buildRogueNameTables(playCards: unknown, spells: unknown): {
   return { spells: spellMap, cards: cardMap };
 }
 
+/** 按技能名建立编号索引，供运行时用名字反查技能。 */
 export function buildSpellIdsByName(spells: unknown): Map<string, number[]> {
   const result = new Map<string, number[]>();
   for (const entry of asArray(asRecord(asRecord(spells)?.GameSpells)?.spell)) {

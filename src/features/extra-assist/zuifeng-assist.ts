@@ -15,10 +15,12 @@ const ZUIFENG_DEFINITION = {
   spellNames: ['醉锋']
 };
 
+/** 按技能名「醉锋」解析本局技能编号，不写死数字。 */
 export function zuifengSkillIds(scene: GameSceneSeatSource | null): number[] {
   return resolveSkillIds(ZUIFENG_DEFINITION, scene);
 }
 
+/** 每个座位本回合已发动次数。新回合开始时清掉该座位。 */
 export function createZuifengUses() {
   const usedBySeat = new Map<number, number>();
   return {
@@ -38,12 +40,14 @@ export function createZuifengUses() {
   };
 }
 
+/** 剩余次数 = 体力上限减已发动次数，最少为 0。 */
 export function zuifengRemaining(maxHp: number, used: number): number {
   if (!Number.isFinite(maxHp) || maxHp <= 0) return 0;
   const spent = Number.isFinite(used) && used > 0 ? Math.floor(used) : 0;
   return Math.max(0, Math.floor(maxHp) - spent);
 }
 
+/** 该座位有醉锋且能读到体力上限时，返回武将牌上的文案。 */
 export function formatZuifengTip(seat: unknown, skillIds: readonly number[], used: number): string {
   const record = asRecord(seat);
   if (!record || !skillIds.length || !seatHasAnySkill(record, skillIds)) return '';

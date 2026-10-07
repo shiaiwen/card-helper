@@ -1,3 +1,8 @@
+/**
+ * Electron 微端平台适配。
+ * 外链优先走 preload 的 openExternal，没有时退回浏览器新窗口。
+ * 配置读写使用 localStorage。
+ */
 import type { PlatformAdapter } from './platform';
 
 /** Electron 微端适配器。业务层不直接依赖 preload 暴露的 window.electron。 */

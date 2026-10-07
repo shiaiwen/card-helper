@@ -39,12 +39,7 @@ const TARGET_SEAT_ID_KEYS = [
 const CARD_ID_KEYS = ['CardID', 'CardId', 'cardID', 'cardId'] as const;
 const CARD_IDS_KEYS = ['CardIDs', 'CardIds', 'cardIDs', 'cardIds', 'Cards'] as const;
 
-/** 将微端收到的协议日志翻译为稳定业务事件；未知协议直接忽略。 */
-export function translateGameMessage(rawArguments: unknown[]): GameEvent | null {
-  return translateGameMessages(rawArguments)[0] ?? null;
-}
-
-/** 一条协议可能对应多个业务事件（SpellOptRep = 看牌 + 临时区重排线索）。 */
+/** 一条协议可能对应多个业务事件（SpellOptRep = 看牌 + 临时区重排线索）。未知协议直接忽略。 */
 export function translateGameMessages(rawArguments: unknown[]): GameEvent[] {
   const payload = findMessagePayload(rawArguments);
   if (!payload) return [];

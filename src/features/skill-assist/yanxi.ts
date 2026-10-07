@@ -4,11 +4,8 @@
 
 import type { GameCardCatalog } from '../cards/game-card-catalog.ts';
 import { partitionCandidatesByKnownFaces } from '../mingpai/mingpai-queries.ts';
-import { MINGPAI_ZONE } from '../mingpai/mingpai-zones.ts';
 
 export const YANXI_SKILL_IDS = Object.freeze([0x1b68, 0x1b69] as const);
-/** @deprecated 使用 MINGPAI_ZONE.YANXI */
-export const SHOWN_CARD_ZONE_YANXI = MINGPAI_ZONE.YANXI;
 
 export type YanxiLocation = 'hand' | 'deck';
 
@@ -101,9 +98,7 @@ function findPilePosition(
   return null;
 }
 
-/** @deprecated 使用 formatYanxiResult */
-export const inferYanxi = formatYanxiResult;
-
+/** 技能编号是不是宴戏。 */
 export function isYanxiSpellId(spellId: number): boolean {
   return YANXI_SKILL_IDS.includes(spellId as (typeof YANXI_SKILL_IDS)[number]);
 }

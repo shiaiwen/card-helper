@@ -148,6 +148,7 @@ export function layoutMapPanels(
   return result;
 }
 
+/** 按草稿内容估算地图面板高度。 */
 export function estimatePanelHeight(title: string, lines: Array<{ text: string; kind?: string }>): number {
   const titleLines = Math.max(1, Math.ceil(title.length / 10));
   let body = 0;

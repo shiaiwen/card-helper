@@ -18,10 +18,12 @@ export function nextKurouAction(tick: number): KurouTickAction {
   return tick % 2 === 0 ? 'skill' : 'confirm';
 }
 
+/** 离开桌子的原因是不是挂机被踢。 */
 export function isIdleKickWhy(why: unknown): boolean {
   return Number(why) === LEAVE_TABLE_IDLE_WHY;
 }
 
+/** 读取选将项上的武将显示名。 */
 export function generalDisplayName(generalUi: unknown): string {
   if (!generalUi || typeof generalUi !== 'object') return '';
   const record = generalUi as Record<string, unknown>;
@@ -35,13 +37,7 @@ export function findHuangGaiGeneral(generalUis: unknown): unknown | null {
   return generalUis.find((item) => generalDisplayName(item) === HUANG_GAI_NAME) ?? null;
 }
 
-export function firstEnabledIndex(items: Array<{ enabled?: boolean } | null | undefined>, indices: readonly number[]): number {
-  for (const index of indices) {
-    if (items[index]?.enabled) return index;
-  }
-  return -1;
-}
-
+/** 读取技能按钮上的技能编号。 */
 export function skillItemId(item: unknown): number {
   if (!item || typeof item !== 'object') return 0;
   const record = item as Record<string, unknown>;
@@ -49,21 +45,25 @@ export function skillItemId(item: unknown): number {
   return Number(skill?.SkillId ?? skill?.ID ?? skill?.id ?? record.SkillId ?? record.skillId ?? 0) || 0;
 }
 
+/** 按钮没有被标成禁用。 */
 export function isEnabledFlag(item: unknown, key = '_enabled'): boolean {
   if (!item || typeof item !== 'object') return false;
   const record = item as Record<string, unknown>;
   return record[key] !== false && record.enabled !== false;
 }
 
+/** 读取按钮名字。 */
 export function buttonName(item: unknown): string {
   if (!item || typeof item !== 'object') return '';
   return String((item as Record<string, unknown>).name ?? '');
 }
 
+/** 名字像确定或出牌时，回退阶段可以点它。 */
 export function shouldClickFallbackConfirm(name: string): boolean {
   return /btnOK|btnSure|确定|确认|出牌/.test(name);
 }
 
+/** 名字像取消或不出时，回退阶段可以点它。 */
 export function shouldClickFallbackCancel(name: string): boolean {
   return /btnCancel|取消|不出|pass/i.test(name);
 }

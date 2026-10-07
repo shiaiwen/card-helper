@@ -23,6 +23,7 @@ function hasGeneral(locator: LayaObjectLocator, generalId: number): boolean {
   }
 }
 
+/** 从成就列表里挑出还没完成、且账号拥有的百胜武将。 */
 export function unfinishedBaiShengIds(achList: unknown[], locator: LayaObjectLocator): number[] {
   const ids: number[] = [];
   for (const item of achList) {
@@ -81,6 +82,7 @@ export function tryBaiShengDianjiang(
   return picked;
 }
 
+/** 读取已加载的成就配置。 */
 export function readAchList(globalObject: LayaRuntimeWindow): unknown[] {
   const xc = asRecord((globalObject as UnknownRecord).XC);
   const card = asRecord(xc?.cardConfig) ?? asRecord(xc?.CardConfig) ?? asRecord((globalObject as UnknownRecord).__XIAOCHAO_CARD_CONFIG__);

@@ -42,7 +42,7 @@ import {
   rankNumber
 } from './panel-texts.ts';
 import type { GameCardCatalog, GameCardMetadata } from '../cards/game-card-catalog.ts';
-import type { GameEvent, GameEventBus } from '../../runtime/game-event-bus.ts';
+import type { GameEvent } from '../../runtime/game-event-bus.ts';
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
 
 export interface SkillAssistPanelSnapshot {
@@ -689,14 +689,4 @@ function sameList<T>(left: readonly T[], right: readonly T[]): boolean {
 /** 卡牌点数 1–13；牌面未知或非普通点数时返回 0，由计算器过滤。 */
 function cardRankNumber(cardId: number, gameCardCatalog: GameCardCatalog): number {
   return rankNumber(gameCardCatalog.resolve(cardId));
-}
-
-export function bindSkillAssistStoreToGameEvents(
-  store: SkillAssistStore,
-  gameEvents: GameEventBus,
-  getScene: () => GameSceneSeatSource | null
-): () => void {
-  return gameEvents.subscribe((event) => {
-    store.handleGameEvent(event, getScene());
-  });
 }

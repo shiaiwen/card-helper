@@ -1,3 +1,4 @@
+/** 渲染进程桥：Steam 编号和主进程调用。 */
 const { ipcRenderer, contextBridge } = require('electron');
 async function GetSteamId(){
     const steamId =  await ipcRenderer.invoke('get-steam-id');

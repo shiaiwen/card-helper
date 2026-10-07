@@ -50,6 +50,7 @@ export interface SeatStateSnapshot {
   seats: GameSeatSnapshot[];
 }
 
+/** 创建一局开始前的空座位快照。 */
 export function createEmptySeatState(): SeatStateSnapshot {
   return {
     inGame: false,

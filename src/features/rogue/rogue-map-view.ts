@@ -226,6 +226,7 @@ function createLeaderLine(panel: RogueMapPanelLayout, panelHeight: number): Unkn
   return sprite;
 }
 
+/** 清掉城池上的覆盖层。 */
 export function clearCityOverlays(cityView: UnknownRecord | null): void {
   if (!cityView || typeof cityView.numChildren !== 'number') return;
   for (let index = Number(cityView.numChildren) - 1; index >= 0; index -= 1) {
@@ -242,12 +243,14 @@ export function clearCityOverlays(cityView: UnknownRecord | null): void {
   }
 }
 
+/** 把城池信息挂到地图上。 */
 export function mountCityOverlays(cityView: UnknownRecord | null, nodes: UnknownRecord[]): void {
   if (!cityView) return;
   clearCityOverlays(cityView);
   for (const node of nodes) call(cityView, 'addChild', node);
 }
 
+/** 该城是否已经挂过覆盖层。 */
 export function hasMountedCityOverlay(cityView: UnknownRecord | null): boolean {
   if (!cityView || typeof cityView.numChildren !== 'number') return false;
   for (let index = 0; index < Number(cityView.numChildren); index += 1) {

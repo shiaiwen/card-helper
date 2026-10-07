@@ -194,6 +194,7 @@ export function formatGeneralStatsLine(
   return parts.join(' ');
 }
 
+/** 格式化山河图武将名。 */
 export function formatGeneralName(general: UnknownRecord): string {
   const name = String(general.generalname ?? '');
   return general.start ? `[先手]${name}` : name;

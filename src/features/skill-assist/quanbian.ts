@@ -14,12 +14,14 @@ export function cardIdToSuitToken(
   return `${card.suitGlyph || ''}${card.rank || ''}`;
 }
 
+/** 往权变花色序列里追加一张牌的花色。 */
 export function appendSuitToken(existing: readonly string[], token: string): string[] {
   const normalized = String(token || '').trim();
   if (!normalized) return [...existing];
   return [...existing, normalized];
 }
 
+/** 把花色记号解析回花色。 */
 export function parseSuitToken(token: string): {
   glyph: string;
   rank: string;

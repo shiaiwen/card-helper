@@ -147,6 +147,7 @@ export function installXuShaoAssist(options: XuShaoAssistOptions): () => void {
   };
 }
 
+/** 按许劭条件在武将库里找匹配结果。 */
 export function findXuShaoMatches(
   words: readonly string[],
   skillIds: readonly number[],

@@ -41,6 +41,7 @@ register([7009], (ctx) => deckReveal([...ctx.datas], 'top'));
 /** 3336：Type=50 → 牌堆底（Datas 倒序）。 */
 register([3336], whenType((type) => type === 50, (ctx) => deckReveal([...ctx.datas].reverse(), 'bottom')));
 
+/** 把技能操作回包解释成应公开的牌。 */
 export function resolveSpellOptRepReveals(ctx: Readonly<SpellOptRepContext>): CardReveal[] {
   return RULES.get(ctx.spellId)?.(ctx) ?? [];
 }

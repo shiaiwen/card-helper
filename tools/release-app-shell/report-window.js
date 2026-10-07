@@ -1,3 +1,4 @@
+/** 独立报告窗口的创建和消息转发。 */
 'use strict';
 
 const crypto = require('crypto');

@@ -20,6 +20,7 @@ const INTERACT_EFFECT_NAMES = ['interactProp/fx_uihd_caoxie', 'interactProp/Ol_D
 /** 铁索、酒的骨骼同时承担状态标记，替换后会丢失常驻图标。 */
 const PRESERVED_SKELETONS = ['EF_Plot_tiesuo', 'Plot_tiesuolianhuan', 'EFF_jiu', 'EFF_hejiu'];
 
+/** 杀、治疗或互动特效只要开了任意一项屏蔽就生效。 */
 export function hasAnyEffectResourceBlock(flags: EffectResourceFlags): boolean {
   return flags.sha || flags.heal || flags.interact;
 }

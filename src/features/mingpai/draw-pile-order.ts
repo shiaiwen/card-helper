@@ -23,6 +23,7 @@ export interface DrawPileOrder {
 const STORAGE_KEY = 'XC::mingpaiDrawPileOrder';
 const MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
+/** 维护已知的牌堆顶和牌堆底顺序。 */
 export function createDrawPileOrder(storage: Storage | null = null): DrawPileOrder {
   /** top[0] 是下一张会被摸到的牌。 */
   let top: number[] = [];

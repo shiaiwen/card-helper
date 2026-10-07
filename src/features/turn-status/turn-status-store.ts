@@ -103,6 +103,7 @@ export function formatPhase(phase: number | null): string {
   return label;
 }
 
+/** 把剩余出杀次数格式化成标题栏文案。 */
 export function formatShaRemaining(remaining: number | null): string {
   if (remaining === null) return '-';
   return remaining === Infinity ? '∞' : String(remaining);

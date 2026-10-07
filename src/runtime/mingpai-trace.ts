@@ -20,6 +20,7 @@ declare global {
 const MAX_ENTRIES = 400;
 let sequence = 0;
 
+/** 开发时打印明牌追踪日志。 */
 export function traceMingpai(kind: string, detail: Record<string, unknown>): void {
   if (typeof window === 'undefined') return;
   const buffer = window.__XIAOCHAO_MINGPAI_TRACE__ ??= [];

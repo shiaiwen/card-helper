@@ -1,3 +1,4 @@
+/** 用虚拟机语法检查发布壳脚本和页面。 */
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');

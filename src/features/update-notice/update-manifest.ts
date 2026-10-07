@@ -20,6 +20,7 @@ export function compareVersions(left: string, right: string): number {
   return 0;
 }
 
+/** 远程版本是否比本地版本新。 */
 export function isNewerVersion(latest: string, current: string): boolean {
   return compareVersions(latest, current) > 0;
 }

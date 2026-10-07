@@ -21,21 +21,6 @@ function asRecord(value: unknown): Node | null {
     : null;
 }
 
-export function isTiesuoCardName(name: unknown): boolean {
-  const text = String(name ?? '').replace(/[♠♥♣♦\s0-9AJQK10]+/g, '');
-  return /铁索连环|^铁索$/.test(text);
-}
-
-export function shouldRecastTiesuo(input: {
-  selectedCardCount: number;
-  tiesuoOnly: boolean;
-  selectedTargetCount: number;
-}): boolean {
-  return input.selectedCardCount === 1
-    && input.tiesuoOnly
-    && input.selectedTargetCount <= 0;
-}
-
 function buttonList(bar: Node | null): Node[] {
   if (!bar) return [];
   const list = Array.isArray(bar.btns) ? bar.btns : Array.isArray(bar.btnList) ? bar.btnList : [];
@@ -52,6 +37,7 @@ function looksOn(button: Node | null): boolean {
     && button.gray !== true;
 }
 
+/** 挂上铁索重铸：满足条件时把确定改成重铸。 */
 export function installTiesuoRecastController(
   runtime: LayaRuntimeWindow = window as LayaRuntimeWindow
 ): () => void {

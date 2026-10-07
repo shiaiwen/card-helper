@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { GameCardCatalog } from '../../features/cards/game-card-catalog.ts';
-
 /**
  * 卡牌页牌堆区用的迷你牌面（非 Laya 官方立绘）。
  * 局内悬停弹层仍由 createNormalCardUi 画官方牌。
  */
+import { computed } from 'vue';
+import type { GameCardCatalog } from '../../features/cards/game-card-catalog.ts';
 const props = defineProps<{
   cardId: number;
   gameCardCatalog: GameCardCatalog;

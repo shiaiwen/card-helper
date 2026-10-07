@@ -877,13 +877,15 @@ function logMessage(message) {
     }
 }
 
-/** 弹框切换游戏大区；isSave 为真时写入默认 packageId。 */
+/** 弹出大区选择。isSave 为真时把选中渠道写成下次启动的默认 packageId。 */
 function changePackage(window, isSave = false) {
     dialog.showMessageBox(window, {
         type: 'warning',
         title: '提示',
-        message: '修改默认游戏大区，页面将刷新',
-        buttons: ['OL', '4399', '快玩', '百度', 'cancel']
+        message: isSave
+            ? '选择默认游戏大区。确定后立即打开该大区，并在下次启动时继续使用'
+            : '切换游戏大区。只刷新当前页面，不改变下次启动的默认大区',
+        buttons: ['OL', '4399', '快玩', '百度', '取消']
     }).then((data) => {
         const map = [1, 3, 5, 9];
         const packageId = map[data.response];
@@ -899,27 +901,6 @@ function changeChannel(window, isSave = false) {
     changePackage(window, isSave);
 }
 
-/** 弹框选择分辨率并持久化，立即 setBounds。 */
-function resize(window) {
-    dialog.showMessageBox(window, {
-        type: 'warning',
-        title: '提示',
-        message: '修改分辨率，并默认下次打开微端时使用该分辨率',
-        buttons: ['1500*820', '1340*700', '1400*820', 'cancel']
-    }).then((data) => {
-        const sizes = [
-            { width: 1500, height: 820 },
-            { width: 1340, height: 700 },
-            { width: 1400, height: 820 }
-        ];
-        const size = sizes[data.response];
-        if (!size) return;
-        config.set('width', size.width);
-        config.set('height', size.height);
-        window.setBounds(size);
-    });
-}
-
 /** 首次启动或手动查看时展示微端功能说明。 */
 function firstTimeAnnouncement(window, manual = false) {
     if (!window) return;
@@ -931,7 +912,7 @@ function firstTimeAnnouncement(window, manual = false) {
             '2. 多大区切换和默认大区保存\n' +
             '3. 账号密码本地记住与快速填充\n' +
             '4. 自定义背景/动态背景\n' +
-            '5. 分辨率保存、全屏适配、右键/左上角功能菜单\n\n' +
+            '5. 全屏适配、右键/左上角功能菜单\n\n' +
             '账号密码只保存在本机微端用户数据目录中，请勿在公共电脑使用“记住账号密码”。',
         buttons: manual ? ['ok'] : ['我知道了', '退出']
     }).then((index) => {
@@ -944,12 +925,11 @@ function firstTimeAnnouncement(window, manual = false) {
     });
 }
 
-/** 右键菜单：切大区、默认大区、分辨率、说明、版本号。 */
+/** 右键菜单：切大区、默认大区、说明、版本号。 */
 function createContextMenu() {
     return Menu.buildFromTemplate([
         { label: '切换游戏大区', click: () => changeChannel(mainWindow, false) },
         { label: '选择默认游戏大区', click: () => changePackage(mainWindow, true) },
-        { label: '修改分辨率', click: () => resize(mainWindow) },
         { label: '查看微端说明', click: () => firstTimeAnnouncement(mainWindow, true) },
         { type: 'separator' },
         { label: `微端版本 ${package.version}`, enabled: false }

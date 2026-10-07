@@ -62,6 +62,7 @@ export interface PeixiuRewardInfo {
   description: string;
 }
 
+/** 按多个字段名读取第一个有值的字段。 */
 export function pickField(source: unknown, ...keys: string[]): unknown {
   if (!source || typeof source !== 'object') return undefined;
   const record = source as Record<string, unknown>;
@@ -71,6 +72,7 @@ export function pickField(source: unknown, ...keys: string[]): unknown {
   return undefined;
 }
 
+/** 把配置里的数字串收成数字列表。 */
 export function parseNumberList(value: unknown): number[] {
   if (Array.isArray(value)) {
     return value.map(Number).filter(Number.isFinite);
@@ -92,20 +94,24 @@ export function normalizeCell(value: unknown): number {
     : cell;
 }
 
+/** 把格子下标换成棋盘坐标。 */
 export function cellCoord(cell: number): { row: number; col: number } {
   const normalized = normalizeCell(cell);
   return { row: Math.floor((normalized - 1) / 5), col: (normalized - 1) % 5 };
 }
 
+/** 按坐标读取棋盘格子。 */
 export function cellAt(row: number, col: number): number {
   if (row < 0 || row >= 5 || col < 0 || col >= 5) return 0;
   return row * 5 + col + 1;
 }
 
+/** 该格子是不是可走的棋盘格。 */
 export function isBoardCell(cell: number): boolean {
   return cell >= 1 && cell <= 25;
 }
 
+/** 解析棋盘上的特殊格。 */
 export function parseSpecialCells(raw: unknown): Array<{
   cell: number;
   effect: number;
@@ -130,6 +136,7 @@ export function parseSpecialCells(raw: unknown): Array<{
   });
 }
 
+/** 解析棋盘上的奖励格。 */
 export function parseRewardCells(raw: unknown): PeixiuRewardCell[] {
   const entries = Array.isArray(raw)
     ? raw
@@ -159,6 +166,7 @@ export function parseRewardCells(raw: unknown): PeixiuRewardCell[] {
   });
 }
 
+/** 把裴秀地图配置收成棋盘模型。 */
 export function parsePeixiuMapConfig(raw: unknown): PeixiuMapConfig | null {
   if (!raw || typeof raw !== 'object') return null;
   const record = raw as Record<string, unknown>;
@@ -193,6 +201,7 @@ export function parsePeixiuMapConfig(raw: unknown): PeixiuMapConfig | null {
   };
 }
 
+/** 按牌名归到裴秀路线用的花色或类型。 */
 export function classifyCardName(name: string): PeixiuCardKind {
   const text = String(name || '').replace(/\s+/g, '');
   if (/^(?:杀|火杀|雷杀|冰杀|刺杀|神杀)$/.test(text)) return 'sha';
@@ -204,6 +213,7 @@ export function classifyCardName(name: string): PeixiuCardKind {
   return 'other';
 }
 
+/** 给地图配置做指纹，配置没变就不重算路线。 */
 export function fingerprintMapConfig(raw: unknown): string {
   const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
   const cells = parseNumberList(pickField(record, 'Cells', 'cells', 'cell')).join(',');

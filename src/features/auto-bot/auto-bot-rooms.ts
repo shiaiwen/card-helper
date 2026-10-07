@@ -135,6 +135,7 @@ function listedRoomTexts(scene: UnknownRecord | null): string[] {
   return rooms.slice(0, 12).map((room) => nodeText(room)).filter(Boolean);
 }
 
+/** 从房间名判断当前大厅是身份演武、国战演武还是欢乐。 */
 export function hallModeFromRoomNames(names: string[]): string {
   const text = names.join('');
   if (text.includes('身份演武')) return '身份演武';
@@ -194,6 +195,7 @@ function waitInfoOf(seat: UnknownRecord | null | undefined): UnknownRecord | nul
   return asRecord(seat?.WaitInfo) ?? asRecord(seat?.waitInfo);
 }
 
+/** 在桌子座位里找到自己的座位。 */
 export function findOwnTableSeat(seats: unknown[], userId: number): UnknownRecord | null {
   const records = seats.map(asRecord).filter((seat): seat is UnknownRecord => !!seat);
   if (userId > 0) {
@@ -268,18 +270,6 @@ function tableSeats(scene: UnknownRecord): Array<{ seat: UnknownRecord; number: 
       ? (Number.isFinite(item.raw) ? item.raw + 1 : item.index + 1)
       : seatNumber(item.seat, item.index)
   }));
-}
-
-/** 8 人桌：自己坐最后一座，后半桌王者/高级，前半桌普通。 */
-export function planRobotSeats(count: number): { sit: number; king: number[]; normal: number[] } {
-  const total = Math.max(count, 1);
-  const king: number[] = [];
-  const normal: number[] = [];
-  for (let number = 1; number < total; number += 1) {
-    if (number >= total / 2) king.push(number);
-    else normal.push(number);
-  }
-  return { sit: total, king, normal };
 }
 
 function cancelSpareSeatPrompt(locator: LayaObjectLocator): boolean {

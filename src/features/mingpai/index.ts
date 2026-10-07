@@ -12,11 +12,6 @@ export {
   type MingpaiFindResult
 } from './mingpai-engine.ts';
 
-/** @deprecated 使用 createMingpaiEngine */
-export { createMingpaiEngine as createMingpaiStore } from './mingpai-engine.ts';
-export type { MingpaiEngine as MingpaiStore } from './mingpai-engine.ts';
-export type { MingpaiEngineSnapshot as MingpaiSnapshot } from './mingpai-engine.ts';
-
 export { MINGPAI_ZONE, type MingpaiZoneId } from './mingpai-zones.ts';
 export { installMingpaiController } from './mingpai-controller.ts';
 export { applyCardReveals } from './reveal-sink.ts';

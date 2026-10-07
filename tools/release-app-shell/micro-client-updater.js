@@ -1,3 +1,4 @@
+/** 用 PowerShell 拉起微端更新进程。 */
 const path = require('path');
 
 function quotePowerShellLiteral(value) {

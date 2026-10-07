@@ -3,7 +3,6 @@
  */
 
 import type { GameSceneSeatSource } from '../seat-display/seat-game-adapter.ts';
-import { clearOfficialCardArtworkCache } from './official-card-renderer.ts';
 
 type UnknownRecord = Record<string, unknown>;
 type CardProvider = { GetInstance(cardId: number): unknown };
@@ -76,7 +75,6 @@ export function createGameCardCatalog(
       cachedScene = null;
       cachedProvider = null;
       cache.clear();
-      clearOfficialCardArtworkCache();
     }
   };
 }

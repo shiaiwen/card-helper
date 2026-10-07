@@ -87,6 +87,7 @@ const DRAW_PILE_FROM_RULES: ReadonlyArray<{
   }
 ];
 
+/** 移牌起点在牌堆时，把位置改成顶或底。 */
 export function remapDrawPileFromPosition(
   move: Readonly<MoveCardFields>,
   options: { nationWar?: boolean } = {}
@@ -101,6 +102,7 @@ export function remapDrawPileFromPosition(
 /** 整手交出手牌的技能（605 密诏）：暗牌移动时该座位已知牌全部随之离开。 */
 const WHOLE_HAND_MOVE_SPELL_IDS = new Set([605]);
 
+/** 这次移动是不是整手牌一起离开。 */
 export function isWholeHandMove(move: Readonly<Pick<MoveCardFields, 'spellId' | 'fromZone'>>): boolean {
   return WHOLE_HAND_MOVE_SPELL_IDS.has(move.spellId) && move.fromZone === 5;
 }
@@ -124,6 +126,7 @@ const SAME_ZONE_NOT_SHOW = [
   (m: Readonly<MoveCardFields>) => m.spellId === 3744 && m.moveType === 21
 ];
 
+/** 牌没有换区，只是在原地被展示。 */
 export function isSameZoneShow(move: Readonly<MoveCardFields>): boolean {
   if (move.fromZone !== move.toZone || move.fromId !== move.toId) return false;
   if (!move.cardIds.some((cardId) => cardId > 0)) return false;

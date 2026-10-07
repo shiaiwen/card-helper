@@ -1,5 +1,10 @@
 /**
- * 裴秀路线规划：根据地图格子与花色方向，计算可达路径供面板高亮。
+ * 裴秀路线规划。
+ *
+ * 地图上四种花色各对应一个方向，打出该花色就沿方向最多走四格。
+ * 搜索状态是「当前格 + 已收集奖励掩码」。优先步数少，步数相同再少走方块。
+ * 搜不到收齐全部奖励的路线时，退回已收集奖励最多的路径。
+ * 路线算完后再按杀、酒、桃、闪的剩余次数给每一步配上手牌。
  */
 
 import {
@@ -135,6 +140,7 @@ interface PlayBudget {
   shandianLeft: number;
 }
 
+/** 统计掩码里已置位的奖励格数量。 */
 function bitCount(mask: number): number {
   let count = 0;
   let value = mask;
@@ -145,6 +151,7 @@ function bitCount(mask: number): number {
   return count;
 }
 
+/** 从起点沿花色方向走出棋盘内连续的格子，最多四格，遇空格停止。 */
 function walkDirection(from: number, suit: number, cells: Set<number>): number[] {
   const meta = PEIXIU_SUIT_META[suit];
   const path: number[] = [];
@@ -158,6 +165,7 @@ function walkDirection(from: number, suit: number, cells: Set<number>): number[]
   return path;
 }
 
+/** 特殊格效果 3：按配置的方向和步数强制位移，走出棋盘就截断。 */
 function forcedWarp(from: number, special: PeixiuSpecialCell, map: PeixiuMapConfig): {
   dir: number;
   steps: number;
@@ -179,6 +187,10 @@ function forcedWarp(from: number, special: PeixiuSpecialCell, map: PeixiuMapConf
   return { dir: special.param1, steps, path, end };
 }
 
+/**
+ * 走一步：先沿花色滑行并收集经过的奖励，再处理路径上第一个强制位移格。
+ * 返回的 mask 只含这一步新拿到的奖励，方便和起点掩码做或运算。
+ */
 function applyMove(
   from: number,
   suit: number,
@@ -242,6 +254,7 @@ function applyMove(
   };
 }
 
+/** 当前位置四种花色能走出的下一步，走不出的花色直接丢掉。 */
 function neighbors(
   pos: number,
   context: SearchContext,
@@ -253,6 +266,7 @@ function neighbors(
     .filter((item): item is { pos: number; mask: number; step: PeixiuRouteStep } => !!item);
 }
 
+/** 从搜索节点顺着 parent 找回整条路线，顺序改回从起点出发。 */
 function rebuildPath(node: SearchNode): PeixiuRouteSolution {
   const path: PeixiuRouteStep[] = [];
   for (let cursor: SearchNode | null = node; cursor?.parent; cursor = cursor.parent) {
@@ -270,10 +284,12 @@ function rebuildPath(node: SearchNode): PeixiuRouteSolution {
   };
 }
 
+/** 用花色序列去重，避免两条格子不同但出牌顺序相同的路线同时展示。 */
 function directionSignature(solution: PeixiuRouteSolution | null | undefined): string {
   return (solution?.path || []).map((step) => step?.dir || 0).join(',');
 }
 
+/** 当前路径上是否已经到过同一格和同一奖励掩码，防止绕圈。 */
 function hasState(node: SearchNode | null, stateKey: string): boolean {
   for (let cursor = node; cursor; cursor = cursor.parent) {
     if (cursor.stateKey === stateKey) return true;
@@ -281,12 +297,14 @@ function hasState(node: SearchNode | null, stateKey: string): boolean {
   return false;
 }
 
+/** 奖励格按下标编成位，后面用掩码表示收集进度。 */
 function rewardIndexOf(map: PeixiuMapConfig): Map<number, number> {
   const index = new Map<number, number>();
   map.rewardCells.forEach((cell, order) => index.set(cell, order));
   return index;
 }
 
+/** 把已经踩过的奖励格收成掩码。 */
 function collectedMaskOf(cells: number[], index: Map<number, number>): number {
   let mask = 0;
   for (const cell of cells) {
@@ -296,6 +314,7 @@ function collectedMaskOf(cells: number[], index: Map<number, number>): number {
   return mask;
 }
 
+/** 把已经触发过的特殊格收成掩码，避免同一格再强制位移。 */
 function triggeredMaskOf(map: PeixiuMapConfig, cells: number[]): number {
   let mask = 0;
   for (const cell of cells) {
@@ -307,6 +326,7 @@ function triggeredMaskOf(map: PeixiuMapConfig, cells: number[]): number {
   return mask;
 }
 
+/** 回血类奖励在满血时不算有价值，避免路线为了它绕路。 */
 function isHealingReward(reward: PeixiuRewardCell | null, special: PeixiuSpecialCell | undefined): boolean {
   if (Number(special?.effect) === 2) return true;
   if (!reward) return false;
@@ -314,10 +334,12 @@ function isHealingReward(reward: PeixiuRewardCell | null, special: PeixiuSpecial
   return /heal|recover|health|hp|回复|体力/i.test(String(reward.type ?? ''));
 }
 
+/** 读取格子上的奖励配置，没有奖励时返回空。 */
 function rewardAt(map: PeixiuMapConfig, cell: number): PeixiuRewardCell | null {
   return map.rewards.find((item) => normalizeCell(item.cell) === normalizeCell(cell)) ?? null;
 }
 
+/** 只把当前还值得拿的奖励放进目标掩码；valuableOnly 为真时搜索只追这些格。 */
 function valuableMaskOf(map: PeixiuMapConfig, index: Map<number, number>, input: PeixiuPlannerInput): number {
   const hp = Number(input.hp);
   const maxHp = Number(input.maxHp);
@@ -333,6 +355,7 @@ function valuableMaskOf(map: PeixiuMapConfig, index: Map<number, number>, input:
   return mask;
 }
 
+/** 把地图和已收集进度收成搜索上下文。起点默认算已收集。 */
 function prepareContext(raw: unknown, input: PeixiuPlannerInput): SearchContext {
   const map = parsePeixiuMapConfig(raw);
   if (!map) {
@@ -374,6 +397,12 @@ function prepareContext(raw: unknown, input: PeixiuPlannerInput): SearchContext 
   };
 }
 
+/**
+ * 广度优先搜索。状态键是位置加奖励掩码。
+ * 同一状态只保留步数更少、或步数相同但方块更少的走法。
+ * 第一步若被指定花色锁死且该方向走不出，仍插入一个原地空步，让界面能显示这次锁定。
+ * 访问上限 10 万步，避免畸形地图把界面卡死。
+ */
 function searchMap(raw: unknown, input: PeixiuPlannerInput = {}): SearchResult {
   const context = prepareContext(raw, input);
   const targetMask = input.valuableOnly ? context.valuableMask : context.goalMask;
@@ -479,6 +508,7 @@ function searchMap(raw: unknown, input: PeixiuPlannerInput = {}): SearchResult {
   };
 }
 
+/** 没有逐张手牌时，用花色张数造出占位牌，保证后面还能配路线。 */
 function normalizeHand(input: PeixiuPlannerInput): PeixiuHandCard[] {
   let cards = Array.isArray(input.handCards)
     ? input.handCards.map((card, index) => ({
@@ -538,6 +568,7 @@ function normalizeHand(input: PeixiuPlannerInput): PeixiuHandCard[] {
   ));
 }
 
+/** 同一花色里优先配当前选中的牌，再配能打出的牌。 */
 function groupHand(input: PeixiuPlannerInput): CardGroup[] {
   const cards = normalizeHand(input);
   const groups = new Map<string, PeixiuHandCard[]>();
@@ -568,6 +599,10 @@ function groupHand(input: PeixiuPlannerInput): CardGroup[] {
   ));
 }
 
+/**
+ * 扣一次出牌额度。杀受剩余次数和诸葛连弩影响，酒、桃、闪各自有上限。
+ * 额度不够时返回空，这条路线就不能用这张牌。
+ */
 function consumeCard(budget: PlayBudget, card: PeixiuHandCard): PlayBudget | null {
   let remainingSha = budget.remainingSha;
   let jiuLeft = budget.jiuLeft;
@@ -592,6 +627,7 @@ function consumeCard(budget: PlayBudget, card: PeixiuHandCard): PlayBudget | nul
   return { remainingSha, jiuLeft, peachLeft, hasZhuge, shandianLeft };
 }
 
+/** 按路线花色顺序从手牌里取牌。第一步可以被指定必须用某张牌。 */
 function assignCards(solution: PeixiuRouteSolution, input: PeixiuPlannerInput = {}): PeixiuRouteSolution {
   const groups = groupHand(input);
   const remaining = groups.map((group) => group.total);
@@ -658,6 +694,7 @@ function assignCards(solution: PeixiuRouteSolution, input: PeixiuPlannerInput = 
   return { ...solution, ...search(0, remaining, budget) };
 }
 
+/** 能配齐手牌的路线优先，其次步数少、方块少。 */
 function compareAssigned(
   left: { solution: PeixiuRouteSolution; valueCount: number },
   right: { solution: PeixiuRouteSolution; valueCount: number }
@@ -671,6 +708,7 @@ function compareAssigned(
   return 0;
 }
 
+/** 路线第一步被配置固定时返回那个方向。 */
 export function forcedFirstDirection(input: PeixiuPlannerInput = {}): number {
   const key = String(input.forcedFirstCardKey || input.selectedCardKey || '');
   if (!key) return 0;
@@ -678,6 +716,7 @@ export function forcedFirstDirection(input: PeixiuPlannerInput = {}): number {
   return PEIXIU_SUITS.includes(group?.suit as 1 | 2 | 3 | 4) ? Number(group?.suit) : 0;
 }
 
+/** 按手牌花色和棋盘奖励规划一条路线。 */
 export function planPeixiuRoute(raw: unknown, input: PeixiuPlannerInput = {}): PeixiuPlannedRoute | null {
   const map = parsePeixiuMapConfig(raw);
   if (!map) return null;
@@ -720,6 +759,7 @@ export function planPeixiuRoute(raw: unknown, input: PeixiuPlannerInput = {}): P
   };
 }
 
+/** 把分段路线收成连续格子。 */
 export function flattenRouteSegments(solution: PeixiuRouteSolution | null | undefined): PeixiuSegment[] {
   const segments: PeixiuSegment[] = [];
   for (const step of solution?.path || []) {
@@ -738,6 +778,7 @@ export function flattenRouteSegments(solution: PeixiuRouteSolution | null | unde
   return segments;
 }
 
+/** 统计路线走完后还剩的花色张数。 */
 export function remainingSuitCounts(solutions: readonly PeixiuRouteSolution[], variant = 0): number[] {
   const counts = [0, 0, 0, 0, 0];
   const solution = solutions[Number(variant) || 0] || solutions[0];
@@ -750,6 +791,7 @@ export function remainingSuitCounts(solutions: readonly PeixiuRouteSolution[], v
   return counts;
 }
 
+/** 界面上推荐牌的短名和花色颜色。红桃、方块用红色。 */
 function recommendedCardLabel(card: PeixiuHandCard): { text: string; suitText: string; red: boolean } {
   const raw = String(card?.displayName || card?.name || '牌').replace(/\uFE0F/g, '');
   const matched = raw.match(/([♥♦♠♣])([0-9AJQK]*)/i);
@@ -764,6 +806,7 @@ function recommendedCardLabel(card: PeixiuHandCard): { text: string; suitText: s
   };
 }
 
+/** 把路线花色序列收成纯文本。 */
 export function sequencePlainText(solution: PeixiuRouteSolution | null | undefined): string {
   const names = (solution?.path || []).filter((step) => step?.card).map((step) => (
     recommendedCardLabel(step.card!).text
@@ -771,6 +814,7 @@ export function sequencePlainText(solution: PeixiuRouteSolution | null | undefin
   return names.length ? `建议牌序：${names.join('→')}` : '';
 }
 
+/** 把路线花色序列拆成可上色的片段。 */
 export function sequenceRichParts(solution: PeixiuRouteSolution | null | undefined): Array<{
   text: string;
   color: string;

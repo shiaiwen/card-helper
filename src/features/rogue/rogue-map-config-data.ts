@@ -558,6 +558,7 @@ export function buildRogueMapConfigData(
   };
 }
 
+/** 山河图地图配置是否已经能用来画。 */
 export function isRogueMapConfigReady(data: RogueMapConfigData | null | undefined): boolean {
   return Boolean(data && Object.keys(data.Rcity).length > 0);
 }
