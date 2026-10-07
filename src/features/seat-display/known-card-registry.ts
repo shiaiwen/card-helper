@@ -31,7 +31,7 @@ export interface KnownCardRecord {
 }
 
 const HAND_ZONE = 5;
-const PERSISTENT_KNOWN_CARD_TAGS = new Set(['炁']);
+const PERSISTENT_KNOWN_CARD_TAGS = new Set(['炁', '心幽']);
 const REGISTRY_STORAGE_KEY = 'XC::knownCardRegistry';
 const REGISTRY_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
@@ -88,6 +88,15 @@ export function createKnownCardRegistry(storage: Storage | null = getSessionStor
         && originalOwnerSeatId >= 0 && record.originalOwnerSeatId === null) {
         record.originalOwnerSeatId = originalOwnerSeatId;
       }
+      persist();
+    },
+
+    forgetPersistentTag(cardId: number, tag: string) {
+      const record = records.get(cardId);
+      const normalizedTag = String(tag).trim();
+      if (!record || !normalizedTag || !record.persistentTags.has(normalizedTag)) return;
+      record.persistentTags.delete(normalizedTag);
+      record.tags.delete(normalizedTag);
       persist();
     },
 

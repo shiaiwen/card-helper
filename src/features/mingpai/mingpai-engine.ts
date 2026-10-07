@@ -61,6 +61,7 @@ export interface MingpaiEngine {
   reconcileVisibleHands(hands: readonly { seatId: number; cardIds: readonly number[] }[]): void;
   observeKnownHandCard(cardId: number, seatId: number, tags?: readonly string[]): void;
   rememberPersistentCardTag(cardId: number, tag: string, originalOwnerSeatId?: number | null): void;
+  forgetPersistentCardTag(cardId: number, tag: string): void;
   /** 鉴定牌堆内已知牌，并标记相对位置（顶 / 底 / 未指定）。 */
   observeKnownDrawPileCards(cardIds: readonly number[], position: number): void;
   getPersistentTags(cardId: number): string[];
@@ -304,6 +305,19 @@ export function createMingpaiEngine(
         }
         publish();
       }
+    },
+    forgetPersistentCardTag(cardId, tag) {
+      const normalizedTag = String(tag).trim();
+      if (!normalizedTag) return;
+      registry.forgetPersistentTag(cardId, normalizedTag);
+      const existing = cardIndex.get(cardId);
+      if (!existing) {
+        publish();
+        return;
+      }
+      existing.tags.delete(normalizedTag);
+      existing.persistentTags.delete(normalizedTag);
+      publish();
     },
     observeKnownDrawPileCards(cardIds, position) {
       const ids = uniquePositive(cardIds);

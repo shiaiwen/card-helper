@@ -17,6 +17,9 @@ import {
 import { MINGPAI_ZONE } from './mingpai-zones.ts';
 import { applyCardReveals } from './reveal-sink.ts';
 import { resolveOptTargetReveals } from './rules/opt-target-rules.ts';
+import { isXinyouCardGain, XINYOU_TAG, xinyouTagExpires } from './xinyou-tag.ts';
+import { locateGameScene } from '../seat-display/game-scene-locator.ts';
+import { resolveSkillIds } from '../skill-assist/skill-visibility.ts';
 import { traceMingpai } from '../../runtime/mingpai-trace.ts';
 import { resolveSpellOptRepReveals } from './rules/spell-opt-rep-rules.ts';
 import {
@@ -74,6 +77,7 @@ export function installMingpaiController(
     expiresAfterMovement: number;
   } | null = null;
   let movementSequence = 0;
+  let xinyouCaster: { seatId: number; expiresAfterMovement: number } | null = null;
   let qiStateObserved = false;
   let synchronizingPersistentTags = false;
   /** 重连包没有牌序快照，等座位场景公开手牌后再登记一次。 */
@@ -197,18 +201,40 @@ export function installMingpaiController(
       recordQiPlayerDeath(event.seatId, event.killerSeatId);
       return;
     }
+    if (event.type === 'cards-used') {
+      event.cardIds.filter((cardId) => cardId > 0).forEach(clearXinyouTag);
+    }
+    if (event.type === 'phase-changed' && xinyouTagExpires(event.phase)) {
+      clearAllXinyouTags();
+    }
     if (event.type === 'spell-targeted' && QI_TRANSFER_SPELL_IDS.has(event.spellId)) {
       recordQiTransferSpell(event.seatId, event.targetSeatIds);
     }
     if (event.type === 'spell-targeted') {
       rememberSpellCardClue(event);
+      if (isXinyouSpell(event.spellId)) {
+        xinyouCaster = { seatId: event.seatId, expiresAfterMovement: movementSequence + 8 };
+      }
     }
   });
+
+  function clearXinyouTag(cardId: number): void {
+    if (!engine.getPersistentTags(cardId).includes(XINYOU_TAG)) return;
+    engine.forgetPersistentCardTag(cardId, XINYOU_TAG);
+    seatStateStore.setPersistentKnownCardTags(cardId, engine.getPersistentTags(cardId));
+  }
+
+  function clearAllXinyouTags(): void {
+    engine.getSnapshot().records.forEach((record) => {
+      if (record.persistentTags.includes(XINYOU_TAG)) clearXinyouTag(record.cardId);
+    });
+  }
 
   function dropUntrustedOrder(): void {
     temporaryCardZones.clear();
     temporaryZoneSequence = 0;
     pendingSpellCardClues.length = 0;
+    xinyouCaster = null;
     specialRecovery.clear();
     engine.clearKnownDrawPileOrder();
   }
@@ -307,6 +333,19 @@ export function installMingpaiController(
     const recoveredCardIds = wholeHand
       ? recoverWholeHandMovement(movementWithTemporaryCards, seatStateStore)
       : controlledSeatCardIds;
+    if (isXinyouCardGain({
+      spellMatched: isXinyouSpell(event.spellId),
+      toZone: event.toZone,
+      toId: event.toId,
+      srcSeatId: event.srcSeatId ?? null,
+      casterSeatId: xinyouCaster && movementSequence <= xinyouCaster.expiresAfterMovement
+        ? xinyouCaster.seatId
+        : null
+    })) {
+      recoveredCardIds.filter((cardId) => cardId > 0).forEach((cardId) => {
+        engine.rememberPersistentCardTag(cardId, XINYOU_TAG);
+      });
+    }
     if (preferredQiOwner !== null && recoveredCardIds.some((cardId) => cardId > 0)) {
       recoveredCardIds.filter((cardId) => cardId > 0).forEach((cardId) => {
         engine.rememberPersistentCardTag(cardId, '炁', preferredQiOwner);
@@ -364,6 +403,7 @@ export function installMingpaiController(
     eligibleQiKillersByVictim.clear();
     pendingQiDeath = null;
     pendingQiTransfer = null;
+    xinyouCaster = null;
     movementSequence = 0;
     qiStateObserved = false;
   }
@@ -496,6 +536,13 @@ export function installMingpaiController(
 function takesFromTemporaryZoneBottom(movement: TemporaryZoneMovement): boolean {
   return movement.spellId === 3208 && movement.fromZone === 10 && movement.toZone === HAND_ZONE
     && !movement.cardIds.some((cardId) => cardId > 0);
+}
+
+const XINYOU_SKILL = { id: 'xinyou', title: '心幽', skillIds: [] as number[], spellNames: ['心幽'] };
+
+function isXinyouSpell(spellId: number): boolean {
+  if (!Number.isInteger(spellId) || spellId <= 0) return false;
+  return resolveSkillIds(XINYOU_SKILL, locateGameScene(window)).includes(spellId);
 }
 
 const QI_STATE_ID = 0xe92;

@@ -30,6 +30,8 @@ import { createDeckRecordInteraction } from '../features/deck-record/deck-record
 import { installNativeDeckRecordController } from '../features/deck-record/native-deck-record-controller';
 import { installCountdownSecondsController } from '../features/countdown/countdown-seconds-controller';
 import { installCardLabelController } from '../features/cards/card-label-controller';
+import { installAiPlayerTipController } from '../features/ai-player/ai-player-tip-controller';
+import { installChooseFigureController } from '../features/identity-drill/choose-figure-controller';
 import { installCardConfigSource } from '../adapters/card-config-source';
 import { installNativeRecentCardController } from '../features/recent-cards/native-recent-card-controller';
 import { createMingpaiEngine, installMingpaiController } from '../features/mingpai';
@@ -116,6 +118,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(installNativeMingpaiPreviewController(configStore, seatStateStore, gameCardCatalog, mingpaiEngine, gameEvents));
   lifecycle.register(installCountdownSecondsController(configStore));
   lifecycle.register(installCardLabelController(configStore));
+  lifecycle.register(installAiPlayerTipController(gameEvents));
+  lifecycle.register(installChooseFigureController());
   lifecycle.register(installHandSortController(configStore));
   lifecycle.register(installSelectionToolsController());
   lifecycle.register(installTiesuoRecastController());

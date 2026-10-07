@@ -14,16 +14,12 @@ function openPage(): void {
 </script>
 
 <template>
-  <section class="xiaochao-settings-section" aria-label="自助观星">
-    <div class="xiaochao-settings-section__body">
-      <button
-        type="button"
-        class="xiaochao-block-entry xiaochao-block-entry--center"
-        data-tooltip="在浏览器新页面打开自助观星"
-        @click="openPage"
-      >
-        <span>自助观星</span>
-      </button>
-    </div>
-  </section>
+  <button
+    type="button"
+    class="xiaochao-block-entry xiaochao-block-entry--center"
+    data-tooltip="在浏览器新页面打开自助观星"
+    @click="openPage"
+  >
+    <span>自助观星</span>
+  </button>
 </template>

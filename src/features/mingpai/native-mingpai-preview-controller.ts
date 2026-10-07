@@ -70,7 +70,7 @@ export function installNativeMingpaiPreviewController(
   const recommendedBySeat = new Map<number, Set<number>>();
   const selectedBySeat = new Map<number, Set<number>>();
   const markTimers = new Map<number, number>();
-  const equipmentTagSignatures = new WeakMap<object, string>();
+  const tagMethodPatches: { prototype: object; descriptor: PropertyDescriptor }[] = [];
   let syncing = false;
   let lastEquipmentTagRefreshAt = 0;
   let popup: UnknownRecord | null = null;
@@ -494,7 +494,17 @@ export function installNativeMingpaiPreviewController(
     const activeSeatIds = new Set<number>();
     for (const seat of snapshot.seats) {
       const seatUi = seatUis.get(seat.seatId);
-      if (seatUi && refreshEquipmentTags) refreshNativeEquipmentTags(seatUi);
+      if (seatUi && refreshEquipmentTags) {
+        refreshNativeCardTags(readEquipmentCardUis(seatUi), ['炁'], false);
+      }
+      if (seatUi) {
+        const handUis = readHandCardUis(seatUi);
+        const equipUis = readEquipmentCardUis(seatUi);
+        handUis.forEach((cardUi) => installXinyouTagHook(cardUi));
+        equipUis.forEach((cardUi) => installXinyouTagHook(cardUi));
+        refreshNativeCardTags(equipUis, ['心幽'], true);
+        refreshNativeCardTags(handUis, ['心幽'], true);
+      }
       if (seat.seatId === snapshot.selfSeatId) continue;
       const anchor = seatUi ? readAnchorRect(seatUi, host) : null;
       // 引擎位置表是明牌区的权威来源；座位快照负责补上场景直接公开的牌。
@@ -585,13 +595,44 @@ export function installNativeMingpaiPreviewController(
     markTimers.set(entry.seatId, timer);
   }
 
-  /** 将明牌引擎记录的持续标签刷回原生装备卡 UI。 */
-  function refreshNativeEquipmentTags(seatUi: UnknownRecord): void {
-    const container = asRecord(seatUi.cardContainer);
-    const cardUis = [
-      ...readArray(container, ['equipCardUis', 'equipCardUIs']),
-      ...readArray(seatUi, ['equipCardUis', 'equipCardUIs'])
-    ];
+  function installXinyouTagHook(rawUi: unknown): void {
+    const cardUi = asRecord(rawUi);
+    if (!cardUi) return;
+    let prototype = Object.getPrototypeOf(cardUi) as UnknownRecord | null;
+    while (prototype && !Object.prototype.hasOwnProperty.call(prototype, 'UpdateTag')) {
+      prototype = Object.getPrototypeOf(prototype) as UnknownRecord | null;
+    }
+    if (!prototype || tagMethodPatches.some((patch) => patch.prototype === prototype)) return;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, 'UpdateTag');
+    if (!descriptor || typeof descriptor.value !== 'function') return;
+    const original = descriptor.value as (this: unknown, ...args: unknown[]) => unknown;
+    const patched = function (this: UnknownRecord, ...args: unknown[]) {
+      stampXinyouTag(this);
+      return original.apply(this, args);
+    };
+    try {
+      Object.defineProperty(prototype, 'UpdateTag', { ...descriptor, value: patched });
+      tagMethodPatches.push({ prototype, descriptor });
+    } catch {
+      // 原型不可写时仍靠轮询把标签写回。
+    }
+  }
+
+  function stampXinyouTag(cardUi: UnknownRecord): void {
+    if (!configStore.get('display.cardLabelsEnabled')) return;
+    const card = asRecord(cardUi.Card) ?? asRecord(cardUi.card);
+    if (!card) return;
+    const cardId = Number(card.cardId ?? card.cardID ?? card.CardId ?? card.CardID ?? card.id ?? card.ID ?? card.key);
+    if (!Number.isInteger(cardId) || cardId <= 0) return;
+    if (!mingpaiEngine?.getPersistentTags(cardId).includes('心幽')) return;
+    const tagKey = Object.prototype.hasOwnProperty.call(card, 'tagArr1') ? 'tagArr1' : 'TagArr1';
+    const tags = Array.isArray(card[tagKey]) ? (card[tagKey] as unknown[]).map(String) : [];
+    if (tags.includes('心幽')) return;
+    card[tagKey] = [...tags, '心幽'];
+  }
+
+  /** 把持续标签刷回原生卡牌 UI。keepOnCard 时写在牌上，直到调用方去掉标签。 */
+  function refreshNativeCardTags(cardUis: unknown[], labels: readonly string[], keepOnCard: boolean): void {
     const enabled = configStore.get('display.cardLabelsEnabled');
     for (const rawUi of cardUis) {
       const cardUi = asRecord(rawUi);
@@ -599,27 +640,39 @@ export function installNativeMingpaiPreviewController(
       if (!cardUi || !card) continue;
       const cardId = Number(card.cardId ?? card.cardID ?? card.CardId ?? card.CardID ?? card.id ?? card.ID ?? card.key);
       if (!Number.isInteger(cardId) || cardId <= 0) continue;
-      const qiKnown = enabled && (mingpaiEngine?.getPersistentTags(cardId).includes('炁') ?? false);
+      const persistent = mingpaiEngine?.getPersistentTags(cardId) ?? [];
+      const extra = enabled ? labels.filter((label) => persistent.includes(label)) : [];
       const tagKey = Object.prototype.hasOwnProperty.call(card, 'tagArr1') ? 'tagArr1' : 'TagArr1';
       const originalTags = card[tagKey];
       const tags = Array.isArray(originalTags) ? originalTags.map(String) : [];
-      const nextTags = [...new Set([...tags.filter((tag) => tag !== '炁'), ...(qiKnown ? ['炁'] : [])])];
-      // 原生牌标签重绘会创建/回收 Laya 子节点；轮询只在实际标签变化时重绘。
-      if (!qiKnown && !tags.includes('炁')) continue;
-      const signature = JSON.stringify(nextTags);
-      if (equipmentTagSignatures.get(cardUi) === signature) continue;
+      const nextTags = [...new Set([...tags.filter((tag) => !labels.includes(tag)), ...extra])];
+      if (!extra.length && !tags.some((tag) => labels.includes(tag))) continue;
+      if (JSON.stringify(tags) === JSON.stringify(nextTags)) continue;
       try {
         call(cardUi, 'AddCardTag');
         card[tagKey] = nextTags;
         call(cardUi, 'UpdateTag');
-        equipmentTagSignatures.set(cardUi, signature);
       } catch {
         // 部分游戏版本的卡牌对象不可写，明牌预览仍会展示持续标签。
       } finally {
+        if (keepOnCard) continue;
         if (originalTags === undefined) delete card[tagKey];
         else card[tagKey] = originalTags;
       }
     }
+  }
+
+  function readEquipmentCardUis(seatUi: UnknownRecord): unknown[] {
+    const container = asRecord(seatUi.cardContainer);
+    return [
+      ...readArray(container, ['equipCardUis', 'equipCardUIs']),
+      ...readArray(seatUi, ['equipCardUis', 'equipCardUIs'])
+    ];
+  }
+
+  function readHandCardUis(seatUi: UnknownRecord): unknown[] {
+    const container = asRecord(seatUi.cardContainer);
+    return readArray(container, ['cardUis', 'cardUIs', 'handCardUis', 'handCardUIs']);
   }
 
   function onGameEvent(event: import('../../runtime/game-event-bus.ts').GameEvent): void {
@@ -645,6 +698,12 @@ export function installNativeMingpaiPreviewController(
     markTimers.forEach((timerId) => window.clearTimeout(timerId));
     markTimers.clear();
     stopConfig();
+    for (const patch of tagMethodPatches) {
+      const current = Object.getOwnPropertyDescriptor(patch.prototype, 'UpdateTag');
+      if (!current) continue;
+      try { Object.defineProperty(patch.prototype, 'UpdateTag', patch.descriptor); } catch { /* 游戏退出时对象可能已冻结。 */ }
+    }
+    tagMethodPatches.length = 0;
     destroyAll();
   };
 }
