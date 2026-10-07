@@ -399,9 +399,7 @@ export function installNativeMingpaiPreviewController(
           const row = Math.floor(index / section.columns);
           const x = POPUP_PADDING + column * (cardWidth + cardGap);
           const y = top + POPUP_TITLE_HEIGHT + row * (cardHeight + cardGap);
-          const view = popupCards.length < 6
-            ? createOfficialCardView(created, cardId, cardWidth, cardHeight)
-            : null;
+          const view = createOfficialCardView(created, cardId, cardWidth, cardHeight);
           if (view) {
             call(view.ui, 'pos', x, y);
             popupCards.push(view);

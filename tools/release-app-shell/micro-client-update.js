@@ -2,6 +2,8 @@
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const { buildWindowsMicroClientUpdater } = require('./micro-client-updater');
 
@@ -80,10 +82,40 @@ function requestBuffer(url, maxBytes) {
     });
 }
 
+/** 检查更新直接请求版本接口，不再用浏览器打开页面再抠正文。 */
 function fetchJson(url) {
-    return requestBuffer(url, 1024 * 1024).then(({ statusCode, body }) => {
-        if (statusCode !== 200) throw new Error(`Failed to get '${url}' (${statusCode})`);
-        return JSON.parse(body.toString('utf8'));
+    return new Promise((resolve, reject) => {
+        const target = new URL(url);
+        const client = target.protocol === 'http:' ? http : https;
+        const request = client.get(target, {
+            headers: { Accept: 'application/json' }
+        }, (response) => {
+            const statusCode = response.statusCode || 0;
+            if (statusCode >= 300 && statusCode < 400 && response.headers.location) {
+                response.resume();
+                fetchJson(new URL(response.headers.location, target).toString()).then(resolve, reject);
+                return;
+            }
+            const chunks = [];
+            response.on('data', (chunk) => chunks.push(chunk));
+            response.on('end', () => {
+                const body = Buffer.concat(chunks);
+                if (statusCode !== 200) {
+                    reject(new Error(`Failed to get '${url}' (${statusCode})`));
+                    return;
+                }
+                if (body.length > 1024 * 1024) {
+                    reject(new Error('response is too large'));
+                    return;
+                }
+                try {
+                    resolve(JSON.parse(body.toString('utf8')));
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+        request.on('error', reject);
     });
 }
 
