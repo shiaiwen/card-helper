@@ -2,9 +2,8 @@
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
-const http = require('http');
-const https = require('https');
 const path = require('path');
+const { net } = require('electron');
 const { buildWindowsMicroClientUpdater } = require('./micro-client-updater');
 
 const MANIFEST_URL = 'https://xc.95chong.cn/downloads/manifest.json';
@@ -25,65 +24,45 @@ function compareVersions(left, right) {
     return 0;
 }
 
-function fetchJson(url, redirectCount = 0) {
+/** 用 Chromium 网络栈请求。Node 的 https 握手会被站点重置。 */
+function requestBuffer(url, maxBytes) {
     return new Promise((resolve, reject) => {
-        const lib = url.startsWith('http://') ? http : https;
-        const request = lib.get(url, { headers: { 'Cache-Control': 'no-cache' } }, (response) => {
-            if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location && redirectCount < 5) {
-                response.resume();
-                fetchJson(new URL(response.headers.location, url).toString(), redirectCount + 1).then(resolve).catch(reject);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                response.resume();
-                reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
-                return;
-            }
+        const request = net.request({ method: 'GET', url });
+        request.setHeader('Cache-Control', 'no-cache');
+        request.on('response', (response) => {
             const chunks = [];
             let size = 0;
             response.on('data', (chunk) => {
                 size += chunk.length;
-                if (size > 1024 * 1024) {
-                    request.destroy(new Error('manifest is too large'));
+                if (maxBytes && size > maxBytes) {
+                    request.abort();
+                    reject(new Error('response is too large'));
                     return;
                 }
                 chunks.push(chunk);
             });
             response.on('end', () => {
-                try {
-                    resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-                } catch (error) {
-                    reject(error);
-                }
+                resolve({ statusCode: response.statusCode, body: Buffer.concat(chunks) });
             });
+            response.on('error', reject);
         });
         request.on('error', reject);
+        request.end();
     });
 }
 
-function downloadFile(url, localFilePath, redirectCount = 0) {
-    return new Promise((resolve, reject) => {
+function fetchJson(url) {
+    return requestBuffer(url, 1024 * 1024).then(({ statusCode, body }) => {
+        if (statusCode !== 200) throw new Error(`Failed to get '${url}' (${statusCode})`);
+        return JSON.parse(body.toString('utf8'));
+    });
+}
+
+function downloadFile(url, localFilePath) {
+    return requestBuffer(url).then(({ statusCode, body }) => {
+        if (statusCode !== 200) throw new Error(`Failed to get '${url}' (${statusCode})`);
         fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
-        const file = fs.createWriteStream(localFilePath);
-        const lib = url.startsWith('http://') ? http : https;
-        const request = lib.get(url, { headers: { 'Cache-Control': 'no-cache' } }, (response) => {
-            if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location && redirectCount < 5) {
-                file.close(() => fs.unlink(localFilePath, () => {}));
-                downloadFile(new URL(response.headers.location, url).toString(), localFilePath, redirectCount + 1).then(resolve).catch(reject);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                file.close(() => fs.unlink(localFilePath, () => {}));
-                reject(new Error(`Failed to get '${url}' (${response.statusCode})`));
-                return;
-            }
-            response.pipe(file);
-            file.on('finish', () => file.close(resolve));
-        });
-        request.on('error', (error) => {
-            file.close(() => fs.unlink(localFilePath, () => {}));
-            reject(error);
-        });
+        fs.writeFileSync(localFilePath, body);
     });
 }
 

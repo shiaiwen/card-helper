@@ -16,7 +16,7 @@ const releaseAppZip = path.join(root, 'release', 'app.zip');
 const releaseManifest = path.join(root, 'release', 'xiaochao-manifest.json');
 const portalRoot = process.env.PORTAL_ROOT
   ? path.resolve(process.env.PORTAL_ROOT)
-  : path.resolve(root, '..', 'portal');
+  : path.resolve(root, '..', 'sgs-xc-portal');
 const portalDownloads = path.join(portalRoot, 'public', 'downloads');
 const portalZip = path.join(portalDownloads, zipName);
 const portalAppZip = path.join(portalDownloads, 'app.zip');
@@ -46,4 +46,4 @@ console.log(`[portal] 已拷贝到 ${portalZip}`);
 console.log(`[portal] 已拷贝到 ${portalAppZip}`);
 console.log(`[portal] 已拷贝到 ${portalManifest}`);
 console.log(`[portal] ${kb} KB`);
-console.log('[portal] 网站发布请到 portal 目录执行 npm run deploy');
+console.log('[portal] 网站发布请到 sgs-xc-portal 目录执行 npm run deploy');
