@@ -10,6 +10,8 @@ export const TAVERN_TASK_IDS: readonly number[] = [161114, 161115, 161116];
 const EXCLUDED_TASK_IDS = new Set([97, 98, 126, 127]);
 const HUAN_LE_DOU_ITEM_IDS = new Set(['9020101', '9030101']);
 const COST_TASK_PATTERN = /兑换|兑取|换取|消费|消耗|扣除|合成|盲盒/;
+/** 已消费达标后的进度描述，领取时不再扣费。先从文案里摘掉，避免被上面的规则误伤。 */
+const SPEND_PROGRESS_PATTERN = /累计实际扣除|扣除绑定元宝|扣除元宝|消耗绑定元宝|消耗元宝|累计消费|消费/g;
 const COST_REQ_TYPE = 30;
 const FREE_EXCHANGE_CLIENT_TASK_TYPES = new Set([34, 35]);
 
@@ -171,19 +173,36 @@ function conditionsOf(task: UnknownRecord): UnknownRecord[] {
     : [];
 }
 
-/** 需要消耗物品或可重复完成的任务不自动领取。 */
-function isCostOrRepeatTask(task: UnknownRecord): boolean {
-  if (isFreeExchangeTask(task)) return false;
+function taskText(task: UnknownRecord): string {
   const base = asRecord(task.baseVo) ?? task;
-  const text = [
+  return [
     base._name, base.name, base.Name, base._desc, base.desc, base.Desc,
     task._name, task.name, task.Name, task._desc, task.desc, task.Desc,
     ...conditionsOf(task).map((condition) => condition._desc || condition.desc || condition.Desc)
   ].filter(Boolean).join(' ');
-  if (COST_TASK_PATTERN.test(text)) return true;
-  if (conditionsOf(task).some((condition) => Number(condition._reqType ?? condition.reqType ?? condition.ReqType) === COST_REQ_TYPE)) {
-    return true;
-  }
+}
+
+/** 文案是消费达标进度，而不是领取时再扣一次道具。 */
+function isSpendProgressTask(text: string): boolean {
+  return /累计实际扣除|扣除元宝|扣除绑定元宝|消耗元宝|消耗绑定元宝|累计消费|消费/.test(text);
+}
+
+/**
+ * 兑换、消耗道具、可反复完成的任务不自动领取。
+ * 消费回馈（累计实际扣除 / 消费达标）领取时不再扣费，多档可以一次领完。
+ */
+function isCostOrRepeatTask(task: UnknownRecord): boolean {
+  if (isFreeExchangeTask(task)) return false;
+  const text = taskText(task);
+  const spendProgress = isSpendProgressTask(text);
+  const costText = text.replace(new RegExp(SPEND_PROGRESS_PATTERN.source, 'g'), '');
+  if (COST_TASK_PATTERN.test(costText)) return true;
+  const paysOnClaim = conditionsOf(task).some((condition) => (
+    Number(condition._reqType ?? condition.reqType ?? condition.ReqType) === COST_REQ_TYPE
+  ));
+  if (paysOnClaim && !spendProgress) return true;
+  if (spendProgress) return false;
+  const base = asRecord(task.baseVo) ?? task;
   const maxComplete = Number(base.maxComplete ?? base._maxComplete ?? task.maxComplete ?? task._maxComplete ?? 0);
   const canRewardCount = Number(task.CanRewardCount ?? task.canRewardCount ?? 0);
   return (Number.isFinite(maxComplete) && maxComplete > 1) || (Number.isFinite(canRewardCount) && canRewardCount > 1);

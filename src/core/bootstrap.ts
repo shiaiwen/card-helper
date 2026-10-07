@@ -143,7 +143,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     getExtraAssistData: () => cardConfigSource.getExtraAssistData(),
     getSpellExtendRaw: () => cardConfigSource.getSpellExtendRaw(),
     getCard: (cardId) => cardConfigSource.getCard(cardId),
-    peixiuRouteStore
+    peixiuRouteStore,
+    gameEvents
   });
   lifecycle.register(extraAssist.dispose);
   const autoHg = installAutoHgController(configStore, { gameEvents });

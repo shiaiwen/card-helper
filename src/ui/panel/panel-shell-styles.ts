@@ -794,6 +794,69 @@ const PANEL_SHELL_CSS_SOURCE = `
 .xiaochao-block-switch__toggle input:checked + .xiaochao-block-switch__slider + .xiaochao-block-switch__state::before {
   content: "开";
 }
+.xiaochao-block-check {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 24px;
+  margin: 0;
+  cursor: pointer;
+}
+.xiaochao-block-check input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.xiaochao-block-check__box {
+  position: relative;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-left: 10px;
+  border: 1px solid rgba(242, 222, 156, .45);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #221e1a 0%, #1a1613 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .4);
+}
+.xiaochao-block-check__box::after {
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 5px;
+  height: 9px;
+  border: solid transparent;
+  border-width: 0 2px 2px 0;
+  content: "";
+  transform: rotate(40deg);
+}
+.xiaochao-block-check:hover .xiaochao-block-check__box {
+  border-color: rgba(242, 222, 156, .7);
+}
+.xiaochao-block-check input:checked + .xiaochao-block-check__box {
+  border-color: rgba(242, 222, 156, .7);
+  background: linear-gradient(180deg, #d4b56a 0%, #b8923f 100%);
+}
+.xiaochao-block-check input:checked + .xiaochao-block-check__box::after {
+  border-color: #2a2010;
+}
+.xiaochao-block-check input:focus-visible + .xiaochao-block-check__box {
+  box-shadow: 0 0 0 2px rgba(242, 222, 156, .2);
+}
+.xiaochao-block-check--disabled {
+  opacity: .45;
+  cursor: default;
+}
+.xiaochao-block-check__label {
+  margin-left: 6px;
+  color: #f2de9c;
+  font-size: 12.5px;
+  line-height: 16px;
+  white-space: nowrap;
+}
 /* 快捷工具：屏蔽/红点/皮肤/领取 两行两列紧凑入口 */
 #createIframe .xiaochao-quick-tools {
   display: grid;

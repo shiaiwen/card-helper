@@ -4,6 +4,7 @@
  */
 
 import type { XiaochaoConfigStore } from '../../config/config-store.ts';
+import type { GameEventBus } from '../../runtime/game-event-bus.ts';
 import {
   createLayaObjectLocator,
   type LayaObjectLocator,
@@ -26,6 +27,11 @@ import {
   clearSeatGeneralTips,
   collectSeatTipTargets
 } from './seat-general-tips.ts';
+import {
+  createZuifengUses,
+  formatZuifengTip,
+  zuifengSkillIds
+} from './zuifeng-assist.ts';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -41,6 +47,7 @@ export interface ExtraAssistControllerOptions {
   getCard?: (cardId: number) => Record<string, unknown> | null;
   pollIntervalMs?: number;
   peixiuRouteStore?: PeixiuRouteStore;
+  gameEvents?: GameEventBus;
 }
 
 /**
@@ -95,9 +102,32 @@ export function installExtraAssistController(
     routeStore: options.peixiuRouteStore
   }));
 
+  const zuifengUses = createZuifengUses();
+  if (options.gameEvents) {
+    cleanups.push(options.gameEvents.subscribe((event) => {
+      if (event.type === 'game-started' || event.type === 'game-ended') {
+        zuifengUses.resetAll();
+        refreshZuifeng();
+        return;
+      }
+      if (event.type === 'turn-started') {
+        zuifengUses.resetSeat(event.seatId);
+        refreshZuifeng();
+        return;
+      }
+      if (event.type !== 'spell-targeted') return;
+      const scene = locateGameScene(globalObject);
+      const skillIds = zuifengSkillIds(scene);
+      if (!skillIds.includes(event.spellId)) return;
+      zuifengUses.noteUse(event.seatId);
+      refreshZuifeng();
+    }));
+  }
+
   const pollTimer = globalObject.setInterval?.(() => {
     tryInstallSeatHooks();
     refreshQuanyu();
+    refreshZuifeng();
   }, pollIntervalMs);
   if (pollTimer != null) cleanups.push(() => globalObject.clearInterval?.(pollTimer));
   tryInstallSeatHooks();
@@ -129,6 +159,38 @@ export function installExtraAssistController(
     });
   }
 
+  function refreshZuifeng(): void {
+    if (disposed) return;
+    const scene = locateGameScene(globalObject);
+    const targets = collectSeatTipTargets(scene?.seatContainer?.seatUIs);
+    const skillIds = zuifengSkillIds(scene);
+    applySeatGeneralTip({
+      key: 'zuifeng',
+      targets,
+      enabled: true,
+      getText: (target) => {
+        const seat = asRecord(target.seat);
+        const seatId = readSeatId(seat);
+        return formatZuifengTip(seat, skillIds, seatId === null ? 0 : zuifengUses.used(seatId));
+      },
+      style: {
+        fontSize: 16,
+        color: '#FFE14A',
+        stroke: 3,
+        strokeColor: '#1A1004',
+        align: 'center',
+        bold: true,
+        bgColor: '#3A2410',
+        place: (avatar) => {
+          const width = Number(avatar.width) || 90;
+          const height = Number(avatar.height) || 120;
+          return { x: 0, y: Math.max(0, height - 22), width, height: 20 };
+        }
+      },
+      globalObject
+    });
+  }
+
   function tryInstallSeatHooks(): void {
     if (seatHooksInstalled || disposed) return;
     const scene = locateGameScene(globalObject);
@@ -149,6 +211,7 @@ export function installExtraAssistController(
     patcher.wrap(avatarProto, 'SetGeneralCard', (original) => function (this: unknown, ...args: unknown[]) {
       const result = original.apply(this, args);
       refreshQuanyu();
+      refreshZuifeng();
       return result;
     });
   }
@@ -161,8 +224,18 @@ export function installExtraAssistController(
       }
       patcher.restoreAll();
       refreshQuanyu();
+      refreshZuifeng();
     }
   };
+}
+
+function readSeatId(seat: UnknownRecord | null): number | null {
+  if (!seat) return null;
+  for (const key of ['seatID', 'seatId', 'SeatID', 'SeatId', 'index', 'Index']) {
+    const value = Number(seat[key]);
+    if (Number.isInteger(value) && value >= 0 && value < 0xff) return value;
+  }
+  return null;
 }
 
 function asRecord(value: unknown): UnknownRecord | null {

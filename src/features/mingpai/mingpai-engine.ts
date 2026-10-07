@@ -54,6 +54,11 @@ export interface MingpaiEngine {
   /** 牌堆区（zone=1）已知牌 ID。 */
   getDrawPileCardIds(): readonly number[];
   clearKnownDrawPileOrder(): void;
+  /**
+   * 重连后按场上仍公开的手牌重登记。
+   * 不在快照里的手牌改成位置未知；牌堆顺序不在这里恢复。
+   */
+  reconcileVisibleHands(hands: readonly { seatId: number; cardIds: readonly number[] }[]): void;
   observeKnownHandCard(cardId: number, seatId: number, tags?: readonly string[]): void;
   rememberPersistentCardTag(cardId: number, tag: string, originalOwnerSeatId?: number | null): void;
   /** 鉴定牌堆内已知牌，并标记相对位置（顶 / 底 / 未指定）。 */
@@ -252,6 +257,26 @@ export function createMingpaiEngine(
     },
     getDrawPileCardIds() {
       return snapshot.zones[formatZoneId(GLOBAL_OWNER, DRAW_PILE_ZONE)] ?? EMPTY;
+    },
+    reconcileVisibleHands(hands) {
+      const visibleIds = new Set<number>();
+      const bySeat = new Map<number, number[]>();
+      for (const hand of hands) {
+        const cardIds = uniquePositive(hand.cardIds);
+        bySeat.set(hand.seatId, cardIds);
+        cardIds.forEach((cardId) => visibleIds.add(cardId));
+      }
+      const handSeats = new Set(bySeat.keys());
+      for (const record of cardIndex.values()) {
+        if (record.location?.zone !== HAND_ZONE) continue;
+        handSeats.add(record.location.seatId);
+        if (!visibleIds.has(record.cardId)) record.location = null;
+      }
+      for (const seatId of handSeats) registry.clearLocations(seatId, HAND_ZONE);
+      for (const [seatId, cardIds] of bySeat) {
+        cardIds.forEach((cardId) => syncIndexFromObserve(cardId, seatId, []));
+      }
+      publish();
     },
     clearKnownDrawPileOrder() {
       drawPileOrder.invalidate();

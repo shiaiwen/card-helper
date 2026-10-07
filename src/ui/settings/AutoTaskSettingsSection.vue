@@ -87,30 +87,26 @@ function updateSkip(key, event) {
         </div>
       </section>
       <section class="xiaochao-block-group">
-        <h4 class="xiaochao-block-group__title">跳过项（开启 = 不领）</h4>
+        <h4 class="xiaochao-block-group__title">跳过项（勾选 = 不领）</h4>
         <div class="xiaochao-block-group__grid">
-          <div
+          <label
             v-for="setting in AUTO_TASK_SKIP_SETTINGS"
             :key="setting.key"
-            class="xiaochao-block-switch"
+            class="xiaochao-block-check"
+            :class="{ 'xiaochao-block-check--disabled': !enabled }"
             :data-tooltip="setting.tooltip"
+            :title="setting.tooltip"
           >
-            <span class="xiaochao-block-switch__label">{{ setting.label }}</span>
-            <label
-              class="xiaochao-block-switch__toggle"
-              :data-tooltip="setting.tooltip"
-              :title="setting.tooltip"
+            <input
+              type="checkbox"
+              :aria-label="setting.label"
+              :checked="skipValues[setting.key]"
+              :disabled="!enabled"
+              @change="updateSkip(setting.key, $event)"
             >
-              <input
-                type="checkbox"
-                :aria-label="setting.label"
-                :checked="skipValues[setting.key]"
-                :disabled="!enabled"
-                @change="updateSkip(setting.key, $event)"
-              >
-              <span class="xiaochao-block-switch__slider" />
-            </label>
-          </div>
+            <span class="xiaochao-block-check__box" />
+            <span class="xiaochao-block-check__label">{{ setting.label }}</span>
+          </label>
         </div>
       </section>
     </BaseDialog>
