@@ -5,10 +5,7 @@
 import { getDefaultConfig } from '../../src/config/config-schema.ts';
 import { createConfigStore } from '../../src/config/config-store.ts';
 import { createTurnStatusStore } from '../../src/features/turn-status/turn-status-store.ts';
-import { createDeckRecordInteraction } from '../../src/features/deck-record/deck-record-interaction.ts';
 import { mountXiaochaoApp } from '../../src/ui/mount-xiaochao-app.ts';
-import { createEmptySeatState } from '../../src/features/seat-display/seat-state.ts';
-import type { SeatStateStore } from '../../src/features/seat-display/seat-state-store.ts';
 import type { RecentCardStore } from '../../src/features/recent-cards/recent-card-store.ts';
 import type { DeckRecordStore } from '../../src/features/deck-record/deck-record-store.ts';
 import type { GameCardCatalog } from '../../src/features/cards/game-card-catalog.ts';
@@ -30,13 +27,6 @@ const emptySubscribe = <T,>(snapshot: T) => (listener: (value: T) => void) => {
   listener(snapshot);
   return () => {};
 };
-
-const emptySeat = createEmptySeatState();
-const seatStateStore = {
-  getSnapshot: () => emptySeat,
-  subscribe: emptySubscribe(emptySeat),
-  clear: () => {}
-} as unknown as SeatStateStore;
 
 const recentCardStore = {
   getSnapshot: () => ({
@@ -126,10 +116,8 @@ mountXiaochaoApp(
     fontFamily: 'Microsoft YaHei UI, Microsoft YaHei, system-ui, sans-serif'
   },
   configStore,
-  seatStateStore,
   recentCardStore,
   deckRecordStore,
-  createDeckRecordInteraction(),
   gameCardCatalog,
   skillAssistStore,
   turnStatusStore,

@@ -8,11 +8,9 @@ import XiaochaoApp from './App.vue';
 import type { XiaochaoPlatform } from '../adapters/platform';
 import { installPanelShellStyles } from './panel/panel-shell-styles';
 import type { XiaochaoConfigStore } from '../config/config-store';
-import type { SeatStateStore } from '../features/seat-display/seat-state-store';
 import type { RecentCardStore } from '../features/recent-cards/recent-card-store';
 import type { GameCardCatalog } from '../features/cards/game-card-catalog';
 import type { DeckRecordStore } from '../features/deck-record/deck-record-store';
-import type { DeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import type { PeixiuRouteStore } from '../features/extra-assist/peixiu-route-store';
 import type { TurnStatusStore } from '../features/turn-status/turn-status-store';
@@ -41,10 +39,8 @@ export function mountXiaochaoApp(
   platform: XiaochaoPlatform,
   layout: XiaochaoPanelLayout,
   configStore: XiaochaoConfigStore,
-  seatStateStore: SeatStateStore,
   recentCardStore: RecentCardStore,
   deckRecordStore: DeckRecordStore,
-  deckRecordInteraction: DeckRecordInteraction,
   gameCardCatalog: GameCardCatalog,
   skillAssistStore: SkillAssistStore,
   peixiuRouteStore: PeixiuRouteStore,
@@ -62,10 +58,8 @@ export function mountXiaochaoApp(
     platform,
     layout,
     configStore,
-    seatStateStore,
     recentCardStore,
     deckRecordStore,
-    deckRecordInteraction,
     gameCardCatalog,
     skillAssistStore,
     peixiuRouteStore,

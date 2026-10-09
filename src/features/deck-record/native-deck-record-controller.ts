@@ -401,7 +401,7 @@ function createCardListPopup(
 }
 
 function sortCardIds(cardIds: readonly number[], _sortMode: SortMode): number[] {
-  // 弹层不重算花色/类型；排序由 Vue 面板与快捷键写入的 discardSortMode 驱动展示侧。
+  // 弹层不重算花色/类型；排序由面板写入的 discardSortMode 驱动展示侧。
   return [...cardIds];
 }
 

@@ -256,9 +256,16 @@ export function createFavoritesTab(options: FavoritesTabOptions): FavoritesTab {
       SkinID: Number(favorite.skinId) || 0,
       Name: favorite.name,
       IconURL: previewUrl(favorite),
-      IsUsual: false,
+      IsUsual: options.isCurrent(favorite),
       canUsed: true
     });
+    callMethod(item, 'UpdateSelectedUI');
+    const mark = asRecord(item.selectedImg);
+    if (mark) {
+      mark.visible = options.isCurrent(favorite);
+      mark.zOrder = 999;
+      callMethod(item, 'setChildIndex', mark, Number(item.numChildren) || 0);
+    }
     callMethod(item, 'pos', 5 + 101 * (index % 3), 1 + 65 * Math.floor(index / 3));
     item.visible = true;
     item.mouseEnabled = true;

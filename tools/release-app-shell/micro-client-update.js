@@ -2,6 +2,8 @@
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const { buildWindowsMicroClientUpdater } = require('./micro-client-updater');
 
@@ -23,67 +25,70 @@ function compareVersions(left, right) {
     return 0;
 }
 
-const NO_BROWSER_MESSAGE = '未安装 Chrome 或 Edge';
-
-function browserExecutable() {
-    const candidates = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
-    ];
-    for (let index = 0; index < candidates.length; index += 1) {
-        if (fs.existsSync(candidates[index])) return candidates[index];
-    }
-    return '';
-}
-
-/** 正式微端自己的加密握手会被重置，改由本机 Chrome 或 Edge 打开页面取回正文。 */
 function requestBuffer(url, maxBytes) {
-    const executable = browserExecutable();
-    if (!executable) return Promise.reject(new Error(NO_BROWSER_MESSAGE));
     return new Promise((resolve, reject) => {
-        const child = spawn(executable, [
-            '--headless=new',
-            '--disable-gpu',
-            '--no-first-run',
-            '--disable-extensions',
-            '--virtual-time-budget=15000',
-            '--dump-dom',
-            url
-        ], { windowsHide: true });
-        const chunks = [];
-        let settled = false;
-        const finish = (error, body) => {
-            if (settled) return;
-            settled = true;
-            if (error) reject(error);
-            else resolve({ statusCode: 200, body: body });
-        };
-        child.stdout.on('data', (chunk) => chunks.push(chunk));
-        child.on('error', (error) => finish(error));
-        child.on('close', () => {
-            const html = Buffer.concat(chunks).toString('utf8');
-            const matched = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
-            const text = matched ? matched[1] : html;
-            const body = Buffer.from(text.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'), 'utf8');
-            if (!body.length) {
-                finish(new Error('浏览器没有返回内容'));
+        const target = new URL(url);
+        const client = target.protocol === 'http:' ? http : https;
+        const request = client.get(target, (response) => {
+            const statusCode = response.statusCode || 0;
+            if (statusCode >= 300 && statusCode < 400 && response.headers.location) {
+                response.resume();
+                requestBuffer(new URL(response.headers.location, target).toString(), maxBytes).then(resolve, reject);
                 return;
             }
-            if (maxBytes && body.length > maxBytes) {
-                finish(new Error('response is too large'));
-                return;
-            }
-            finish(null, body);
+            const chunks = [];
+            let size = 0;
+            response.on('data', (chunk) => {
+                size += chunk.length;
+                if (maxBytes && size > maxBytes) {
+                    request.destroy();
+                    reject(new Error('response is too large'));
+                    return;
+                }
+                chunks.push(chunk);
+            });
+            response.on('end', () => {
+                resolve({ statusCode, body: Buffer.concat(chunks) });
+            });
         });
+        request.on('error', reject);
     });
 }
 
+/** 检查更新直接请求版本接口，不再用浏览器打开页面再抠正文。 */
 function fetchJson(url) {
-    return requestBuffer(url, 1024 * 1024).then(({ statusCode, body }) => {
-        if (statusCode !== 200) throw new Error(`Failed to get '${url}' (${statusCode})`);
-        return JSON.parse(body.toString('utf8'));
+    return new Promise((resolve, reject) => {
+        const target = new URL(url);
+        const client = target.protocol === 'http:' ? http : https;
+        const request = client.get(target, {
+            headers: { Accept: 'application/json' }
+        }, (response) => {
+            const statusCode = response.statusCode || 0;
+            if (statusCode >= 300 && statusCode < 400 && response.headers.location) {
+                response.resume();
+                fetchJson(new URL(response.headers.location, target).toString()).then(resolve, reject);
+                return;
+            }
+            const chunks = [];
+            response.on('data', (chunk) => chunks.push(chunk));
+            response.on('end', () => {
+                const body = Buffer.concat(chunks);
+                if (statusCode !== 200) {
+                    reject(new Error(`Failed to get '${url}' (${statusCode})`));
+                    return;
+                }
+                if (body.length > 1024 * 1024) {
+                    reject(new Error('response is too large'));
+                    return;
+                }
+                try {
+                    resolve(JSON.parse(body.toString('utf8')));
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+        request.on('error', reject);
     });
 }
 
@@ -126,7 +131,7 @@ function scheduleMicroClientUpdate(deps) {
         logMessage,
         getScriptPath
     } = deps;
-    if (!app.isPackaged || process.platform !== 'win32') return;
+    if (process.platform !== 'win32') return;
 
     let updateProgressWindow = null;
 
@@ -215,6 +220,10 @@ function scheduleMicroClientUpdate(deps) {
         }
         if (!isValidManifest(manifest) || compareVersions(manifest.version, currentVersion) <= 0) {
             logMessage('micro-client is up to date or manifest invalid');
+            return;
+        }
+        if (!app.isPackaged) {
+            logMessage(`micro-client update available ${manifest.version}, skip install while unpackaged`);
             return;
         }
         const confirm = await present({

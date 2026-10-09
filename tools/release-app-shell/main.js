@@ -1,5 +1,5 @@
 // Modules to control application life and create native browser window
-const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, Menu, systemPreferences, screen } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, Menu, systemPreferences, screen, powerSaveBlocker } = require('electron')
 const { crashReporter, session  } = require('electron')
 let autoUpdater = null;
 let autoUpdaterLoadError = null;
@@ -13,7 +13,7 @@ const { createSharedStore, createJsonConfig, normalizeCredentials: normalizeShar
 const { selectInstanceProfile } = require('./instance-profile')
 const instanceProfile = selectInstanceProfile(app)
 const { createHtmlReportOpener } = require('./report-window')
-const { scheduleMicroClientUpdate, fetchJson } = require('./micro-client-update')
+const { scheduleMicroClientUpdate } = require('./micro-client-update')
 
 
 const steamAppID = 4209770;
@@ -238,6 +238,7 @@ async function createWindow() {
             imageAnimationPolicy: 'always',
             allowRunningInsecureContent: true,
             allowDisplayingInsecureContent: true,
+            backgroundThrottling: false,
             preload: path.join(app.getAppPath(), './script/electron_frame.js')
             //allowRunningInsecureContent: true,
             // allowDisplayingInsecureContent :true
@@ -397,10 +398,6 @@ ipcMain.handle('open-window', (event, request) => {
     return openXcWindow(url, { sourceWebContents: event.sender, sourceId });
 });
 
-ipcMain.handle('xiaochao-fetch-update-manifest', () => {
-    return fetchJson('https://95chong.cn/api/xiaochao-version?t=' + Date.now());
-});
-
 ipcMain.handle('open-external', (event, url) => {
     const value = String(url || '');
     if (!/^https?:\/\//i.test(value)) return false;
@@ -477,7 +474,11 @@ ipcMain.on('PERMISSION_REQUEST', async (event, arg) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.setAppUserModelId('org.xiaochao.sgsol');
-app.on('ready', loadWindow)
+app.on('ready', () => {
+    // 缩到后台时不让系统把本进程挂起，对局连接和自动任务继续跑。
+    powerSaveBlocker.start('prevent-app-suspension');
+    loadWindow();
+})
 
 // Quit when all windows are closed.
 app.on('window-all-closed', function () {
@@ -537,6 +538,8 @@ function openGuanxingBrowserWindow(url) {
 }
 
 app.on('web-contents-created', (e, webContents) => {
+    // 最小化或被挡住时仍跑定时器和网络，游戏页在 webview 里也一样。
+    webContents.setBackgroundThrottling(false);
     webContents.on('new-window', (event, url) => {
         event.preventDefault();
         if (isGuanxingPageUrl(url)) {

@@ -27,9 +27,9 @@ export interface GiftCodeControllerOptions {
 const DEFAULT_ENDPOINT = 'https://95chong.cn/api/game-gift-codes';
 const ATTEMPT_SUFFIX = '::XC_GAME_GIFT_CODE_ATTEMPTS';
 const ACCOUNT_POLL_MS = 1_000;
-const LOGIN_DELAY_MS = 5_000;
-const EXCHANGE_INTERVAL_MS = 12_000;
-const WINDOW_RELEASE_MS = 10_000;
+const LOGIN_DELAY_MS = 1_000;
+const EXCHANGE_INTERVAL_MS = 2_000;
+const WINDOW_RELEASE_MS = 2_000;
 
 function asRecord(value: unknown): UnknownRecord | null {
   return value !== null && (typeof value === 'object' || typeof value === 'function')
