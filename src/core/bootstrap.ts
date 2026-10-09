@@ -155,9 +155,7 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
   lifecycle.register(autoHg.dispose);
   const autoBot = installAutoBotController(configStore, { gameEvents });
   lifecycle.register(autoBot.dispose);
-  const updateNotice = installUpdateNoticeController(configStore, (url) => platform.openExternal(url), {
-    skipRemoteCheck: import.meta.env.DEV
-  });
+  const updateNotice = installUpdateNoticeController(configStore, (url) => platform.openExternal(url));
   lifecycle.register(updateNotice.dispose);
   const rogue = installRogueController(configStore, { cardConfigSource });
   lifecycle.register(rogue.dispose);
@@ -212,10 +210,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
       platform.platform,
       layout,
       configStore,
-      seatStateStore,
       recentCardStore,
       deckRecordStore,
-      deckRecordInteraction,
       gameCardCatalog,
       skillAssistStore,
       peixiuRouteStore,

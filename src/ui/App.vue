@@ -29,8 +29,6 @@ import VersionNoticeSection from './settings/VersionNoticeSection.vue';
 // @ts-expect-error Vue 单文件由项目运行时提供。
 import DeckRecordSection from './cards/DeckRecordSection.vue';
 // @ts-expect-error Vue 单文件由项目运行时提供。
-import DeckRecordOverlay from './deck-record/DeckRecordOverlay.vue';
-// @ts-expect-error Vue 单文件由项目运行时提供。
 import SkillAssistSection from './cards/SkillAssistSection.vue';
 // @ts-expect-error Vue 单文件由项目运行时提供。
 import TurnStatusBar from './cards/TurnStatusBar.vue';
@@ -43,11 +41,9 @@ import {
 } from './panel/panel-model';
 import type { TurnStatusStore } from '../features/turn-status/turn-status-store';
 import type { XiaochaoConfigStore } from '../config/config-store';
-import type { SeatStateStore } from '../features/seat-display/seat-state-store';
 import type { RecentCardStore } from '../features/recent-cards/recent-card-store';
 import type { GameCardCatalog } from '../features/cards/game-card-catalog';
 import type { DeckRecordStore } from '../features/deck-record/deck-record-store';
-import type { DeckRecordInteraction } from '../features/deck-record/deck-record-interaction';
 import type { SkillAssistStore } from '../features/skill-assist/skill-assist-store';
 import type { PeixiuRouteStore } from '../features/extra-assist/peixiu-route-store';
 import type { AutoTaskController } from '../features/auto-task';
@@ -71,10 +67,8 @@ const props = defineProps<{
   platform: 'electron' | 'userscript';
   layout: XiaochaoPanelLayout;
   configStore: XiaochaoConfigStore;
-  seatStateStore: SeatStateStore;
   recentCardStore: RecentCardStore;
   deckRecordStore: DeckRecordStore;
-  deckRecordInteraction: DeckRecordInteraction;
   gameCardCatalog: GameCardCatalog;
   skillAssistStore: SkillAssistStore;
   peixiuRouteStore: PeixiuRouteStore;
@@ -524,10 +518,4 @@ function handleResizeStart(event: PointerEvent): void {
       <button type="button" class="xiaochao-reset-dialog__confirm" @click="resetXiaochaoConfig">清除并重载</button>
     </template>
   </BaseDialog>
-  <DeckRecordOverlay
-    :config-store="configStore"
-    :deck-record-store="deckRecordStore"
-    :deck-record-interaction="deckRecordInteraction"
-    :seat-state-store="seatStateStore"
-  />
 </template>

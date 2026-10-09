@@ -13,13 +13,14 @@
  * 网络层壁纸/贴图替换见 interceptor.cjs。
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, Menu, systemPreferences, screen } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, Menu, systemPreferences, screen, powerSaveBlocker } = require('electron')
 const { crashReporter, session  } = require('electron')
 /** electron-updater 实例；加载失败时保持 null 并记录原因。 */
 let autoUpdater = null;
 let autoUpdaterLoadError = null;
 let updateHandleInitialized = false;
 
+const { scheduleMicroClientUpdate } = require('./tools/release-app-shell/micro-client-update');
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path')
@@ -170,6 +171,7 @@ async function createWindow() {
             imageAnimationPolicy: 'always',
             allowRunningInsecureContent: true,
             allowDisplayingInsecureContent: true,
+            backgroundThrottling: false,
             preload: path.join(app.getAppPath(), './script/electron_frame.cjs')
             //allowRunningInsecureContent: true,
             // allowDisplayingInsecureContent :true
@@ -184,6 +186,15 @@ async function createWindow() {
         }
     }
     mainWindow.loadFile('./index_wd.html');
+    scheduleMicroClientUpdate({
+        app,
+        dialog,
+        BrowserWindow,
+        screen,
+        getMainWindow: () => mainWindow,
+        logMessage,
+        getScriptPath: () => scriptPath
+    });
     if (config.get('firstTime', true) === true || config.get('firstTimeAnnouncementSeen', false) !== true) {
         firstTimeAnnouncement(mainWindow);
     }
@@ -397,7 +408,11 @@ ipcMain.on('PERMISSION_REQUEST', async (event, arg) => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.setAppUserModelId('org.xiaochao.sgsol');
-app.on('ready', loadWindow)
+app.on('ready', () => {
+    // 缩到后台时不让系统把本进程挂起，对局连接和自动任务继续跑。
+    powerSaveBlocker.start('prevent-app-suspension');
+    loadWindow();
+})
 
 // Quit when all windows are closed.
 app.on('window-all-closed', function () {
@@ -459,6 +474,8 @@ function openGuanxingBrowserWindow(url) {
 }
 
 app.on('web-contents-created', (e, webContents) => {
+    // 最小化或被挡住时仍跑定时器和网络，游戏页在 webview 里也一样。
+    webContents.setBackgroundThrottling(false);
     webContents.setWindowOpenHandler(({ url }) => {
         if (isGuanxingPageUrl(url)) {
             openGuanxingBrowserWindow(url);

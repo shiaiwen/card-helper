@@ -70,7 +70,7 @@ export function installOfficialBackgroundController(
   const patcher = createMethodPatcher();
   const tasks = createTaskScope();
   const originalSelectHandlers = new WeakMap<object, PatchableFunction>();
-  const preparedMenus = new WeakSet<object>();
+  const preparedMenus = new Set<UnknownRecord>();
   const cleanups: Array<() => void> = [];
   let localWriteDepth = 0;
   let suppressChoiceSave = false;
@@ -227,6 +227,7 @@ export function installOfficialBackgroundController(
       if (!isOn()) return original.apply(this, args);
       const result = writeLocally(() => original.apply(this, args));
       saveChoice(itemId(this));
+      markWallpaperSelection(this);
       return result;
     });
     rebindSelectButton(record, prototype, isSkinItem);
@@ -283,6 +284,8 @@ export function installOfficialBackgroundController(
           if (isOn()) unlockSkinItemData(item.data);
           prepareItem(item, true);
         });
+        const chosen = findItem(this, savedChoice());
+        if (chosen) markWallpaperSelection(chosen);
       }
       return result;
     });
@@ -308,6 +311,24 @@ export function installOfficialBackgroundController(
     callMethod(panel, 'removeSelf');
     callMethod(panel, 'destroy', true);
     menu.panel = null;
+  }
+
+  /** 皮肤背景和主题背景共用勾选图，点中的那一项才显示。 */
+  function markWallpaperSelection(clicked: UnknownRecord): void {
+    for (const menu of preparedMenus) {
+      const skins = itemsOf(menu, 'wallPaperSkinItems');
+      const themes = itemsOf(menu, 'wallPaperItems');
+      if (!skins.includes(clicked) && !themes.includes(clicked)) continue;
+      for (const item of [...themes, ...skins]) showSelectedMark(item, item === clicked);
+    }
+  }
+
+  function showSelectedMark(item: UnknownRecord, selected: boolean): void {
+    const mark = asRecord(item.selectedImg);
+    if (!mark) return;
+    mark.visible = selected;
+    mark.zOrder = 999;
+    if (selected) callMethod(item, 'setChildIndex', mark, Number(item.numChildren) || 0);
   }
 
   function selectedItemId(menu: UnknownRecord): number {

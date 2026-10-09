@@ -93,23 +93,12 @@ export function createUpdateNoticeController(
     });
   }
 
-  /** 正式微端自己请求会被重置，优先让外壳用本机浏览器去取。 */
+  /** 直接请求版本接口。 */
   async function checkRemote(): Promise<void> {
-    const invoke = window.electron && window.electron.invoke;
-    if (invoke) {
-      try {
-        const raw = await invoke('xiaochao-fetch-update-manifest');
-        if (disposed) return;
-        const manifest = parseUpdateManifest(raw);
-        if (manifest) applyManifest(manifest);
-        else emit({ ...snapshot, failureMessage: '检查失败' });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : '检查失败';
-        emit({ ...snapshot, failureMessage: message || '检查失败' });
-      }
+    if (!fetchImpl) {
+      emit({ ...snapshot, failureMessage: '检查失败' });
       return;
     }
-    if (!fetchImpl) return;
     try {
       const response = await fetchImpl(manifestUrl, {
         method: 'GET',
@@ -118,13 +107,19 @@ export function createUpdateNoticeController(
         cache: 'no-store',
         referrerPolicy: 'no-referrer'
       });
-      if (disposed || !response.ok) return;
+      if (disposed) return;
+      if (!response.ok) {
+        emit({ ...snapshot, failureMessage: '检查失败' });
+        return;
+      }
       const raw = await response.json();
       if (disposed) return;
       const manifest = parseUpdateManifest(raw);
       if (manifest) applyManifest(manifest);
+      else emit({ ...snapshot, failureMessage: '检查失败' });
     } catch (error) {
       console.warn('[检查更新] 拉取失败:', error);
+      if (!disposed) emit({ ...snapshot, failureMessage: '检查失败' });
     }
   }
 
