@@ -79,6 +79,16 @@ async function main() {
   ]);
   if (!existsSync(builtScript)) throw new Error(`缺少构建产物: ${builtScript}`);
 
+  console.log('[pack] 构建油猴脚本…');
+  await run(process.execPath, [
+    path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'),
+    'build',
+    '--config',
+    path.join(root, 'vite.userscript.config.ts')
+  ]);
+  const userscript = path.join(root, 'dist', 'userscript', 'xiaochao.user.js');
+  if (!existsSync(userscript)) throw new Error(`缺少油猴脚本: ${userscript}`);
+
   console.log('[pack] 组装 app 目录（正式微端壳 + 当前脚本）…');
   rmSync(stagingRoot, { recursive: true, force: true });
   mkdirSync(packDir, { recursive: true });

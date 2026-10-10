@@ -55,12 +55,18 @@ export function sanitizeMoveCardIds(cardCount: number, cardIds: readonly number[
   return Array.from({ length: count }, (_, index) => (cardIds[index] > 0 ? cardIds[index] : 0));
 }
 
+export interface DrawPileRuleContext {
+  nationWar: boolean;
+  /** 读不到牌面时返回 0，此时不能套用依赖牌类型的纠偏。 */
+  cardType: (cardId: number) => number;
+}
+
 /**
  * 离开牌堆且 FromPosition 未指定时的顶 / 底纠偏表。
  * 新技能需要纠偏时在这里加一条 { match, position }。
  */
 const DRAW_PILE_FROM_RULES: ReadonlyArray<{
-  match: (move: Readonly<MoveCardFields>, nationWar: boolean) => boolean;
+  match: (move: Readonly<MoveCardFields>, context: DrawPileRuleContext) => boolean;
   position: number;
 }> = [
   { match: (m) => [3208, 7011, 987, 988, 3903].includes(m.spellId), position: DRAW_PILE_POSITION.TOP },
@@ -82,21 +88,36 @@ const DRAW_PILE_FROM_RULES: ReadonlyArray<{
   },
   {
     // 原版这两条只在非国战生效。
-    match: (m, nationWar) => !nationWar && [7016, 7017].includes(m.spellId) && m.toZone === 5 && m.cardCount === 1,
+    match: (m, context) => !context.nationWar && [7016, 7017].includes(m.spellId) && m.toZone === 5 && m.cardCount === 1,
     position: DRAW_PILE_POSITION.TOP
   }
 ];
 
-/** 移牌起点在牌堆时，把位置改成顶或底。 */
+/**
+ * 原版：FromPosition = 顶+1、一次进手牌 4 张且全是类型 8（延时类）时，
+ * 这些牌不是从已知顶/底顺次抽走，位置按未指定处理，避免把牌堆顺序挤错。
+ */
+function isUnspecifiedDelayedDraw(move: Readonly<MoveCardFields>, cardType: (cardId: number) => number): boolean {
+  return move.fromPosition === DRAW_PILE_POSITION.TOP + 1
+    && move.toZone === 5
+    && move.spellId === 0
+    && move.moveType === 1
+    && move.cardCount === 4
+    && move.cardIds.length >= 4
+    && move.cardIds.slice(0, 4).every((cardId) => cardId > 0 && cardType(cardId) === 8);
+}
+
+/** 移牌起点在牌堆时，把位置改成顶、底或未指定。 */
 export function remapDrawPileFromPosition(
   move: Readonly<MoveCardFields>,
-  options: { nationWar?: boolean } = {}
+  options: { nationWar?: boolean; cardType?: (cardId: number) => number } = {}
 ): number {
-  if (move.fromZone !== DRAW_PILE_ZONE || move.fromPosition !== DRAW_PILE_POSITION.UNSPECIFIED) {
-    return move.fromPosition;
-  }
-  const nationWar = options.nationWar === true;
-  return DRAW_PILE_FROM_RULES.find((rule) => rule.match(move, nationWar))?.position ?? move.fromPosition;
+  if (move.fromZone !== DRAW_PILE_ZONE) return move.fromPosition;
+  const cardType = options.cardType ?? (() => 0);
+  if (isUnspecifiedDelayedDraw(move, cardType)) return DRAW_PILE_POSITION.UNSPECIFIED;
+  if (move.fromPosition !== DRAW_PILE_POSITION.UNSPECIFIED) return move.fromPosition;
+  const context: DrawPileRuleContext = { nationWar: options.nationWar === true, cardType };
+  return DRAW_PILE_FROM_RULES.find((rule) => rule.match(move, context))?.position ?? move.fromPosition;
 }
 
 /** 整手交出手牌的技能（605 密诏）：暗牌移动时该座位已知牌全部随之离开。 */

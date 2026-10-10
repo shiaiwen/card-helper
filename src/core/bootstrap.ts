@@ -85,7 +85,8 @@ export function bootstrapXiaochao(platform: PlatformAdapter): void {
     isRedCard: (cardId) => {
       const card = gameCardCatalog.resolve(cardId);
       return card?.suit ? card.isRed : null;
-    }
+    },
+    cardType: (cardId) => gameCardCatalog.resolve(cardId).cardType
   });
   registerSpellNameLookup((name) => cardConfigSource.findSpellIdsByName(name));
   const skillAssistStore = createSkillAssistStore(

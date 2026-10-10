@@ -51,10 +51,11 @@ npm run copy:portal
 | `release/wd-xc-<版本>.zip` | 手动安装包。解压后运行里面的 `install.bat` |
 | `release/app.zip` | 自动更新包，文件名不带版本 |
 | `release/xiaochao-manifest.json` | 版本清单 |
+| `dist/userscript/xiaochao.user.js` | 油猴脚本。拷到门户后文件名是 `sgs-xc.user.js` |
 
 打包还会把清单拷到旁边的 `sgs-xc-server/data/xiaochao-manifest.json`。线上接口 `https://95chong.cn/api/xiaochao-version` 读的是服务器上的这份文件。接口进程要在这份文件更新后重新加载，游戏里的「检查更新」才会看到新版本。
 
-3. 发布下载页。`copy:portal` 把安装包、`app.zip` 和清单拷到 `sgs-xc-portal/public/downloads`。然后：
+3. 发布下载页。`copy:portal` 把安装包、`app.zip`、清单和油猴脚本拷到 `sgs-xc-portal/public/downloads`。油猴脚本在网站上是 `/downloads/sgs-xc.user.js`。然后：
 
 ```bash
 cd ../sgs-xc-portal
@@ -67,4 +68,5 @@ npm run deploy
 | --- | --- |
 | `https://xc.95chong.cn/downloads` | 下载页，链接到 `wd-xc-<版本>.zip` |
 | `https://xc.95chong.cn/downloads/app.zip` | 自动更新用的包 |
+| `https://xc.95chong.cn/downloads/sgs-xc.user.js` | 油猴脚本。浏览器打开后由篡改猴安装，版本号升高后会提示更新 |
 | `https://95chong.cn/api/xiaochao-version` | 游戏内检查更新读的版本 |

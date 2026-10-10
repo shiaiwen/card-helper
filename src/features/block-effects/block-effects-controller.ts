@@ -667,6 +667,33 @@ export function installBlockEffectsController(
     patcher.wrap(xhrPrototype, 'open', (original) => function (this: unknown, method: unknown, url: unknown, ...rest: unknown[]) {
       return original.call(this, method, replaceUrl(url), ...rest);
     });
+    const fetchFn = globalObject.fetch?.bind(globalObject);
+    if (fetchFn) {
+      const wrappedFetch = (input: unknown, init?: unknown) => fetchFn(rewriteFetchInput(input), init);
+      globalObject.fetch = wrappedFetch as typeof globalObject.fetch;
+      cleanups.push(() => {
+        if (globalObject.fetch === wrappedFetch) globalObject.fetch = fetchFn as typeof globalObject.fetch;
+      });
+    }
+    // 浏览器端骨骼多走 Laya.URL，不经过上面的 XHR 包装。
+    void poll(() => asRecord(asRecord(globalObject.Laya)?.URL), Infinity, 500).then((urlApi) => {
+      if (!urlApi || disposed) return;
+      const previous = urlApi.customFormat;
+      urlApi.customFormat = (url: unknown) => replaceUrl(typeof previous === 'function' ? previous(url) : url);
+      cleanups.push(() => {
+        urlApi.customFormat = previous;
+      });
+    });
+  }
+
+  function rewriteFetchInput(input: unknown): unknown {
+    if (typeof input === 'string') return replaceUrl(input);
+    const request = globalObject.Request;
+    if (typeof request === 'function' && input instanceof request) {
+      const next = String(replaceUrl(input.url));
+      return next === input.url ? input : new request(next, input);
+    }
+    return input;
   }
 
   // ---------- 协议 ----------

@@ -41,6 +41,8 @@ export interface MingpaiControllerOptions {
   engine?: MingpaiEngine;
   /** 红色 true、黑色 false、未知 null；按颜色还原的技能（3543 / 3571）需要。 */
   isRedCard?: (cardId: number) => boolean | null;
+  /** 原生牌类型；读不到时返回 0。四张类型 8 的特殊摸牌不计入牌堆顺序。 */
+  cardType?: (cardId: number) => number;
 }
 
 /**
@@ -50,7 +52,7 @@ export interface MingpaiControllerOptions {
 export function installMingpaiController(
   seatStateStore: SeatStateStore,
   gameEvents: GameEventBus,
-  { engine: injected, isRedCard = () => null }: MingpaiControllerOptions = {}
+  { engine: injected, isRedCard = () => null, cardType = () => 0 }: MingpaiControllerOptions = {}
 ): { dispose: () => void; engine: MingpaiEngine } {
   const engine = injected ?? createMingpaiEngine();
   const specialRecovery = createSpecialSpellRecovery({
@@ -295,13 +297,19 @@ export function installMingpaiController(
   function handleCardsMoved(rawEvent: MoveCardEvent): void {
     // 明牌专用纠偏：半透明卡号清空 + 牌堆顶/底纠偏。只影响明牌，不改总线原事件。
     if (isIgnoredMove(rawEvent)) return;
+    const sanitizedIds = sanitizeMoveCardIds(rawEvent.cardCount, normalizeMoveCardIds(rawEvent));
+    const fromPosition = remapDrawPileFromPosition(
+      { ...rawEvent, cardIds: sanitizedIds },
+      {
+        nationWar: seatStateStore.getSnapshot().mode === 'nation-war',
+        cardType
+      }
+    );
     const normalizedEvent: MoveCardEvent = {
       ...rawEvent,
-      cardIds: sanitizeMoveCardIds(rawEvent.cardCount, normalizeMoveCardIds(rawEvent)),
-      fromPosition: remapDrawPileFromPosition(rawEvent, {
-        nationWar: seatStateStore.getSnapshot().mode === 'nation-war'
-      }),
-      toPosition: remapDrawPileToPosition(rawEvent)
+      cardIds: sanitizedIds,
+      fromPosition,
+      toPosition: remapDrawPileToPosition({ ...rawEvent, cardIds: sanitizedIds })
     };
     const specialCardIds = specialRecovery.recover(normalizedEvent);
     const event: MoveCardEvent = specialCardIds ? { ...normalizedEvent, cardIds: specialCardIds } : normalizedEvent;
